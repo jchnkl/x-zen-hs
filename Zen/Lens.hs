@@ -9,6 +9,7 @@ module Lens where
 import Prelude hiding ((.), id)
 import Control.Category
 import Control.Monad.State
+import Control.Monad.Reader
 
 data Lens a b = Lens { getL :: a -> b, setL :: b -> a -> a }
 
@@ -28,6 +29,9 @@ infix 4 ^=
 
 modL :: Lens a b -> (b -> b) -> a -> a
 modL l f v = setL l (f $ getL l v) v
+
+askL' :: (MonadReader a m, Monad m) => Lens a b -> m b
+askL' l = liftM (getL l) ask
 
 getL' :: (MonadState a m, Monad m) => Lens a b -> m b
 getL' l = liftM (getL l) get
