@@ -1,5 +1,11 @@
 -- {-# LANGUAGE TemplateHaskell #-}
 
+-- vim macro for lens function type
+-- mx{jwyw'xdf_2f "0PxbPaLens j0
+
+-- vim macro for lens function
+-- dt_ywPa= lens pa(\v d = d { f:C= v })0x
+
 import Prelude hiding ((.), id)
 import Data.Word
 import Control.Category
