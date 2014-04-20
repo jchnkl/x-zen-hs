@@ -1,5 +1,6 @@
 module Client where
 
+import Data.Word
 import qualified Data.Map as M
 import qualified Data.List as L
 import Control.Monad.State
@@ -21,6 +22,16 @@ withWindows f = getsL (clients <.> queue) >>= f
 -- withFocused :: (Client -> Z a) -> Z a
 -- withFocused = undefined
 
+
+focus :: Client -> Z ()
+focus client = do
+    let mk_setinputfocus = MkSetInputFocus InputFocusNone
+                                           (client ^. xid)
+                                           (toValue TimeCurrentTime)
+    withConnection $ liftIO . flip setInputFocus mk_setinputfocus
+    getsL (focusedBorderColor <.> config) >>= setBorderColor client
+
+
 withClient :: ClientWindow -> (Client -> Z a) -> Z (Maybe a)
 withClient w f = (L.find ((w ==) . getL xid))
     <$> (getsL (clients <.> queue))
@@ -39,10 +50,9 @@ modifyQueue :: (Queue -> Queue) -> Z ()
 modifyQueue f = modifyL queue f
 
 
-setBorderColor :: Client -> Z ()
-setBorderColor client = do
+setBorderColor :: Client -> Word32 -> Z ()
+setBorderColor client bc = do
     c <- asksL connection
-    bc <- getsL (normalBorderColor <.> config)
     liftIO $ changeWindowAttributes c (client ^. xid)
                                   $ toValueParam [(CWBorderPixel, bc)]
 
@@ -58,8 +68,8 @@ setBorderWidth client = do
 
 insertClient :: Client -> Z ()
 insertClient client = do
-    setBorderColor client
     setBorderWidth client
+    getsL (normalBorderColor <.> config) >>= setBorderColor client
     clients <.> queue %:= (client :)
 
 
