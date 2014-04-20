@@ -47,8 +47,20 @@ setBorderColor client = do
                                   $ toValueParam [(CWBorderPixel, bc)]
 
 
+setBorderWidth :: Client -> Z ()
+setBorderWidth client = do
+    bw <- getsL (borderWidth <.> config)
+    let cw = MkConfigureWindow (client ^. xid) mask valueparam
+        mask = toMask [ConfigWindowBorderWidth]
+        valueparam = toValueParam [(ConfigWindowBorderWidth, fi $ bw)]
+    withConnection $ liftIO . flip configureWindow cw
+
+
 insertClient :: Client -> Z ()
-insertClient client = setBorderColor client >> clients <.> queue %:= (client :)
+insertClient client = do
+    setBorderColor client
+    setBorderWidth client
+    clients <.> queue %:= (client :)
 
 
 insertWindow :: ClientWindow -> Z ()
