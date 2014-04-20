@@ -25,6 +25,7 @@ withWindows f = getsL (clients <.> queue) >>= f
 
 focus :: Client -> Z ()
 focus client = do
+    toLog $ "focus: " ++ show (client ^. xid)
     let mk_setinputfocus = MkSetInputFocus InputFocusNone
                                            (client ^. xid)
                                            (toValue TimeCurrentTime)
@@ -33,7 +34,9 @@ focus client = do
 
 
 unfocus :: Client -> Z ()
-unfocus client = getsL (normalBorderColor <.> config) >>= setBorderColor client
+unfocus client = do
+    toLog $ "unfocus: " ++ show (client ^. xid)
+    getsL (normalBorderColor <.> config) >>= setBorderColor client
 
 
 withClient :: ClientWindow -> (Client -> Z a) -> Z (Maybe a)
@@ -74,7 +77,11 @@ insertClient :: Client -> Z ()
 insertClient client = do
     setBorderWidth client
     getsL (normalBorderColor <.> config) >>= setBorderColor client
+    withConnection $ \c -> liftIO $ changeWindowAttributes c (client ^. xid) attributes
     clients <.> queue %:= (client :)
+    where
+    attributes = toValueParam
+        [(CWEventMask, toMask [EventMaskEnterWindow, EventMaskLeaveWindow])]
 
 
 insertWindow :: ClientWindow -> Z ()

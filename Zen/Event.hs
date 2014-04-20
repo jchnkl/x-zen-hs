@@ -18,6 +18,8 @@ handler =
     , EventHandler handleDestroyNotify
     , EventHandler handleMapRequest
     , EventHandler handleConfigureRequest
+    , EventHandler handleEnterNotify
+    , EventHandler handleLeaveNotify
     , EventHandler handleButtonPress
     , EventHandler handleButtonRelease
     ]
@@ -63,6 +65,22 @@ handleDestroyNotify :: DestroyNotifyEvent -> Z Bool
 handleDestroyNotify e = do
     toLog "DestroyNotifyEvent"
     removeWindow (window_DestroyNotifyEvent e) >> return True
+
+
+handleEnterNotify :: EnterNotifyEvent -> Z Bool
+handleEnterNotify e = do
+    toLog "EnterNotifyEvent"
+    case detail_EnterNotifyEvent e of
+        NotifyDetailInferior -> return False
+        _ -> withClient (event_EnterNotifyEvent e) focus >> return True
+
+
+handleLeaveNotify :: LeaveNotifyEvent -> Z Bool
+handleLeaveNotify e = do
+    toLog "LeaveNotifyEvent"
+    case detail_LeaveNotifyEvent e of
+        NotifyDetailInferior -> return False
+        _ -> withClient (event_LeaveNotifyEvent e) unfocus >> return True
 
 
 handleMapRequest :: MapRequestEvent -> Z Bool
