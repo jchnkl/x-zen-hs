@@ -1,4 +1,19 @@
-module Lens where
+module Lens
+    ( Lens(..)
+    -- , (.)
+    -- , id
+    , lens
+    , (<.>)
+    , (^.)
+    , (^=)
+    , modL
+    , asksL
+    , getsL
+    , putsL
+    , (^:=)
+    , modifyL
+    , (%:=)
+    ) where
 
 -- vim macro for lens function type
 -- mx{jwyw'xdf_2f "0PxbPaLens j0
