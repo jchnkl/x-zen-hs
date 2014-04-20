@@ -28,6 +28,18 @@ handleError Nothing = return ()
 handleError (Just se) = toLog $ "ERROR: " ++ show se
 
 
+popHandler :: Z ()
+popHandler = do
+    eventHandler <.> config %:= popOne
+    where
+    popOne (_:es) = es
+    popOne _ = []
+
+
+pushHandler :: EventHandler (Z Bool) -> Z ()
+pushHandler eh = eventHandler <.> config %:= (eh :)
+
+
 dispatch :: SomeEvent -> Z ()
 dispatch e = getsL (eventHandler <.> config) >>= runHandler
     where
@@ -161,7 +173,7 @@ defaultButtonPressHandler = M.fromList
 
             raise window
             pointer ^:= Position (fi event_x) (fi event_y)
-            eventHandler <.> config %:= (EventHandler moveWindow :)
+            pushHandler $ EventHandler moveWindow
       )
 
     , (ButtonIndex3, \e -> do
@@ -184,7 +196,7 @@ defaultButtonPressHandler = M.fromList
             pointer ^:= Position (fi root_x) (fi root_y)
             void $ flip whenRight update =<< liftIO . getReply =<<
                 withConnection (liftIO . flip getGeometry (convertXid window))
-            eventHandler <.> config %:= (EventHandler resizeWindow :)
+            pushHandler $ EventHandler resizeWindow
       )
     ]
 
@@ -193,12 +205,12 @@ defaultButtonReleaseHandler :: ButtonReleaseHandler
 defaultButtonReleaseHandler = M.fromList
     [ (ButtonIndex1, const $ do
         toLog "Release ButtonIndex1"
-        eventHandler <.> config %:= drop 1
+        popHandler
       )
     , (ButtonIndex3, const $ do
         toLog "Release ButtonIndex2")
     , (ButtonIndex2, const $ do
         toLog "Release ButtonIndex3"
-        eventHandler <.> config %:= drop 1
+        popHandler
       )
     ]
