@@ -182,5 +182,5 @@ grabButtons window = do
                                              GrabModeAsync GrabModeAsync
                                              (convertXid xidNone) (convertXid xidNone)
                                              button [mask]
-        where
-        events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
+    where
+    events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
