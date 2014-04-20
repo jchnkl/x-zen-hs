@@ -20,8 +20,9 @@ runZ = do
         valueparam = toValueParam [(mask, values)]
     liftIO $ changeWindowAttributes c (getRoot c) valueparam
 
-    void $ execWriterT $ withRoot (liftIO . queryTree c) >>=
-                            lift . liftIO . getReply >>= manage
+    void $ execWriterT $ do
+        C.grabKeys
+        withRoot (liftIO . queryTree c) >>= lift . liftIO . getReply >>= manage
 
     -- Main loop
     forever $ do

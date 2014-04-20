@@ -8,6 +8,7 @@ import qualified Data.List as L
 import Control.Monad.State
 import Control.Applicative
 import Graphics.XHB
+import Graphics.X11.Types hiding (Connection)
 
 import Util
 import Types
@@ -184,3 +185,22 @@ grabButtons window = do
                                              button [mask]
     where
     events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
+
+grabKeys :: Z ()
+grabKeys = do
+    c <- asksL connection
+    mask <- getsL (modMask <.> config)
+
+    let setup = connectionSetup c
+        min_keycode = min_keycode_Setup setup
+        max_keycode = max_keycode_Setup setup
+
+    -- pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
+    -- rbs <- M.keys <$> getsL (buttonReleaseHandler <.> config)
+    -- forM_ (pbs `L.union` rbs) $ \button -> do
+    kbdmap <- liftIO (keyboardMapping c =<<
+        getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
+    forM_ (map fi [xK_Tab]) $ \keysym -> do
+        whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
+            liftIO $ grabKey c $ MkGrabKey True (getRoot c) [mask] keycode
+                                           GrabModeAsync GrabModeAsync
