@@ -2,8 +2,12 @@
 
 module Util where
 
+import Data.Maybe
+
 import Control.Monad.Writer
+import Control.Applicative
 import Graphics.XHB
+import Graphics.X11.Types hiding (Connection)
 import Types
 
 fi :: (Integral a, Num b) => a -> b
@@ -35,3 +39,37 @@ getReplies = fmap replies . mapM getReply
 
 toLog :: String -> Z ()
 toLog s = tell [s]
+
+
+subLists :: Int -> [a] -> [[a]]
+subLists _ [] = []
+subLists n lst = take n lst : subLists n (drop n lst)
+
+
+-- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
+-- http://cgit.freedesktop.org/~arnau/xcb-util/tree/keysyms/keysyms.c
+-- -> xcb_key_symbols_get_keysym
+
+getKeycode :: Connection -> KEYSYM -> IO (Maybe KEYCODE)
+getKeycode c keysym = do
+    let setup = connectionSetup c
+        min_keycode = min_keycode_Setup setup
+        max_keycode = max_keycode_Setup setup
+
+    fmap (+ min_keycode) . getKeycodeFromReply <$> (getReply =<<
+        getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
+
+    where
+    getKeycodeFromReply :: Either SomeError GetKeyboardMappingReply -> Maybe KEYCODE
+    getKeycodeFromReply (Left _) = Nothing
+    getKeycodeFromReply (Right reply) = findKeycode (subLists (fi ks_per_kc) ks)
+        where ks = keysyms_GetKeyboardMappingReply reply
+              ks_per_kc = keysyms_per_keycode_GetKeyboardMappingReply reply
+
+    findKeycode :: [[KEYSYM]] -> Maybe KEYCODE
+    findKeycode = findKeycode' 0
+        where
+        findKeycode' n (keysyms:keysymslst)
+            | keysym `elem` keysyms = Just n
+            | otherwise             = findKeycode' (n+1) keysymslst
+        findKeycode' _ _ = Nothing
