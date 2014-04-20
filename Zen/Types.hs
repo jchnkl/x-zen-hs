@@ -101,21 +101,33 @@ type ButtonPressHandler = M.Map ButtonIndex (ButtonPressEvent -> Z ())
 type ButtonReleaseHandler = M.Map ButtonIndex (ButtonReleaseEvent -> Z ())
 
 data Config = Config
-    { _eventHandler :: [EventHandler (Z Bool)] -- TODO: STACK!!! -> pushHandler, popHandler
+    { _modMask :: ModMask
     , _borderWidth :: Word
-    , _modMask :: ModMask
+    , _normalBorderColor :: Word32
+    , _focusedBorderColor :: Word32
+    , _selectionBorderColor :: Word32
+    , _eventHandler :: [EventHandler (Z Bool)] -- TODO: STACK!!! -> pushHandler, popHandler
     , _buttonPressHandler :: ButtonPressHandler
     , _buttonReleaseHandler :: ButtonReleaseHandler
     }
 
-eventHandler :: Lens Config [EventHandler (Z Bool)]
-eventHandler = lens _eventHandler (\v d -> d { _eventHandler = v })
+modMask :: Lens Config ModMask
+modMask = lens _modMask (\v d -> d { _modMask = v })
 
 borderWidth :: Lens Config Word
 borderWidth = lens _borderWidth (\v d -> d { _borderWidth = v })
 
-modMask :: Lens Config ModMask
-modMask = lens _modMask (\v d -> d { _modMask = v })
+normalBorderColor :: Lens Config Word32
+normalBorderColor = lens _normalBorderColor (\v d -> d { _normalBorderColor = v })
+
+focusedBorderColor :: Lens Config Word32
+focusedBorderColor = lens _focusedBorderColor (\v d -> d { _focusedBorderColor = v })
+
+selectionBorderColor :: Lens Config Word32
+selectionBorderColor = lens _selectionBorderColor (\v d -> d { _selectionBorderColor = v })
+
+eventHandler :: Lens Config [EventHandler (Z Bool)]
+eventHandler = lens _eventHandler (\v d -> d { _eventHandler = v })
 
 buttonPressHandler :: Lens Config ButtonPressHandler
 buttonPressHandler = lens _buttonPressHandler (\v d -> d { _buttonPressHandler = v })

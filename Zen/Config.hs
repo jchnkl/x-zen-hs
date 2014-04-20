@@ -6,9 +6,12 @@ import Event
 
 initialConfig :: Config
 initialConfig = Config
-    { _eventHandler = handler
+    { _modMask = ModMask1
     , _borderWidth = 3
-    , _modMask = ModMask1
+    , _normalBorderColor = 0x00a0a0a0
+    , _focusedBorderColor = 0x00ffce28
+    , _selectionBorderColor = 0x00ff0000
+    , _eventHandler = handler
     , _buttonPressHandler = defaultButtonPressHandler
     , _buttonReleaseHandler = defaultButtonReleaseHandler
     }
