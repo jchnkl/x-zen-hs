@@ -30,24 +30,26 @@ infix 4 ^=
 modL :: Lens a b -> (b -> b) -> a -> a
 modL l f v = setL l (f $ getL l v) v
 
-askL' :: (MonadReader a m, Monad m) => Lens a b -> m b
-askL' l = liftM (getL l) ask
 
-getL' :: (MonadState a m, Monad m) => Lens a b -> m b
-getL' l = liftM (getL l) get
 
-setL' :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
-setL' l v = get >>= put . setL l v
+asksL :: (MonadReader a m, Monad m) => Lens a b -> m b
+asksL l = liftM (getL l) ask
+
+getsL :: (MonadState a m, Monad m) => Lens a b -> m b
+getsL l = liftM (getL l) get
+
+putsL :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
+putsL l v = get >>= put . setL l v
 
 (^:=) :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
-l ^:= v = setL' l v
+l ^:= v = putsL l v
 infix 4 ^:=
 
-modL' :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
-modL' l f = get >>= put . modL l f
+modifyL :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
+modifyL l f = get >>= put . modL l f
 
 (%:=) :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
-l %:= f = modL' l f
+l %:= f = modifyL l f
 infix 4 %:=
 
 lens :: (a -> b) -> (b -> a -> a) -> Lens a b
