@@ -7,6 +7,7 @@ import Data.Word
 import Data.Maybe
 import Control.Monad
 import Graphics.XHB
+import Graphics.X11.Types hiding (Connection)
 import Control.Monad.IO.Class (liftIO)
 
 import Util
@@ -24,6 +25,8 @@ handler =
     , EventHandler handleLeaveNotify
     , EventHandler handleButtonPress
     , EventHandler handleButtonRelease
+    , EventHandler handleKeyPress
+    , EventHandler handleKeyRelease
     ]
 
 
@@ -142,6 +145,55 @@ handleButtonRelease e = do
             fs <- getsL (buttonReleaseHandler <.> config)
             void $ whenJust (M.lookup (fromValue $ detail_ButtonReleaseEvent e) fs) $ \f -> f e
             return True
+
+
+handleKeyPress :: KeyPressEvent -> Z Bool
+handleKeyPress e = do
+    toLog "KeyPressEvent"
+    toLog $ show e
+
+    c <- asksL connection
+
+    let setup = connectionSetup c
+        min_keycode = min_keycode_Setup setup
+        max_keycode = max_keycode_Setup setup
+
+    kbdmap <- liftIO (keyboardMapping c =<<
+        getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
+
+    when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyPressEvent e)) $ do
+        forM_ (map fi [xK_Tab]) $ \keysym -> do
+            whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
+                liftIO $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
+                                               GrabModeAsync GrabModeAsync
+
+    when (keysymToKeycode (fi xK_Tab) kbdmap == Just (detail_KeyPressEvent e)) $ do
+        if KeyButMaskShift `elem` state_KeyPressEvent e
+            then toLog "Focus prev!"
+            else toLog "Focus next!"
+
+    return True
+
+
+handleKeyRelease :: KeyReleaseEvent -> Z Bool
+handleKeyRelease e = do
+    toLog "KeyReleaseEvent"
+    toLog $ show e
+
+    c <- asksL connection
+
+    let setup = connectionSetup c
+        min_keycode = min_keycode_Setup setup
+        max_keycode = max_keycode_Setup setup
+
+    kbdmap <- liftIO (keyboardMapping c =<<
+        getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
+
+    when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyReleaseEvent e)) $ do
+        forM_ (map fi [xK_Tab]) $ \keysym -> do
+            whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
+                liftIO $ ungrabKey c $ MkUngrabKey keycode (getRoot c) [ModMask1]
+    return True
 
 
 moveWindow :: MotionNotifyEvent -> Z Bool

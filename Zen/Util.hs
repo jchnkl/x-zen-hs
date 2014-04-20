@@ -66,3 +66,8 @@ keyboardMapping c receipt = keycodes' <$> getReply receipt
 
 keysymToKeycode :: KEYSYM -> M.Map KEYCODE [KEYSYM] -> Maybe KEYCODE
 keysymToKeycode keysym = safeHead . M.keys . M.filter (fi keysym `elem`)
+
+
+
+-- modifierMapping :: Connection -> Receipt GetModifierMappingReply ->
+--                 -> IO (M.Map KEYCODE [Mod

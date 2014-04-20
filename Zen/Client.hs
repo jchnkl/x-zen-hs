@@ -198,9 +198,10 @@ grabKeys = do
     -- pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
     -- rbs <- M.keys <$> getsL (buttonReleaseHandler <.> config)
     -- forM_ (pbs `L.union` rbs) $ \button -> do
+
     kbdmap <- liftIO (keyboardMapping c =<<
         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
-    forM_ (map fi [xK_Tab]) $ \keysym -> do
+    forM_ (map fi [xK_Alt_L]) $ \keysym -> do
         whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-            liftIO $ grabKey c $ MkGrabKey True (getRoot c) [mask] keycode
+            liftIO $ grabKey c $ MkGrabKey True (getRoot c) [] keycode
                                            GrabModeAsync GrabModeAsync
