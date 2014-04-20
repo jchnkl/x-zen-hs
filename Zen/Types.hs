@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Types

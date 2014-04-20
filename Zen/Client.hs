@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+
 module Client where
 
 import Data.Word

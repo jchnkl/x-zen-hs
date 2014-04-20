@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
 import GHC.Types (Word)

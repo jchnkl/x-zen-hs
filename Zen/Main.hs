@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+
 import Control.Monad.State
 import Control.Monad.Reader
 import Graphics.XHB
