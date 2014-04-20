@@ -38,8 +38,18 @@ modifyClient window f = clients <.> queue %:= update window f
 modifyQueue :: (Queue -> Queue) -> Z ()
 modifyQueue f = modifyL queue f
 
+
+setBorderColor :: Client -> Z ()
+setBorderColor client = do
+    c <- asksL connection
+    bc <- getsL (normalBorderColor <.> config)
+    liftIO $ changeWindowAttributes c (client ^. xid)
+                                  $ toValueParam [(CWBorderPixel, bc)]
+
+
 insertClient :: Client -> Z ()
-insertClient client = clients <.> queue %:= (client :)
+insertClient client = setBorderColor client >> clients <.> queue %:= (client :)
+
 
 insertWindow :: ClientWindow -> Z ()
 insertWindow window = do
@@ -60,6 +70,7 @@ insertWindow window = do
             h' = fi $ height_GetGeometryReply geom
             c' = Client window (Geometry (Position x' y') (Dimension w' h'))
         insertClient c'
+
 
 insertWindows :: [ClientWindow] -> Z ()
 insertWindows windows = do
