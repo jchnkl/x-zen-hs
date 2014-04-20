@@ -34,6 +34,10 @@ instance Category Lens where
     -- id :: C a a
     id = Lens id const
 
+(<.>) :: Lens b c -> Lens a b -> Lens a c
+(<.>) = (.)
+infixr 9 <.>
+
 (^.) :: a -> Lens a b -> b
 (^.) = flip getL
 infixl 8 ^.
