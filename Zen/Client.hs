@@ -32,6 +32,10 @@ focus client = do
     getsL (focusedBorderColor <.> config) >>= setBorderColor client
 
 
+unfocus :: Client -> Z ()
+unfocus client = getsL (normalBorderColor <.> config) >>= setBorderColor client
+
+
 withClient :: ClientWindow -> (Client -> Z a) -> Z (Maybe a)
 withClient w f = (L.find ((w ==) . getL xid))
     <$> (getsL (clients <.> queue))
