@@ -36,3 +36,6 @@ runZ = do
         mapM_ C.grabButtons (children_QueryTreeReply tree)
         mapM_ C.insertWindow (children_QueryTreeReply tree)
 
+
+manageMode :: Z ()
+manageMode = undefined
