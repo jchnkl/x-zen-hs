@@ -2,10 +2,12 @@
 
 module Event where
 
+import qualified Data.List as L
 import qualified Data.Map as M
 import Data.Word
 import Data.Maybe
 import Control.Monad
+import Control.Applicative
 import Graphics.XHB
 import Graphics.X11.Types hiding (Connection)
 import Control.Monad.IO.Class (liftIO)
@@ -161,6 +163,13 @@ handleKeyPress e = do
     kbdmap <- liftIO (keyboardMapping c =<<
         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
 
+    -- modmap <- getModmap <$> liftIO (getModifierMapping c >>= getReply)
+
+    -- let numlock = flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     capslock = flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     state = state_KeyPressEvent e
+
+
     when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyPressEvent e)) $ do
         forM_ (map fi [xK_Tab]) $ \keysym -> do
             whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
@@ -233,6 +242,23 @@ resizeWindow e = do
                               (toMask [ConfigWindowWidth, ConfigWindowHeight])
                               (toValueParam [(ConfigWindowWidth, neww),
                                              (ConfigWindowHeight, newh)])
+
+
+defaultKeyPressHandler :: KeyPressHandler
+defaultKeyPressHandler = M.empty
+    -- [ (xK_Tab, \e@(KeyPressEvent _ _ _ _ _ _ _ _ _ s _)
+    --                 | KeyButMaskShift `elem` s = toLog "Focus prev!"
+    --                 | otherwise                = toLog "Focus next!"
+    --     )
+    --     ]
+        -- forM_ (map fi [xK_Tab]) $ \keysym -> do
+        --     whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
+        --         liftIO $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
+        --                                        GrabModeAsync GrabModeAsync
+
+
+defaultKeyReleaseHandler :: KeyReleaseHandler
+defaultKeyReleaseHandler = M.empty
 
 
 defaultButtonPressHandler :: ButtonPressHandler

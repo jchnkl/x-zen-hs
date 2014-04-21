@@ -3,8 +3,10 @@
 module Client where
 
 import Data.Word
+-- import Data.Maybe
 import qualified Data.Map as M
 import qualified Data.List as L
+import Control.Monad
 import Control.Monad.State
 import Control.Applicative
 import Graphics.XHB
@@ -189,19 +191,32 @@ grabButtons window = do
 grabKeys :: Z ()
 grabKeys = do
     c <- asksL connection
-    mask <- getsL (modMask <.> config)
 
     let setup = connectionSetup c
         min_keycode = min_keycode_Setup setup
         max_keycode = max_keycode_Setup setup
 
+    -- mask <- getsL (modMask <.> config)
+    kbdmap <- liftIO (keyboardMapping c =<<
+        getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
+
+    -- modmap <- getModmap <$> liftIO (getModifierMapping c >>= getReply)
+
+    -- let numlock = join $ flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     capslock = join $ flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     mask = map fromBit $ catMaybes [numlock, capslock]
+
     -- pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
     -- rbs <- M.keys <$> getsL (buttonReleaseHandler <.> config)
     -- forM_ (pbs `L.union` rbs) $ \button -> do
 
-    kbdmap <- liftIO (keyboardMapping c =<<
-        getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
     forM_ (map fi [xK_Alt_L]) $ \keysym -> do
         whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-            liftIO $ grabKey c $ MkGrabKey True (getRoot c) [] keycode
+            liftIO $ grabKey c $ MkGrabKey True (getRoot c) [ModMaskAny] keycode
                                            GrabModeAsync GrabModeAsync
+
+    where
+    getModmap (Left _) = []
+    getModmap (Right reply) =
+        subLists (fi $ keycodes_per_modifier_GetModifierMappingReply reply)
+                 (keycodes_GetModifierMappingReply reply)

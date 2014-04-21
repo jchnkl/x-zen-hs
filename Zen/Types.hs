@@ -102,6 +102,14 @@ clients = lens _clients (\v d -> d { _clients = v })
 
 data EventHandler b = forall a . Event a => EventHandler (a -> b)
 
+-- data InputEventHandler p r = InputEventHandler
+--     { press :: p -> Z ()
+--     , release :: r -> Z ()
+--     }
+
+type KeyPressHandler = M.Map KEYSYM (KeyPressEvent -> Z ())
+type KeyReleaseHandler = M.Map KEYSYM (KeyReleaseEvent -> Z ())
+
 type ButtonPressHandler = M.Map ButtonIndex (ButtonPressEvent -> Z ())
 type ButtonReleaseHandler = M.Map ButtonIndex (ButtonReleaseEvent -> Z ())
 
@@ -112,6 +120,8 @@ data Config = Config
     , _focusedBorderColor :: Word32
     , _selectionBorderColor :: Word32
     , _eventHandler :: [EventHandler (Z Bool)] -- TODO: STACK!!! -> pushHandler, popHandler
+    , _keyPressHandler :: KeyPressHandler
+    , _keyReleaseHandler :: KeyReleaseHandler
     , _buttonPressHandler :: ButtonPressHandler
     , _buttonReleaseHandler :: ButtonReleaseHandler
     }
@@ -133,6 +143,12 @@ selectionBorderColor = lens _selectionBorderColor (\v d -> d { _selectionBorderC
 
 eventHandler :: Lens Config [EventHandler (Z Bool)]
 eventHandler = lens _eventHandler (\v d -> d { _eventHandler = v })
+
+keyPressHandler :: Lens Config KeyPressHandler
+keyPressHandler = lens _keyPressHandler (\v d -> d { _keyPressHandler = v })
+
+keyReleaseHandler :: Lens Config KeyReleaseHandler
+keyReleaseHandler = lens _keyReleaseHandler (\v d -> d { _keyReleaseHandler = v })
 
 buttonPressHandler :: Lens Config ButtonPressHandler
 buttonPressHandler = lens _buttonPressHandler (\v d -> d { _buttonPressHandler = v })

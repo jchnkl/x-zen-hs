@@ -14,6 +14,8 @@ initialConfig = Config
     , _focusedBorderColor = 0x00ffce28
     , _selectionBorderColor = 0x00ff0000
     , _eventHandler = handler
+    , _keyPressHandler = defaultKeyPressHandler
+    , _keyReleaseHandler = defaultKeyReleaseHandler
     , _buttonPressHandler = defaultButtonPressHandler
     , _buttonReleaseHandler = defaultButtonReleaseHandler
     }
