@@ -22,6 +22,9 @@ instance Eq ButtonIndex where
 instance Ord ButtonIndex where
     compare l r = compare (toValue l :: Word8) (toValue r :: Word8)
 
+instance Eq KeyButMask where
+    l == r = toBit l == toBit r
+
 type ClientWindow = WINDOW
 
 data ConnectionSetup = ConnectionSetup
