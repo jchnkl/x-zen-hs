@@ -12,6 +12,7 @@ import Graphics.XHB
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Data.Map (Map)
 import qualified Data.Map as M
 
 import Lens
@@ -21,6 +22,8 @@ type ClientWindow = WINDOW
 data ConnectionSetup = ConnectionSetup
     { _connection :: Connection
     , _root :: ClientWindow
+    , _keyboardMap :: Map KEYCODE [KEYSYM]
+    , _modifierMap :: Map MapIndex [KEYCODE]
     }
 
 connection :: Lens ConnectionSetup Connection
@@ -28,6 +31,12 @@ connection = lens _connection (\v d -> d { _connection = v })
 
 root :: Lens ConnectionSetup ClientWindow
 root = lens _root (\v d -> d { _root = v })
+
+keyboardMap :: Lens ConnectionSetup (Map KEYCODE [KEYSYM])
+keyboardMap = lens _keyboardMap (\v d -> d { _keyboardMap = v })
+
+modifierMap :: Lens ConnectionSetup (Map MapIndex [KEYCODE])
+modifierMap = lens _modifierMap (\v d -> d { _modifierMap = v })
 
 withConnection :: (Connection -> Z a) -> Z a
 withConnection f = asksL connection >>= f
