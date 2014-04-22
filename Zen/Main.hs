@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
+import qualified Data.Map as M (empty)
 import Control.Monad.State
 import Control.Monad.Reader
 import Graphics.XHB
@@ -27,5 +28,5 @@ runLoop Nothing = print "Got no connection!"
 runLoop (Just c) = runReaderT (evalStateT runZ initialCore) initialSetup
     where
     initialCore = Core initialConfig initialWindowQueue (Position 0 0)
-    initialSetup = ConnectionSetup c (getRoot c)
+    initialSetup = Setup c (getRoot c) M.empty M.empty
     initialWindowQueue = Queue []

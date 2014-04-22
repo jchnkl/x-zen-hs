@@ -8,7 +8,7 @@ module Types
     ) where
 
 import Data.Word
-import Graphics.XHB
+import Graphics.XHB hiding (Setup)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -19,23 +19,23 @@ import Lens
 
 type ClientWindow = WINDOW
 
-data ConnectionSetup = ConnectionSetup
+data Setup = Setup
     { _connection :: Connection
     , _root :: ClientWindow
     , _keyboardMap :: Map KEYCODE [KEYSYM]
     , _modifierMap :: Map MapIndex [KEYCODE]
     }
 
-connection :: Lens ConnectionSetup Connection
+connection :: Lens Setup Connection
 connection = lens _connection (\v d -> d { _connection = v })
 
-root :: Lens ConnectionSetup ClientWindow
+root :: Lens Setup ClientWindow
 root = lens _root (\v d -> d { _root = v })
 
-keyboardMap :: Lens ConnectionSetup (Map KEYCODE [KEYSYM])
+keyboardMap :: Lens Setup (Map KEYCODE [KEYSYM])
 keyboardMap = lens _keyboardMap (\v d -> d { _keyboardMap = v })
 
-modifierMap :: Lens ConnectionSetup (Map MapIndex [KEYCODE])
+modifierMap :: Lens Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\v d -> d { _modifierMap = v })
 
 withConnection :: (Connection -> Z a) -> Z a
@@ -171,5 +171,5 @@ queue = lens _queue (\v d -> d { _queue = v })
 pointer :: Lens Core Position
 pointer = lens _pointer (\v d -> d { _pointer = v })
 
-type ZCore = StateT Core (ReaderT ConnectionSetup IO)
+type ZCore = StateT Core (ReaderT Setup IO)
 type Z = WriterT [String] ZCore
