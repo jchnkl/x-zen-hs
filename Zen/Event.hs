@@ -106,12 +106,11 @@ handleConfigureRequest e = do
     c <- asksL connection
     liftIO $ do
         print e
-        configureWindow c $ MkConfigureWindow win mask values
+        configureWindow c win values
     liftIO (pollForError c) >>= handleError
     return True
     where
     win = window_ConfigureRequestEvent e
-    mask = toMask $ value_mask_ConfigureRequestEvent e
     values = toValueParam $ copyValues (value_mask_ConfigureRequestEvent e)
 
     copyValues :: [ConfigWindow] -> [(ConfigWindow, Word32)]
@@ -213,10 +212,9 @@ moveWindow e = do
     root_x = fi $ root_x_MotionNotifyEvent e
     root_y = fi $ root_y_MotionNotifyEvent e
     window = event_MotionNotifyEvent e
-    configure c w (Position x' y') = liftIO $ configureWindow c $
-        MkConfigureWindow w (toMask [ConfigWindowX, ConfigWindowY])
-                            (toValueParam [(ConfigWindowX, root_x - fi x'),
-                                           (ConfigWindowY, root_y - fi y')])
+    configure c w (Position x' y') = liftIO $ configureWindow c w $
+                                 toValueParam [(ConfigWindowX, root_x - fi x'),
+                                               (ConfigWindowY, root_y - fi y')]
 
 
 resizeWindow :: MotionNotifyEvent -> Z Bool
@@ -236,12 +234,10 @@ resizeWindow e = do
         Position oldx oldy <- getsL pointer
         let neww = fi w' + fi (newx - oldx)
             newh = fi h' + fi (newy - oldy)
+            values = toValueParam [(ConfigWindowWidth, neww),
+                                   (ConfigWindowHeight, newh)]
         toLog $ "resize to " ++ show neww ++ "x" ++ show newh
-        liftIO $ configureWindow c $
-            MkConfigureWindow window
-                              (toMask [ConfigWindowWidth, ConfigWindowHeight])
-                              (toValueParam [(ConfigWindowWidth, neww),
-                                             (ConfigWindowHeight, newh)])
+        liftIO $ configureWindow c window values
 
 
 defaultKeyPressHandler :: KeyPressHandler

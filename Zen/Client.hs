@@ -72,10 +72,8 @@ setBorderColor client bc = do
 setBorderWidth :: Client -> Z ()
 setBorderWidth client = do
     bw <- getsL (borderWidth <.> config)
-    let cw = MkConfigureWindow (client ^. xid) mask valueparam
-        mask = toMask [ConfigWindowBorderWidth]
-        valueparam = toValueParam [(ConfigWindowBorderWidth, fi $ bw)]
-    withConnection $ liftIO . flip configureWindow cw
+    let values = toValueParam [(ConfigWindowBorderWidth, fi $ bw)]
+    withConnection $ \c -> liftIO $ configureWindow c (client ^. xid) values
 
 
 insertClient :: Client -> Z ()
@@ -161,18 +159,14 @@ removeWindow :: ClientWindow -> Z ()
 removeWindow window = clients <.> queue %:= (window `deleteWindow`)
 
 raise :: ClientWindow -> Z ()
-raise window = withConnection $ liftIO . flip configureWindow cw
+raise window = withConnection $ \c -> liftIO $ configureWindow c window values
     where
-    cw = MkConfigureWindow window mask valueparam
-    mask = toMask [ConfigWindowStackMode]
-    valueparam = toValueParam [(ConfigWindowStackMode, toValue StackModeAbove)]
+    values = toValueParam [(ConfigWindowStackMode, toValue StackModeAbove)]
 
 lower :: ClientWindow -> Z ()
-lower window = withConnection $ liftIO . flip configureWindow cw
+lower window = withConnection $ \c -> liftIO $ configureWindow c window values
     where
-    cw = MkConfigureWindow window mask valueparam
-    mask = toMask [ConfigWindowStackMode]
-    valueparam = toValueParam [(ConfigWindowStackMode, toValue StackModeBelow)]
+    values = toValueParam [(ConfigWindowStackMode, toValue StackModeBelow)]
 
 grabButtons :: ClientWindow -> Z ()
 grabButtons window = do
