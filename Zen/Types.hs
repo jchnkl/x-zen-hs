@@ -17,6 +17,7 @@ import qualified Data.Map as M
 
 import Lens
 
+-- type WindowXid = WINDOW
 type ClientWindow = WINDOW
 
 data Setup = Setup
