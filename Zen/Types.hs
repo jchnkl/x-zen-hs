@@ -17,12 +17,11 @@ import qualified Data.Map as M
 
 import Lens
 
--- type WindowXid = WINDOW
-type ClientWindow = WINDOW
+type WindowId = WINDOW
 
 data Setup = Setup
     { _connection :: Connection
-    , _root :: ClientWindow
+    , _root :: WindowId
     , _keyboardMap :: Map KEYCODE [KEYSYM]
     , _modifierMap :: Map MapIndex [KEYCODE]
     }
@@ -30,7 +29,7 @@ data Setup = Setup
 connection :: Lens Setup Connection
 connection = lens _connection (\v d -> d { _connection = v })
 
-root :: Lens Setup ClientWindow
+root :: Lens Setup WindowId
 root = lens _root (\v d -> d { _root = v })
 
 keyboardMap :: Lens Setup (Map KEYCODE [KEYSYM])
@@ -42,7 +41,7 @@ modifierMap = lens _modifierMap (\v d -> d { _modifierMap = v })
 withConnection :: (Connection -> Z a) -> Z a
 withConnection f = asksL connection >>= f
 
-withRoot :: (ClientWindow -> Z a) -> Z a
+withRoot :: (WindowId -> Z a) -> Z a
 withRoot f = asksL root >>= f
 
 data Position = Position
@@ -82,12 +81,12 @@ dimension :: Lens Geometry Dimension
 dimension = lens _dimension (\v d -> d { _dimension = v })
 
 data Client = Client
-    { _xid :: ClientWindow
+    { _xid :: WindowId
     , _geometry :: Geometry
     }
     deriving (Eq, Show)
 
-xid :: Lens Client ClientWindow
+xid :: Lens Client WindowId
 xid = lens _xid (\v d -> d { _xid = v })
 
 geometry :: Lens Client Geometry

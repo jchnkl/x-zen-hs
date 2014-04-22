@@ -44,15 +44,15 @@ unfocus client = do
     getsL (normalBorderColor <.> config) >>= setBorderColor client
 
 
-withClient :: ClientWindow -> (Client -> Z a) -> Z (Maybe a)
+withClient :: WindowId -> (Client -> Z a) -> Z (Maybe a)
 withClient w f = (L.find ((w ==) . getL xid))
     <$> (getsL (clients <.> queue))
         >>= flip whenJust f
 
-modifyClient :: ClientWindow -> (Client -> Client) -> Z ()
+modifyClient :: WindowId -> (Client -> Client) -> Z ()
 modifyClient window f = clients <.> queue %:= update window f
     where
-    update :: ClientWindow -> (Client -> Client) -> [Client] -> [Client]
+    update :: WindowId -> (Client -> Client) -> [Client] -> [Client]
     update w fun (c:cs)
         | w == c ^. xid = fun c : cs
         | otherwise = c : update w fun cs
@@ -87,7 +87,7 @@ insertClient client = do
         [(CWEventMask, toMask [EventMaskEnterWindow, EventMaskLeaveWindow])]
 
 
-insertWindow :: ClientWindow -> Z ()
+insertWindow :: WindowId -> Z ()
 insertWindow window = do
     c <- asksL connection
     reply <- io (getWindowAttributes c window >>= getReply)
@@ -108,7 +108,7 @@ insertWindow window = do
         insertClient c'
 
 
-insertWindows :: [ClientWindow] -> Z ()
+insertWindows :: [WindowId] -> Z ()
 insertWindows windows = do
     c <- asksL connection
     filterValid <$> attributes c
@@ -119,19 +119,19 @@ insertWindows windows = do
     attributes :: Connection -> Z (Either SomeError [GetWindowAttributesReply])
     attributes c = io $ mapM (getWindowAttributes c) windows >>= getReplies
 
-    geometries :: Connection -> [ClientWindow]
-               -> Z (Either SomeError [(ClientWindow, GetGeometryReply)])
+    geometries :: Connection -> [WindowId]
+               -> Z (Either SomeError [(WindowId, GetGeometryReply)])
     geometries c ws = (Right . zip ws =<<)
         <$> io (mapM (getGeometry c . convertXid) ws >>= getReplies)
 
-    filterValid :: Either SomeError [GetWindowAttributesReply] -> [ClientWindow]
+    filterValid :: Either SomeError [GetWindowAttributesReply] -> [WindowId]
     filterValid (Right attrs) = map fst $ filter isValid $ zip windows attrs
     filterValid _ = []
 
-    isValid :: (ClientWindow, GetWindowAttributesReply) -> Bool
+    isValid :: (WindowId, GetWindowAttributesReply) -> Bool
     isValid = not . override_redirect_GetWindowAttributesReply . snd
 
-    makeClients :: [(ClientWindow, GetGeometryReply)] -> Either SomeError [Client]
+    makeClients :: [(WindowId, GetGeometryReply)] -> Either SomeError [Client]
     makeClients ((window, geom) : rest) = do
         let x' = fi $ x_GetGeometryReply geom
             y' = fi $ y_GetGeometryReply geom
@@ -149,26 +149,26 @@ insertWindows windows = do
 removeClient :: Client -> Z ()
 removeClient client = clients <.> queue %:= (client `L.delete`)
 
-deleteWindow :: ClientWindow -> [Client] -> [Client]
+deleteWindow :: WindowId -> [Client] -> [Client]
 deleteWindow w (c:cs)
     | w == c ^. xid = cs
     | otherwise = c : deleteWindow w cs
 deleteWindow _ _ = []
 
-removeWindow :: ClientWindow -> Z ()
+removeWindow :: WindowId -> Z ()
 removeWindow window = clients <.> queue %:= (window `deleteWindow`)
 
-raise :: ClientWindow -> Z ()
+raise :: WindowId -> Z ()
 raise window = withConnection $ \c -> io $ configureWindow c window values
     where
     values = toValueParam [(ConfigWindowStackMode, toValue StackModeAbove)]
 
-lower :: ClientWindow -> Z ()
+lower :: WindowId -> Z ()
 lower window = withConnection $ \c -> io $ configureWindow c window values
     where
     values = toValueParam [(ConfigWindowStackMode, toValue StackModeBelow)]
 
-grabButtons :: ClientWindow -> Z ()
+grabButtons :: WindowId -> Z ()
 grabButtons window = do
     c <- asksL connection
     mask <- getsL (modMask <.> config)
@@ -196,8 +196,10 @@ grabKeys = do
 
     -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
 
-    -- let numlock = join $ flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
-    --     capslock = join $ flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    -- let numlock = join $ flip L.elemIndex modmap
+    --  <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     capslock = join $ flip L.elemIndex modmap
+    --  <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
     --     mask = map fromBit $ catMaybes [numlock, capslock]
 
     -- pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
