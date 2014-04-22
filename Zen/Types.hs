@@ -16,15 +16,6 @@ import qualified Data.Map as M
 
 import Lens
 
-instance Eq ButtonIndex where
-    l == r = (toValue l :: Word8) == (toValue r :: Word8)
-
-instance Ord ButtonIndex where
-    compare l r = compare (toValue l :: Word8) (toValue r :: Word8)
-
-instance Eq KeyButMask where
-    l == r = toBit l == toBit r
-
 type ClientWindow = WINDOW
 
 data ConnectionSetup = ConnectionSetup
