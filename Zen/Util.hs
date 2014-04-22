@@ -11,6 +11,9 @@ import Types
 fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
 
+io :: MonadIO m => IO a -> m a
+io = liftIO
+
 safeHead :: [a] -> Maybe a
 safeHead [] = Nothing
 safeHead (a:_) = Just a

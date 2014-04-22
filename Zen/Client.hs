@@ -34,7 +34,7 @@ focus client = do
     let mk_setinputfocus = MkSetInputFocus InputFocusNone
                                            (client ^. xid)
                                            (toValue TimeCurrentTime)
-    withConnection $ liftIO . flip setInputFocus mk_setinputfocus
+    withConnection $ io . flip setInputFocus mk_setinputfocus
     getsL (focusedBorderColor <.> config) >>= setBorderColor client
 
 
@@ -65,7 +65,7 @@ modifyQueue f = modifyL queue f
 setBorderColor :: Client -> Word32 -> Z ()
 setBorderColor client bc = do
     c <- asksL connection
-    liftIO $ changeWindowAttributes c (client ^. xid)
+    io $ changeWindowAttributes c (client ^. xid)
                                   $ toValueParam [(CWBorderPixel, bc)]
 
 
@@ -73,14 +73,14 @@ setBorderWidth :: Client -> Z ()
 setBorderWidth client = do
     bw <- getsL (borderWidth <.> config)
     let values = toValueParam [(ConfigWindowBorderWidth, fi $ bw)]
-    withConnection $ \c -> liftIO $ configureWindow c (client ^. xid) values
+    withConnection $ \c -> io $ configureWindow c (client ^. xid) values
 
 
 insertClient :: Client -> Z ()
 insertClient client = do
     setBorderWidth client
     getsL (normalBorderColor <.> config) >>= setBorderColor client
-    withConnection $ \c -> liftIO $ changeWindowAttributes c (client ^. xid) attributes
+    withConnection $ \c -> io $ changeWindowAttributes c (client ^. xid) attributes
     clients <.> queue %:= (client :)
     where
     attributes = toValueParam
@@ -90,12 +90,12 @@ insertClient client = do
 insertWindow :: ClientWindow -> Z ()
 insertWindow window = do
     c <- asksL connection
-    reply <- liftIO (getWindowAttributes c window >>= getReply)
+    reply <- io (getWindowAttributes c window >>= getReply)
     case map_state_GetWindowAttributesReply <$> reply of
         Left _ -> return ()
         Right MapStateUnviewable -> return ()
-        _ -> withConnection (liftIO . flip getGeometry (convertXid window))
-                >>= liftIO . getReply
+        _ -> withConnection (io . flip getGeometry (convertXid window))
+                >>= io . getReply
                     >>= updateQueue
     where
     updateQueue (Left _) = return ()
@@ -117,12 +117,12 @@ insertWindows windows = do
 
     where
     attributes :: Connection -> Z (Either SomeError [GetWindowAttributesReply])
-    attributes c = liftIO $ mapM (getWindowAttributes c) windows >>= getReplies
+    attributes c = io $ mapM (getWindowAttributes c) windows >>= getReplies
 
     geometries :: Connection -> [ClientWindow]
                -> Z (Either SomeError [(ClientWindow, GetGeometryReply)])
     geometries c ws = (Right . zip ws =<<)
-        <$> liftIO (mapM (getGeometry c . convertXid) ws >>= getReplies)
+        <$> io (mapM (getGeometry c . convertXid) ws >>= getReplies)
 
     filterValid :: Either SomeError [GetWindowAttributesReply] -> [ClientWindow]
     filterValid (Right attrs) = map fst $ filter isValid $ zip windows attrs
@@ -159,12 +159,12 @@ removeWindow :: ClientWindow -> Z ()
 removeWindow window = clients <.> queue %:= (window `deleteWindow`)
 
 raise :: ClientWindow -> Z ()
-raise window = withConnection $ \c -> liftIO $ configureWindow c window values
+raise window = withConnection $ \c -> io $ configureWindow c window values
     where
     values = toValueParam [(ConfigWindowStackMode, toValue StackModeAbove)]
 
 lower :: ClientWindow -> Z ()
-lower window = withConnection $ \c -> liftIO $ configureWindow c window values
+lower window = withConnection $ \c -> io $ configureWindow c window values
     where
     values = toValueParam [(ConfigWindowStackMode, toValue StackModeBelow)]
 
@@ -175,7 +175,7 @@ grabButtons window = do
     pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
     rbs <- M.keys <$> getsL (buttonReleaseHandler <.> config)
     forM_ (pbs `L.union` rbs) $ \button -> do
-        liftIO $ grabButton c $ MkGrabButton True window events
+        io $ grabButton c $ MkGrabButton True window events
                                              GrabModeAsync GrabModeAsync
                                              (convertXid xidNone) (convertXid xidNone)
                                              button [mask]
@@ -191,10 +191,10 @@ grabKeys = do
         max_keycode = max_keycode_Setup setup
 
     -- mask <- getsL (modMask <.> config)
-    kbdmap <- liftIO (keyboardMapping c =<<
+    kbdmap <- io (keyboardMapping c =<<
         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
 
-    -- modmap <- getModmap <$> liftIO (getModifierMapping c >>= getReply)
+    -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
 
     -- let numlock = join $ flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
     --     capslock = join $ flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
@@ -206,7 +206,7 @@ grabKeys = do
 
     forM_ (map fi [xK_Alt_L]) $ \keysym -> do
         whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-            liftIO $ grabKey c $ MkGrabKey True (getRoot c) [ModMaskAny] keycode
+            io $ grabKey c $ MkGrabKey True (getRoot c) [ModMaskAny] keycode
                                            GrabModeAsync GrabModeAsync
 
     where

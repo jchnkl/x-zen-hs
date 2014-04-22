@@ -10,7 +10,6 @@ import Control.Monad
 import Control.Applicative
 import Graphics.XHB
 import Graphics.X11.Types hiding (Connection)
-import Control.Monad.IO.Class (liftIO)
 
 import Util
 import Types
@@ -93,8 +92,8 @@ handleLeaveNotify e = do
 handleMapRequest :: MapRequestEvent -> Z Bool
 handleMapRequest e = do
     toLog "MapRequestEvent"
-    liftIO $ print e
-    withConnection $ liftIO . flip mapWindow event_window
+    io $ print e
+    withConnection $ io . flip mapWindow event_window
     return True
     where
     event_window = window_MapRequestEvent e
@@ -104,10 +103,10 @@ handleConfigureRequest :: ConfigureRequestEvent -> Z Bool
 handleConfigureRequest e = do
     toLog "ConfigureRequestEvent"
     c <- asksL connection
-    liftIO $ do
+    io $ do
         print e
         configureWindow c win values
-    liftIO (pollForError c) >>= handleError
+    io (pollForError c) >>= handleError
     return True
     where
     win = window_ConfigureRequestEvent e
@@ -159,10 +158,10 @@ handleKeyPress e = do
         min_keycode = min_keycode_Setup setup
         max_keycode = max_keycode_Setup setup
 
-    kbdmap <- liftIO (keyboardMapping c =<<
+    kbdmap <- io (keyboardMapping c =<<
         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
 
-    -- modmap <- getModmap <$> liftIO (getModifierMapping c >>= getReply)
+    -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
 
     -- let numlock = flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
     --     capslock = flip L.elemIndex modmap <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
@@ -172,7 +171,7 @@ handleKeyPress e = do
     when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyPressEvent e)) $ do
         forM_ (map fi [xK_Tab]) $ \keysym -> do
             whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-                liftIO $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
+                io $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
                                                GrabModeAsync GrabModeAsync
 
     when (keysymToKeycode (fi xK_Tab) kbdmap == Just (detail_KeyPressEvent e)) $ do
@@ -194,13 +193,13 @@ handleKeyRelease e = do
         min_keycode = min_keycode_Setup setup
         max_keycode = max_keycode_Setup setup
 
-    kbdmap <- liftIO (keyboardMapping c =<<
+    kbdmap <- io (keyboardMapping c =<<
         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
 
     when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyReleaseEvent e)) $ do
         forM_ (map fi [xK_Tab]) $ \keysym -> do
             whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-                liftIO $ ungrabKey c $ MkUngrabKey keycode (getRoot c) [ModMask1]
+                io $ ungrabKey c $ MkUngrabKey keycode (getRoot c) [ModMask1]
     return True
 
 
@@ -212,7 +211,7 @@ moveWindow e = do
     root_x = fi $ root_x_MotionNotifyEvent e
     root_y = fi $ root_y_MotionNotifyEvent e
     window = event_MotionNotifyEvent e
-    configure c w (Position x' y') = liftIO $ configureWindow c w $
+    configure c w (Position x' y') = io $ configureWindow c w $
                                  toValueParam [(ConfigWindowX, root_x - fi x'),
                                                (ConfigWindowY, root_y - fi y')]
 
@@ -237,7 +236,7 @@ resizeWindow e = do
             values = toValueParam [(ConfigWindowWidth, neww),
                                    (ConfigWindowHeight, newh)]
         toLog $ "resize to " ++ show neww ++ "x" ++ show newh
-        liftIO $ configureWindow c window values
+        io $ configureWindow c window values
 
 
 defaultKeyPressHandler :: KeyPressHandler
@@ -249,7 +248,7 @@ defaultKeyPressHandler = M.empty
     --     ]
         -- forM_ (map fi [xK_Tab]) $ \keysym -> do
         --     whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-        --         liftIO $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
+        --         io $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
         --                                        GrabModeAsync GrabModeAsync
 
 
@@ -288,8 +287,8 @@ defaultButtonPressHandler = M.fromList
             raise window
             -- TODO: do this with event_{x,y} and save pointer position in client
             pointer ^:= Position (fi root_x) (fi root_y)
-            void $ flip whenRight update =<< liftIO . getReply =<<
-                withConnection (liftIO . flip getGeometry (convertXid window))
+            void $ flip whenRight update =<< io . getReply =<<
+                withConnection (io . flip getGeometry (convertXid window))
             pushHandler $ EventHandler resizeWindow
       )
     ]

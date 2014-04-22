@@ -7,6 +7,7 @@ import Control.Monad.Writer
 import Data.Time (getZonedTime)
 import Graphics.XHB
 
+import Util
 import Types
 import Event
 import qualified Client as C
@@ -18,17 +19,17 @@ runZ = do
     let mask = CWEventMask
         values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify]
         valueparam = toValueParam [(mask, values)]
-    liftIO $ changeWindowAttributes c (getRoot c) valueparam
+    io $ changeWindowAttributes c (getRoot c) valueparam
 
     void $ execWriterT $ do
         C.grabKeys
-        withRoot (liftIO . queryTree c) >>= lift . liftIO . getReply >>= manage
+        withRoot (io . queryTree c) >>= lift . io . getReply >>= manage
 
     -- Main loop
     forever $ do
-        time <- fmap show $ liftIO getZonedTime
-        liftIO . putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++)
-            =<< execWriterT (liftIO (waitForEvent c) >>= dispatch)
+        time <- fmap show $ io getZonedTime
+        io . putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++)
+            =<< execWriterT (io (waitForEvent c) >>= dispatch)
 
     where
     manage (Left _) = return ()
