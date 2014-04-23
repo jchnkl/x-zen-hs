@@ -9,12 +9,19 @@ module Lens
     , (^.)
     , (^=)
     , modL
+    , withL
     , asksL
     , getsL
     , putsL
     , (^:=)
     , modifyL
     , (%:=)
+    , getWithL
+    , ($*>)
+    , (<*$)
+    , askWithL
+    , ($->)
+    , (<-$)
     ) where
 
 -- vim macro for lens function type
@@ -57,11 +64,15 @@ infixl 8 ^.
 -- | Infix setter. setL
 (^=) :: Lens a b -> b -> a -> a
 (^=) = setL
-infix 4 ^=
+infix 8 ^=
 
 -- | Functional modifier through a Lens
 modL :: Lens a b -> (b -> b) -> a -> a
 modL l f v = setL l (f $ getL l v) v
+
+-- | Helper function to avoid functions like withThis, withThat, etc.
+withL :: Lens a b -> a -> (b -> c) -> c
+withL l v f = f (getL l v)
 
 
 -- | Monadic variants
@@ -83,7 +94,7 @@ putsL l v = get >>= put . setL l v
 -- | infix putsL
 (^:=) :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
 l ^:= v = putsL l v
-infix 4 ^:=
+infix 1 ^:=
 
 -- | modify for Lenses
 modifyL :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
@@ -92,4 +103,32 @@ modifyL l f = get >>= put . modL l f
 -- | infix modify
 (%:=) :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
 l %:= f = modifyL l f
-infix 4 %:=
+infix 1 %:=
+
+-- | @withL@ for @MonadState@
+getWithL :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
+getWithL l f = gets (getL l) >>= f
+
+-- | infix getWithL from left
+($*>) :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
+($*>) = getWithL
+infixl 8 $*>
+
+-- | infix getWithL
+(<*$) :: (Monad m, MonadState a m) => (b -> m c) -> Lens a b -> m c
+(<*$) = flip getWithL
+infixr 8 <*$
+
+-- | @withL@ for @MonadReader@
+askWithL :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
+askWithL l f = asks (getL l) >>= f
+
+-- | infix askWithL from left
+($->) :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
+($->) = askWithL
+infixl 8 $->
+
+-- | infix askWithL from right
+(<-$) :: (Monad m, MonadReader a m) => (b -> m c) -> Lens a b -> m c
+(<-$) = flip askWithL
+infixr 8 <-$
