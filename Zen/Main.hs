@@ -22,6 +22,28 @@ import Config
 main :: IO ()
 main = connect >>= runLoop
 
+-- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
+-- http://cgit.freedesktop.org/~arnau/xcb-util/tree/keysyms/keysyms.c
+-- -> xcb_key_symbols_get_keysym
+
+keyboardMapping :: Connection -> Receipt GetKeyboardMappingReply
+                -> IO (Map KEYCODE [KEYSYM])
+keyboardMapping c receipt = keycodes' <$> getReply receipt
+    where
+    keycodes' (Left _) = M.empty
+    keycodes' (Right reply) =
+        let min_keycode = min_keycode_Setup $ connectionSetup c
+            ks_per_kc = fi $ keysyms_per_keycode_GetKeyboardMappingReply reply
+            keysyms = partition ks_per_kc $ keysyms_GetKeyboardMappingReply reply
+        in M.fromList $ zip [min_keycode ..] keysyms
+
+    partition :: Int -> [a] -> [[a]]
+    partition _ [] = []
+    partition n lst = take n lst : partition n (drop n lst)
+
+keysymToKeycode :: KEYSYM -> Map KEYCODE [KEYSYM] -> Maybe KEYCODE
+keysymToKeycode keysym = safeHead . M.keys . M.filter (fi keysym `elem`)
+
 
 runLoop :: Maybe Connection -> IO ()
 runLoop Nothing = print "Got no connection!"
