@@ -21,10 +21,11 @@ safeHead (a:_) = Just a
 convertXid :: (XidLike a, XidLike b) => a -> b
 convertXid = fromXid . toXid
 
-unlessZ :: Z Bool -> Z () -> Z ()
-unlessZ zb f = do
-    b <- zb
-    unless b f
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM mb f = mb >>= flip when f
+
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM mb f = mb >>= flip unless f
 
 whenJust :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
 whenJust Nothing _ = return Nothing
