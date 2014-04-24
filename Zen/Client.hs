@@ -15,6 +15,111 @@ import Graphics.X11.Types hiding (Connection)
 import Util
 import Types
 
+
+manage :: WindowId -> Geometry -> Z ()
+manage window geom = whenM (isClient <$> attributes) $ do
+    configure'
+    queue %:= (insert $ Client window geom $ Position 0 0)
+
+    where
+    attributes :: Z (Either SomeError GetWindowAttributesReply)
+    attributes = io . getReply =<<
+        io . flip getWindowAttributes window <-$ connection
+
+    isClient :: Either SomeError GetWindowAttributesReply -> Bool
+    isClient (Right reply) = not $ isUnviewable reply
+    isClient _             = False
+
+    isUnviewable :: GetWindowAttributesReply -> Bool
+    isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
+
+    configure' :: Z ()
+    configure' = do
+        let mask = CWEventMask
+            values = toMask [EventMaskEnterWindow, EventMaskLeaveWindow]
+            valueparam = toValueParam [(mask, values)]
+        connection $-> \c -> io $ changeWindowAttributes c window valueparam
+        borderWidth <.> config $-> setBorderWidth window
+        grabButtons window
+
+
+unmanage :: WindowId -> Z ()
+unmanage w = queue %:= remove ((w ==) . getL xid)
+
+
+makeClient :: WindowId -> Z (Maybe Client)
+makeClient window = make <$> connection $-> \c ->
+    io (getGeometry c (convertXid window) >>= getReply)
+    where
+    make (Left _) = Nothing
+    make (Right reply) =
+        let x' = fi $ x_GetGeometryReply reply
+            y' = fi $ y_GetGeometryReply reply
+            w' = fi $ width_GetGeometryReply reply
+            h' = fi $ height_GetGeometryReply reply
+            g = Geometry (Position x' y') (Dimension w' h')
+        in Just $ Client window g (Position 0 0)
+
+
+setBorderColor :: WindowId -> Word -> Z ()
+setBorderColor window bc = do
+    let vp = toValueParam [(CWBorderPixel, fi bc)]
+    connection $-> \c -> io $ changeWindowAttributes c window vp
+
+
+setBorderWidth :: WindowId -> Word -> Z ()
+setBorderWidth window bw = do
+    let vp = toValueParam [(ConfigWindowBorderWidth, fi bw)]
+    connection $-> \c -> io $ configureWindow c window vp
+
+
+focus :: WindowId -> Z ()
+focus window = do
+    -- toLog $ "focus: " ++ show (client ^. xid)
+    let mk_setinputfocus = MkSetInputFocus InputFocusNone
+                                           window -- (client ^. xid)
+                                           (toValue TimeCurrentTime)
+    connection $-> io . flip setInputFocus mk_setinputfocus
+    focusedBorderColor <.> config $-> setBorderColor window -- client
+
+
+unfocus :: WindowId -> Z ()
+unfocus window = do
+    -- toLog $ "unfocus: " ++ show (client ^. xid)
+    normalBorderColor <.> config $-> setBorderColor window -- client
+
+
+configure :: WindowId -> [(ConfigWindow, Word32)] -> Z ()
+configure w vs = configure' w vs vs
+    where
+    configure' window vps' ((m, v):vps) = do
+        queue %:= with ((== window) . getL xid) (setValue m v)
+        configure' window vps' vps
+    configure' window vps' _ = do
+        connection $-> \c -> io $ configureWindow c window $ toValueParam vps'
+
+    setValue ConfigWindowX v      = x <.> position <.> geometry ^= fi v
+    setValue ConfigWindowY v      = y <.> position <.> geometry ^= fi v
+    setValue ConfigWindowWidth v  = width <.> dimension <.> geometry ^= fi v
+    setValue ConfigWindowHeight v = height <.> dimension <.> geometry ^= fi v
+    setValue _ _                  = id
+
+
+grabButtons :: WindowId -> Z ()
+grabButtons window = do
+    c <- asksL connection
+    mask <- asksL (modMask <.> config)
+    pbs <- M.keys <$> asksL (buttonPressHandler <.> config)
+    rbs <- M.keys <$> asksL (buttonReleaseHandler <.> config)
+    forM_ (pbs `L.union` rbs) $ \button -> do
+        io $ grabButton c $ MkGrabButton True window events
+                                             GrabModeAsync GrabModeAsync
+                                             (convertXid xidNone) (convertXid xidNone)
+                                             button [mask]
+    where
+    events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
+
+
 -- setClientPosition :: Client -> Position -> Client
 -- setClientPosition client = undefined -- client ^. geometry ^. position ^=
 
@@ -61,19 +166,6 @@ modifyClient window f = clients <.> queue %:= update window f
 modifyQueue :: (Queue -> Queue) -> Z ()
 modifyQueue f = modifyL queue f
 
-
-setBorderColor :: Client -> Word32 -> Z ()
-setBorderColor client bc = do
-    c <- asksL connection
-    io $ changeWindowAttributes c (client ^. xid)
-                                  $ toValueParam [(CWBorderPixel, bc)]
-
-
-setBorderWidth :: Client -> Z ()
-setBorderWidth client = do
-    bw <- getsL (borderWidth <.> config)
-    let values = toValueParam [(ConfigWindowBorderWidth, fi $ bw)]
-    withConnection $ \c -> io $ configureWindow c (client ^. xid) values
 
 
 insertClient :: Client -> Z ()
@@ -167,20 +259,6 @@ lower :: WindowId -> Z ()
 lower window = withConnection $ \c -> io $ configureWindow c window values
     where
     values = toValueParam [(ConfigWindowStackMode, toValue StackModeBelow)]
-
-grabButtons :: WindowId -> Z ()
-grabButtons window = do
-    c <- asksL connection
-    mask <- getsL (modMask <.> config)
-    pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
-    rbs <- M.keys <$> getsL (buttonReleaseHandler <.> config)
-    forM_ (pbs `L.union` rbs) $ \button -> do
-        io $ grabButton c $ MkGrabButton True window events
-                                             GrabModeAsync GrabModeAsync
-                                             (convertXid xidNone) (convertXid xidNone)
-                                             button [mask]
-    where
-    events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
 
 grabKeys :: Z ()
 grabKeys = do
