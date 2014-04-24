@@ -2,11 +2,14 @@
 
 module Event where
 
+import Data.Maybe (catMaybes)
+import Data.List ((\\))
 import qualified Data.Map as M
 import Data.Word
 import Control.Monad
 import Control.Applicative
 import Graphics.XHB
+import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 import Log
 import Lens
@@ -183,11 +186,11 @@ handleButtonPress :: ButtonPressEvent -> Z ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
     modmask <- asksL (modMask <.> config)
-    when (null $ modmask \\ mask) $ buttonHandler <.> config $->
-        runHandler . M.lookup (mask \\ modmask, button)
+    cleanmask <- cleanMask $ state_ButtonPressEvent e
+    when (null $ modmask \\ cleanmask) $ buttonHandler <.> config $->
+        runHandler . M.lookup (cleanmask \\ modmask, button)
 
     where
-    mask = map (fromBit . toBit) $ state_ButtonPressEvent e
     button = fromValue $ detail_ButtonPressEvent e
     runHandler Nothing = return ()
     runHandler (Just (ButtonEventHandler pf _)) = pf e
@@ -197,12 +200,12 @@ handleButtonRelease :: ButtonReleaseEvent -> Z ()
 handleButtonRelease e = do
     toLog "ButtonReleaseEvent"
     modmask <- asksL (modMask <.> config)
-    when (null $ modmask \\ mask) $ buttonHandler <.> config $->
-        runHandler . M.lookup (mask \\ modmask, button)
+    cleanmask <- cleanMask $ state_ButtonReleaseEvent e
+    when (null $ modmask \\ cleanmask) $ buttonHandler <.> config $->
+        runHandler . M.lookup (cleanmask \\ modmask, button)
         -- asksL (buttonHandler <.> config) >>= runHandler . M.lookup (mask, button)
 
     where
-    mask = map (fromBit . toBit) $ state_ButtonReleaseEvent e
     button = fromValue $ detail_ButtonReleaseEvent e
     runHandler Nothing = return ()
     runHandler (Just (ButtonEventHandler _ rf)) = rf e
@@ -213,13 +216,13 @@ handleKeyPress e = do
     toLog "KeyPressEvent"
 
     modmask <- asksL (modMask <.> config)
-    when (null $ modmask \\ mask) $ do
+    cleanmask <- cleanMask $ state_KeyPressEvent e
+    when (null $ modmask \\ cleanmask) $ do
         keysyms <- keycodeToKeysym key <$> asksL keyboardMap
         forM_ keysyms $ \keysym -> keyHandler <.> config $->
-            runHandler . M.lookup (mask \\ modmask, fi keysym)
+            runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
 
     where
-    mask = map (fromBit . toBit) $ state_KeyPressEvent e
     key = detail_KeyPressEvent e
     runHandler Nothing = return ()
     runHandler (Just (KeyEventHandler pf _)) = pf e
@@ -240,13 +243,13 @@ handleKeyRelease e = do
     toLog $ show e
 
     modmask <- asksL (modMask <.> config)
-    when (null $ modmask \\ mask) $ do
+    cleanmask <- cleanMask $ state_KeyReleaseEvent e
+    when (null $ modmask \\ cleanmask) $ do
         keysyms <- keycodeToKeysym key <$> asksL keyboardMap
         forM_ keysyms $ \keysym -> keyHandler <.> config $->
-            runHandler . M.lookup (mask \\ modmask, fi keysym)
+            runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
 
     where
-    mask = map (fromBit . toBit) $ state_KeyReleaseEvent e
     key = detail_KeyReleaseEvent e
     runHandler Nothing = return ()
     runHandler (Just (KeyEventHandler _ rf)) = rf e

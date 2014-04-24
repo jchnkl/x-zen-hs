@@ -48,3 +48,6 @@ keysymToKeycode keysym = safeHead . M.keys . M.filter (keysym `elem`)
 
 keycodeToKeysym :: KEYCODE -> Map KEYCODE [KEYSYM] -> [KEYSYM]
 keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode
+
+keycodeToModifier :: KEYCODE -> Map MapIndex [KEYCODE] -> Maybe MapIndex
+keycodeToModifier keycode = safeHead . M.keys . M.filter (keycode `elem`)
