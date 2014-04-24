@@ -115,46 +115,36 @@ main = connect >>= startup
 startup :: Maybe Connection -> IO ()
 startup Nothing = print "Got no connection!"
 startup (Just c) = do
-
-    let setup = Setup config c (getRoot c) M.empty M.empty
-
-        min_keycode = min_keycode_Setup $ connectionSetup c
-        max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
-
-        mask = CWEventMask
+    -- ugly :/
+    let mask = CWEventMask
         values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify]
         valueparam = toValueParam [(mask, values)]
+    changeWindowAttributes c (getRoot c) valueparam
 
-    -- get keyboardmapping and modifiermapping for setup
-    -- flip (setL keyboardMap) setup <$>
-    --     (keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode)
+    let min_keycode = min_keycode_Setup $ connectionSetup c
+        max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
+    kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
 
-    io $ changeWindowAttributes c (getRoot c) valueparam
+    let setup = Setup config c (getRoot c) kbdmap M.empty
 
-    run setup core
 
-    -- forever $
-    --     execWriterT (runReaderT (evalStateT runCore core) setup)
-
-    -- runReaderT (evalStateT runZ initialCore) initialSetup
-
-    -- print log
+    reply <- queryTree c (getRoot c) >>= getReply
+    run setup =<< runReaderT (execStateT (execWriterT $ manage' reply) core) setup
 
     where
     run :: Setup -> Core -> IO ()
-    run setup core = do
-        (log, core) <- runReaderT (runStateT (execWriterT runCore) core) setup
+    run setup core' = do
+        (logstr, core'') <- runReaderT (runStateT (execWriterT runCore) core') setup
         time <- getZonedTime
-        putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ log
-        run setup core
+        putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ logstr
+        run setup core''
 
-    -- where
-    -- initialCore = Core initialConfig initialWindowQueue (Position 0 0)
-    -- initialSetup = Setup c (getRoot c) M.empty M.empty
-    -- initialWindowQueue = Queue []
+    runCore :: Z ()
+    runCore = connection $-> io . waitForEvent >>= dispatch
 
-runCore :: Z ()
-runCore = connection $-> io . waitForEvent >>= dispatch
+    manage' :: Either SomeError QueryTreeReply -> Z ()
+    manage' (Left _) = return ()
+    manage' (Right reply) = mapM_ manage $ children_QueryTreeReply reply
 
         -- time <- fmap show $ io getZonedTime
         -- io . putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++)
