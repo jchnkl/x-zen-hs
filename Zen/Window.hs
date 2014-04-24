@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
-module Client where
+module Window where
 
 import Data.Word
 import qualified Data.Map as M

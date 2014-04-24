@@ -12,7 +12,7 @@ import Lens
 import Util
 import Types hiding (focus)
 -- import Core
-import Client
+import Window
 
 -- handler :: [EventHandler (Z ())]
 -- handler =

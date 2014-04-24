@@ -17,7 +17,7 @@ import Types hiding (config)
 -- import Config
 -- import Setup hiding (config)
 import Event
-import Client
+import Window
 
 -- TODO:
 -- Lenses for data structures
