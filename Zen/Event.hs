@@ -2,15 +2,10 @@
 
 module Event where
 
-import qualified Data.List as L
 import qualified Data.Map as M
 import Data.Word
-import Data.Maybe
 import Control.Monad
-import Control.Monad.State
-import Control.Applicative
 import Graphics.XHB
-import Graphics.X11.Types hiding (Connection)
 
 import Log
 import Lens
@@ -190,7 +185,7 @@ handleButtonRelease e = do
 
 
 handleKeyPress :: KeyPressEvent -> Z ()
-handleKeyPress e = do
+handleKeyPress _ = do
     toLog "KeyPressEvent"
 --     toLog $ show e
 --

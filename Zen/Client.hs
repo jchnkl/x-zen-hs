@@ -3,7 +3,6 @@
 module Client where
 
 import Data.Word
-import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import qualified Data.List as L
 import Control.Monad
@@ -20,7 +19,6 @@ import Lens
 -- import Setup
 import Types hiding (focus)
 import Queue
-import qualified Queue as Q (map)
 
 
 manage :: WindowId -> Z ()
