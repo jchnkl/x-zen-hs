@@ -23,11 +23,10 @@ import Queue
 import qualified Queue as Q (map)
 
 
-manage :: WindowId -> Geometry -> Z ()
-manage window geom = whenM (isClient <$> attributes) $ do
+manage :: WindowId -> Z ()
+manage window = whenM (isClient <$> attributes) $ do
     configure'
-    queue %:= (insert $ Client window geom $ Position 0 0)
-    -- makeClient window >>= void . flip whenJust (modifyL queue . insert)
+    queue %:= (insert $ Client window $ Position 0 0)
 
     where
     attributes :: Z (Either SomeError GetWindowAttributesReply)
@@ -53,20 +52,6 @@ manage window geom = whenM (isClient <$> attributes) $ do
 
 unmanage :: WindowId -> Z ()
 unmanage w = queue %:= remove ((w ==) . getL xid)
-
-
-makeClient :: WindowId -> Z (Maybe Client)
-makeClient window = make <$> connection $-> \c ->
-    io (getGeometry c (convertXid window) >>= getReply)
-    where
-    make (Left _) = Nothing
-    make (Right reply) =
-        let x' = fi $ x_GetGeometryReply reply
-            y' = fi $ y_GetGeometryReply reply
-            w' = fi $ width_GetGeometryReply reply
-            h' = fi $ height_GetGeometryReply reply
-            g = Geometry (Position x' y') (Dimension w' h')
-        in Just $ Client window g (Position 0 0)
 
 
 setBorderColor :: WindowId -> Word -> Z ()

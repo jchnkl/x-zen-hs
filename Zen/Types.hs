@@ -107,16 +107,12 @@ dimension = lens _dimension (\v d -> d { _dimension = v })
 
 data Client = Client
     { _xid :: WindowId
-    , _geometry :: Geometry
     , _pointer :: Position
     }
     deriving (Eq, Show)
 
 xid :: Lens Client WindowId
 xid = lens _xid (\v d -> d { _xid = v })
-
-geometry :: Lens Client Geometry
-geometry = lens _geometry (\v d -> d { _geometry = v })
 
 pointer :: Lens Client Position
 pointer = lens _pointer (\v d -> d { _pointer = v })

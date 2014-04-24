@@ -148,14 +148,7 @@ handleConfigureRequest e = do
 
 
 handleCreateNotify :: CreateNotifyEvent -> Z ()
-handleCreateNotify e = manage window g
-    where window  = window_CreateNotifyEvent e
-          x'      = fi $ x_CreateNotifyEvent e
-          y'      = fi $ y_CreateNotifyEvent e
-          width'  = fi $ width_CreateNotifyEvent e
-          height' = fi $ height_CreateNotifyEvent e
-          g       = Geometry (Position x' y') (Dimension width' height')
-    -- toLog "CreateNotifyEvent"
+handleCreateNotify = manage .  window_CreateNotifyEvent
 
 
 handleDestroyNotify :: DestroyNotifyEvent -> Z ()
