@@ -34,7 +34,7 @@ data ButtonEventHandler = ButtonEventHandler
 type ButtonHandler = Map ([ModMask], ButtonIndex) ButtonEventHandler
 
 data Config = Config
-    { _modMask :: ModMask
+    { _modMask :: [ModMask]
     , _borderWidth :: Word
     , _normalBorderColor :: Word
     , _focusedBorderColor :: Word
@@ -43,7 +43,7 @@ data Config = Config
     , _buttonHandler :: ButtonHandler
     }
 
-modMask :: Lens Config ModMask
+modMask :: Lens Config [ModMask]
 modMask = lens _modMask (\v d -> d { _modMask = v })
 
 borderWidth :: Lens Config Word

@@ -44,7 +44,7 @@ getReplies = fmap replies . mapM getReply
     replies _ = Right []
 
 keysymToKeycode :: KEYSYM -> Map KEYCODE [KEYSYM] -> Maybe KEYCODE
-keysymToKeycode keysym = safeHead . M.keys . M.filter (fi keysym `elem`)
+keysymToKeycode keysym = safeHead . M.keys . M.filter (keysym `elem`)
 
 keycodeToKeysym :: KEYCODE -> Map KEYCODE [KEYSYM] -> [KEYSYM]
 keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode

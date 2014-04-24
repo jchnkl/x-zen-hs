@@ -98,18 +98,16 @@ configure w vs = connection $-> \c -> io $ configureWindow c w $ toValueParam vs
 
 
 grabButtons :: WindowId -> Z ()
-grabButtons window = do
-    c <- asksL connection
-    mask <- asksL (modMask <.> config)
-    pbs <- M.keys <$> asksL (buttonPressHandler <.> config)
-    rbs <- M.keys <$> asksL (buttonReleaseHandler <.> config)
-    forM_ (pbs `L.union` rbs) $ \button -> do
-        io $ grabButton c $ MkGrabButton True window events
-                                             GrabModeAsync GrabModeAsync
-                                             (convertXid xidNone) (convertXid xidNone)
-                                             button [mask]
+grabButtons window = connection $-> \c -> do
+    modmask <- asksL (modMask <.> config)
+    mapM_ (grab c modmask) =<< M.keys <$> asksL (buttonHandler <.> config)
     where
     events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
+    grab c modmask (masks, button) =
+        io $ grabButton c $ MkGrabButton True window events
+                            GrabModeAsync GrabModeAsync
+                            (convertXid xidNone) (convertXid xidNone)
+                            button (modmask ++ masks)
 
 
     -- setValue ConfigWindowY v

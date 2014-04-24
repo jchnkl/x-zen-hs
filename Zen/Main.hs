@@ -9,7 +9,7 @@ import Control.Monad.Writer
 import Control.Applicative
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
-import Graphics.X11.Types hiding (Connection)
+import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress, buttonRelease)
 
 import Log
 import Util
@@ -32,20 +32,27 @@ import Window
 
 config :: Config
 config = Config
-    { _modMask = ModMask1
+    { _modMask = [ModMask1]
     , _borderWidth = 3
     , _normalBorderColor = 0x00a0a0a0
     , _focusedBorderColor = 0x00ffce28
     , _selectionBorderColor = 0x00ff0000
 
-    , _keyPressHandler = M.fromList
-        [ (xK_a, \e -> io $ print e) ]
+    , _keyHandler = M.fromList
+        [ (([], xK_a), KeyEventHandler
+            { keyPress = io . print
+            , keyRelease = io . print
+            } )
 
-    , _keyReleaseHandler = M.fromList
-        [ (xK_a, \e -> io $ print e) ]
+        , (([ModMaskShift], xK_a), KeyEventHandler
+            { keyPress = io . print
+            , keyRelease = io . print
+            } )
+        ]
 
-    , _buttonPressHandler = M.fromList
-        [ (ButtonIndex1, \e -> do
+    , _buttonHandler = M.fromList
+        [ (([], ButtonIndex1), ButtonEventHandler
+            { buttonPress = \e -> do
                 toLog "Press ButtonIndex1"
 --                 let window = event_ButtonPressEvent e
 --                     event_x = event_x_ButtonPressEvent e
@@ -54,45 +61,48 @@ config = Config
 --                 raise window
 --                 pointer ^:= Position (fi event_x) (fi event_y)
 --                 pushHandler $ EventHandler moveWindow
+            , buttonRelease = io . print
+            }
           )
 
-        , (ButtonIndex2, \e -> do
-                toLog "Press ButtonIndex2"
---                 let window = event_ButtonPressEvent e
---                     root_x = root_x_ButtonPressEvent e
---                     root_y = root_y_ButtonPressEvent e
---                     w' = fi . width_GetGeometryReply
---                     h' = fi . height_GetGeometryReply
---                     update g = modifyClient window $ modL (dimension <.> geometry)
---                                                    $ const $ Dimension (w' g) (h' g)
---
---                 raise window
---                 -- TODO: do this with event_{x,y} and save pointer position in client
---                 pointer ^:= Position (fi root_x) (fi root_y)
---                 void $ flip whenRight update =<< io . getReply =<<
---                     withConnection (io . flip getGeometry (convertXid window))
---                 pushHandler $ EventHandler resizeWindow
-          )
+--         , (ButtonIndex2, \e -> do
+--                 toLog "Press ButtonIndex2"
+-- --                 let window = event_ButtonPressEvent e
+-- --                     root_x = root_x_ButtonPressEvent e
+-- --                     root_y = root_y_ButtonPressEvent e
+-- --                     w' = fi . width_GetGeometryReply
+-- --                     h' = fi . height_GetGeometryReply
+-- --                     update g = modifyClient window $ modL (dimension <.> geometry)
+-- --                                                    $ const $ Dimension (w' g) (h' g)
+-- --
+-- --                 raise window
+-- --                 -- TODO: do this with event_{x,y} and save pointer position in client
+-- --                 pointer ^:= Position (fi root_x) (fi root_y)
+-- --                 void $ flip whenRight update =<< io . getReply =<<
+-- --                     withConnection (io . flip getGeometry (convertXid window))
+-- --                 pushHandler $ EventHandler resizeWindow
+--           )
 
-        , (ButtonIndex3, \e -> do
-                toLog "Press ButtonIndex3"
-                -- let window = event_ButtonPressEvent e
-                -- lower window
-          )
+        -- , (ButtonIndex3, \e -> do
+        --         toLog "Press ButtonIndex3"
+        --         -- let window = event_ButtonPressEvent e
+        --         -- lower window
+        --   )
+
         ]
 
-    , _buttonReleaseHandler = M.fromList
-        [ (ButtonIndex1, const $ do
-            toLog "Release ButtonIndex1"
-            -- popHandler
-          )
-        , (ButtonIndex3, const $ do
-            toLog "Release ButtonIndex2")
-        , (ButtonIndex2, const $ do
-            toLog "Release ButtonIndex3"
-            -- popHandler
-          )
-        ]
+    -- , _buttonReleaseHandler = M.fromList
+    --     [ (ButtonIndex1, const $ do
+    --         toLog "Release ButtonIndex1"
+    --         -- popHandler
+    --       )
+    --     , (ButtonIndex3, const $ do
+    --         toLog "Release ButtonIndex2")
+    --     , (ButtonIndex2, const $ do
+    --         toLog "Release ButtonIndex3"
+    --         -- popHandler
+    --       )
+    --     ]
     }
 
 
@@ -213,14 +223,16 @@ grabKeys c conf setup = do
     --  <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
     --     mask = map fromBit $ catMaybes [numlock, capslock]
 
-    let kbdmap = setup ^. keyboardMap
-    let keysyms = M.keys (conf ^. keyPressHandler)
-            `L.union` M.keys (conf ^. keyReleaseHandler)
+    let modmask = conf ^. modMask
+        kbdmap = setup ^. keyboardMap
+        keys = M.keys (conf ^. keyHandler)
+            -- `L.union` M.keys (conf ^. keyReleaseHandler)
 
-    forM_ keysyms $ \keysym -> do
+    forM_ keys $ \(mask, keysym) -> do
         whenJust (keysymToKeycode (fi keysym) kbdmap) $ \keycode ->
-            io $ grabKey c $ MkGrabKey True (getRoot c) [ModMaskAny] keycode
-                                           GrabModeAsync GrabModeAsync
+            io $ grabKey c $ MkGrabKey True (getRoot c)
+                                       (mask ++ modmask) keycode
+                                       GrabModeAsync GrabModeAsync
 
     -- rks <- M.keys <$> getsL (buttonReleaseHandler <.> config)
     -- forM_ (pbs `L.union` rbs) $ \button -> do

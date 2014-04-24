@@ -167,46 +167,62 @@ handleLeaveNotify e = when (not isInferior) $ focus (event_LeaveNotifyEvent e)
     --     NotifyDetailInferior -> return False
     --     _ -> withClient (event_LeaveNotifyEvent e) unfocus >> return True
 
+
+cleanMask :: [KeyButMask] -> Z [ModMask]
+cleanMask mask = do
+    kbdmap <- asksL $ keyboardMap
+    modmap <- asksL $ modifierMap
+    let keycodes = catMaybes [ keysymToKeycode (fi xK_Num_Lock) kbdmap
+                             , keysymToKeycode (fi xK_Caps_Lock) kbdmap
+                             ]
+        modifier = catMaybes $ map (flip keycodeToModifier modmap) $ keycodes
+    return $ map (fromBit . toBit) mask \\ map (fromBit . toValue) modifier
+
+
 handleButtonPress :: ButtonPressEvent -> Z ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
-    mask <- asksL (modMask <.> config)
-    when (toBit mask `notElem` map toBit (state_ButtonPressEvent e)) $ do
-        fs <- asksL (buttonPressHandler <.> config)
-        void $ whenJust (M.lookup (fromValue $ detail_ButtonPressEvent e) fs) $ \f -> f e
+    modmask <- asksL (modMask <.> config)
+    when (null $ modmask \\ mask) $ buttonHandler <.> config $->
+        runHandler . M.lookup (mask \\ modmask, button)
+
+    where
+    mask = map (fromBit . toBit) $ state_ButtonPressEvent e
+    button = fromValue $ detail_ButtonPressEvent e
+    runHandler Nothing = return ()
+    runHandler (Just (ButtonEventHandler pf _)) = pf e
 
 
 handleButtonRelease :: ButtonReleaseEvent -> Z ()
 handleButtonRelease e = do
     toLog "ButtonReleaseEvent"
-    mask <- asksL (modMask <.> config)
-    when (toBit mask `notElem` map toBit (state_ButtonReleaseEvent e)) $ do
-        fs <- asksL (buttonReleaseHandler <.> config)
-        void $ whenJust (M.lookup (fromValue $ detail_ButtonReleaseEvent e) fs) $ \f -> f e
+    modmask <- asksL (modMask <.> config)
+    when (null $ modmask \\ mask) $ buttonHandler <.> config $->
+        runHandler . M.lookup (mask \\ modmask, button)
+        -- asksL (buttonHandler <.> config) >>= runHandler . M.lookup (mask, button)
+
+    where
+    mask = map (fromBit . toBit) $ state_ButtonReleaseEvent e
+    button = fromValue $ detail_ButtonReleaseEvent e
+    runHandler Nothing = return ()
+    runHandler (Just (ButtonEventHandler _ rf)) = rf e
 
 
 handleKeyPress :: KeyPressEvent -> Z ()
 handleKeyPress e = do
-    toLog "ButtonReleaseEvent"
+    toLog "KeyPressEvent"
 
-    bindings <- asksL $ keyPressHandler <.> config
-    keysyms <- keycodeToKeysym (detail_KeyPressEvent e) <$> asksL keyboardMap
-    forM_ keysyms $ \ks -> whenJust (M.lookup (fi ks) bindings) $ \h -> h e
+    modmask <- asksL (modMask <.> config)
+    when (null $ modmask \\ mask) $ do
+        keysyms <- keycodeToKeysym key <$> asksL keyboardMap
+        forM_ keysyms $ \keysym -> keyHandler <.> config $->
+            runHandler . M.lookup (mask \\ modmask, fi keysym)
 
-    -- when (not $ null keysyms) $ do
-
-    -- return ()
-
-    -- keyPressHandler $-> mapM_ run
-
---     where
---     run 
--- type KeyPressHandler = Map KEYSYM (KeyPressEvent -> Z ())
-
-    -- mask <- asksL (modMask <.> config)
-    -- when (toBit mask `notElem` map toBit (state_ButtonReleaseEvent e)) $ do
-    --     fs <- asksL (buttonReleaseHandler <.> config)
-    --     void $ whenJust (M.lookup (fromValue $ detail_ButtonReleaseEvent e) fs) $ \f -> f e
+    where
+    mask = map (fromBit . toBit) $ state_KeyPressEvent e
+    key = detail_KeyPressEvent e
+    runHandler Nothing = return ()
+    runHandler (Just (KeyEventHandler pf _)) = pf e
 
     -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
 
@@ -217,27 +233,23 @@ handleKeyPress e = do
     --     state = state_KeyPressEvent e
 
 
-    -- when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyPressEvent e)) $ do
-    --     forM_ (map fi [xK_Tab]) $ \keysym -> do
-    --         whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-    --             io $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
-    --                                            GrabModeAsync GrabModeAsync
-
-    -- when (keysymToKeycode (fi xK_Tab) kbdmap == Just (detail_KeyPressEvent e)) $ do
-    --     if KeyButMaskShift `elem` state_KeyPressEvent e
-    --         then toLog "Focus prev!"
-    --         else toLog "Focus next!"
-
-
 
 handleKeyRelease :: KeyReleaseEvent -> Z ()
 handleKeyRelease e = do
     toLog "KeyReleaseEvent"
     toLog $ show e
 
-    bindings <- asksL $ keyReleaseHandler <.> config
-    keysyms <- keycodeToKeysym (detail_KeyReleaseEvent e) <$> asksL keyboardMap
-    forM_ keysyms $ \ks -> whenJust (M.lookup (fi ks) bindings) $ \h -> h e
+    modmask <- asksL (modMask <.> config)
+    when (null $ modmask \\ mask) $ do
+        keysyms <- keycodeToKeysym key <$> asksL keyboardMap
+        forM_ keysyms $ \keysym -> keyHandler <.> config $->
+            runHandler . M.lookup (mask \\ modmask, fi keysym)
+
+    where
+    mask = map (fromBit . toBit) $ state_KeyReleaseEvent e
+    key = detail_KeyReleaseEvent e
+    runHandler Nothing = return ()
+    runHandler (Just (KeyEventHandler _ rf)) = rf e
 
 --
 --     c <- asksL connection
