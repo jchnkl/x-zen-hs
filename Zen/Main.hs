@@ -9,6 +9,7 @@ import Control.Monad.Writer
 import Control.Applicative
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
+import Graphics.X11.Types hiding (Connection)
 
 import Log
 import Util
@@ -36,8 +37,12 @@ config = Config
     , _normalBorderColor = 0x00a0a0a0
     , _focusedBorderColor = 0x00ffce28
     , _selectionBorderColor = 0x00ff0000
-    , _keyPressHandler = M.empty
-    , _keyReleaseHandler = M.empty
+
+    , _keyPressHandler = M.fromList
+        [ (xK_a, \e -> io $ print e) ]
+
+    , _keyReleaseHandler = M.fromList
+        [ (xK_a, \e -> io $ print e) ]
 
     , _buttonPressHandler = M.fromList
         [ (ButtonIndex1, \e -> do
@@ -127,6 +132,7 @@ startup (Just c) = do
 
     let setup = Setup config c (getRoot c) kbdmap M.empty
 
+    grabKeys c config setup
 
     reply <- queryTree c (getRoot c) >>= getReply
     run setup =<< runReaderT (execStateT (execWriterT $ manage' reply) core) setup
@@ -193,7 +199,7 @@ keyboardMapping c receipt = keycodes' <$> getReply receipt
     partition n lst = take n lst : partition n (drop n lst)
 
 grabKeys :: Connection -> Config -> Setup -> IO ()
-grabKeys c config setup = do
+grabKeys c conf setup = do
     -- let min_keycode = min_keycode_Setup $ connectionSetup c
     --     max_keycode = max_keycode_Setup $ connectionSetup c
 
@@ -208,11 +214,11 @@ grabKeys c config setup = do
     --     mask = map fromBit $ catMaybes [numlock, capslock]
 
     let kbdmap = setup ^. keyboardMap
-    let keysyms = M.keys (config ^. keyPressHandler)
-            `L.union` M.keys (config ^. keyReleaseHandler)
+    let keysyms = M.keys (conf ^. keyPressHandler)
+            `L.union` M.keys (conf ^. keyReleaseHandler)
 
     forM_ keysyms $ \keysym -> do
-        whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
+        whenJust (keysymToKeycode (fi keysym) kbdmap) $ \keycode ->
             io $ grabKey c $ MkGrabKey True (getRoot c) [ModMaskAny] keycode
                                            GrabModeAsync GrabModeAsync
 
@@ -234,21 +240,3 @@ grabKeys c config setup = do
 --                  (keycodes_GetModifierMappingReply reply)
 -- -}
 
-grabButtons :: Connection -> Config -> WindowId -> Z ()
-grabButtons c config window = do
-    -- c <- asksL connection
-    -- mask <- getsL (modMask <.> config)
-    -- pbs <- M.keys <$> getsL (buttonPressHandler <.> config)
-    -- rbs <- M.keys <$> getsL (buttonReleaseHandler <.> config)
-
-    let mask = config ^. modMask
-        buttons = M.keys (config ^. buttonPressHandler)
-            `L.union` M.keys (config ^. buttonReleaseHandler)
-
-    forM_ buttons $ \button -> do
-        io $ grabButton c $ MkGrabButton True window events
-                                             GrabModeAsync GrabModeAsync
-                                             (convertXid xidNone) (convertXid xidNone)
-                                             button [mask]
-    where
-    events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]

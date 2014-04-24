@@ -13,13 +13,14 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Graphics.XHB hiding (Setup)
+import Graphics.X11.Types (KeySym)
 
 import Lens
 
 data EventHandler b = forall a . Event a => EventHandler (a -> b)
 
-type KeyPressHandler = Map KEYSYM (KeyPressEvent -> Z ())
-type KeyReleaseHandler = Map KEYSYM (KeyReleaseEvent -> Z ())
+type KeyPressHandler = Map KeySym (KeyPressEvent -> Z ())
+type KeyReleaseHandler = Map KeySym (KeyReleaseEvent -> Z ())
 
 type ButtonPressHandler = Map ButtonIndex (ButtonPressEvent -> Z ())
 type ButtonReleaseHandler = Map ButtonIndex (ButtonReleaseEvent -> Z ())

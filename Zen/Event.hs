@@ -191,7 +191,7 @@ handleKeyPress e = do
 
     bindings <- asksL $ keyPressHandler <.> config
     keysyms <- keycodeToKeysym (detail_KeyPressEvent e) <$> asksL keyboardMap
-    forM_ keysyms $ \keysym -> whenJust (M.lookup keysym bindings) $ \h -> h e
+    forM_ keysyms $ \ks -> whenJust (M.lookup (fi ks) bindings) $ \h -> h e
 
     -- when (not $ null keysyms) $ do
 
@@ -237,7 +237,7 @@ handleKeyRelease e = do
 
     bindings <- asksL $ keyReleaseHandler <.> config
     keysyms <- keycodeToKeysym (detail_KeyReleaseEvent e) <$> asksL keyboardMap
-    forM_ keysyms $ \keysym -> whenJust (M.lookup keysym bindings) $ \h -> h e
+    forM_ keysyms $ \ks -> whenJust (M.lookup (fi ks) bindings) $ \h -> h e
 
 --
 --     c <- asksL connection
