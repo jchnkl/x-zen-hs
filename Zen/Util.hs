@@ -39,6 +39,3 @@ getReplies = fmap replies . mapM getReply
     replies (Right reply : receipts) = replies receipts >>= Right . (reply :)
     replies (Left e : _) = Left e
     replies _ = Right []
-
-toLog :: String -> Z ()
-toLog s = tell [s]
