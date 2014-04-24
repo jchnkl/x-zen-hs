@@ -19,11 +19,19 @@ import Lens
 
 data EventHandler b = forall a . Event a => EventHandler (a -> b)
 
-type KeyPressHandler = Map KeySym (KeyPressEvent -> Z ())
-type KeyReleaseHandler = Map KeySym (KeyReleaseEvent -> Z ())
+data KeyEventHandler = KeyEventHandler
+    { keyPress :: KeyPressEvent -> Z ()
+    , keyRelease :: KeyReleaseEvent -> Z ()
+    }
 
-type ButtonPressHandler = Map ButtonIndex (ButtonPressEvent -> Z ())
-type ButtonReleaseHandler = Map ButtonIndex (ButtonReleaseEvent -> Z ())
+type KeyHandler = Map ([ModMask], KeySym) KeyEventHandler
+
+data ButtonEventHandler = ButtonEventHandler
+    { buttonPress :: ButtonPressEvent -> Z ()
+    , buttonRelease :: ButtonReleaseEvent -> Z ()
+    }
+
+type ButtonHandler = Map ([ModMask], ButtonIndex) ButtonEventHandler
 
 data Config = Config
     { _modMask :: ModMask
@@ -31,10 +39,8 @@ data Config = Config
     , _normalBorderColor :: Word
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
-    , _keyPressHandler :: KeyPressHandler
-    , _keyReleaseHandler :: KeyReleaseHandler
-    , _buttonPressHandler :: ButtonPressHandler
-    , _buttonReleaseHandler :: ButtonReleaseHandler
+    , _keyHandler :: KeyHandler
+    , _buttonHandler :: ButtonHandler
     }
 
 modMask :: Lens Config ModMask
@@ -52,17 +58,11 @@ focusedBorderColor = lens _focusedBorderColor (\v d -> d { _focusedBorderColor =
 selectionBorderColor :: Lens Config Word
 selectionBorderColor = lens _selectionBorderColor (\v d -> d { _selectionBorderColor = v })
 
-keyPressHandler :: Lens Config KeyPressHandler
-keyPressHandler = lens _keyPressHandler (\v d -> d { _keyPressHandler = v })
+keyHandler :: Lens Config KeyHandler
+keyHandler = lens _keyHandler (\v d -> d { _keyHandler = v })
 
-keyReleaseHandler :: Lens Config KeyReleaseHandler
-keyReleaseHandler = lens _keyReleaseHandler (\v d -> d { _keyReleaseHandler = v })
-
-buttonPressHandler :: Lens Config ButtonPressHandler
-buttonPressHandler = lens _buttonPressHandler (\v d -> d { _buttonPressHandler = v })
-
-buttonReleaseHandler :: Lens Config ButtonReleaseHandler
-buttonReleaseHandler = lens _buttonReleaseHandler (\v d -> d { _buttonReleaseHandler = v })
+buttonHandler :: Lens Config ButtonHandler
+buttonHandler = lens _buttonHandler (\v d -> d { _buttonHandler = v })
 
 
 type WindowId = WINDOW
