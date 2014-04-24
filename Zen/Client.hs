@@ -3,23 +3,31 @@
 module Client where
 
 import Data.Word
--- import Data.Maybe
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import qualified Data.List as L
 import Control.Monad
-import Control.Monad.State
+-- import Control.Monad.State
 import Control.Applicative
 import Graphics.XHB
-import Graphics.X11.Types hiding (Connection)
+-- import Graphics.X11.Types hiding (Connection)
 
+-- import Log
 import Util
-import Types
+import Lens
+-- import Core
+-- import Config
+-- import Setup
+import Types hiding (focus)
+import Queue
+import qualified Queue as Q (map)
 
 
 manage :: WindowId -> Geometry -> Z ()
 manage window geom = whenM (isClient <$> attributes) $ do
     configure'
     queue %:= (insert $ Client window geom $ Position 0 0)
+    -- makeClient window >>= void . flip whenJust (modifyL queue . insert)
 
     where
     attributes :: Z (Either SomeError GetWindowAttributesReply)
@@ -90,19 +98,20 @@ unfocus window = do
 
 
 configure :: WindowId -> [(ConfigWindow, Word32)] -> Z ()
-configure w vs = configure' w vs vs
-    where
-    configure' window vps' ((m, v):vps) = do
-        queue %:= with ((== window) . getL xid) (setValue m v)
-        configure' window vps' vps
-    configure' window vps' _ = do
-        connection $-> \c -> io $ configureWindow c window $ toValueParam vps'
+configure w vs = connection $-> \c -> io $ configureWindow c w $ toValueParam vs
+-- configure w vs = configure' w vs vs
+--     where
+--     configure' window vps' ((m, v):vps) = do
+--         queue %:= with ((== window) . getL xid) (setValue m v)
+--         configure' window vps' vps
+--     configure' window vps' _ = do
+--         connection $-> \c -> io $ configureWindow c window $ toValueParam vps'
 
-    setValue ConfigWindowX v      = x <.> position <.> geometry ^= fi v
-    setValue ConfigWindowY v      = y <.> position <.> geometry ^= fi v
-    setValue ConfigWindowWidth v  = width <.> dimension <.> geometry ^= fi v
-    setValue ConfigWindowHeight v = height <.> dimension <.> geometry ^= fi v
-    setValue _ _                  = id
+    -- setValue ConfigWindowX v      = x <.> position <.> geometry ^= fi v
+    -- setValue ConfigWindowY v      = y <.> position <.> geometry ^= fi v
+    -- setValue ConfigWindowWidth v  = width <.> dimension <.> geometry ^= fi v
+    -- setValue ConfigWindowHeight v = height <.> dimension <.> geometry ^= fi v
+    -- setValue _ _                  = id
 
 
 grabButtons :: WindowId -> Z ()
@@ -120,6 +129,49 @@ grabButtons window = do
     events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
 
 
+    -- setValue ConfigWindowY v
+    -- setValue ConfigWindowWidth v
+    -- setValue ConfigWindowHeight v
+
+-- configure window p d = queue %:= Q.map configure
+--     where
+--     configure :: Client -> Client
+--     configure client
+--         | client ^. xid == window = setClientGeometry p d client
+--         | otherwise =  client
+
+
+-- configureGeometry :: WindowId -> Maybe Position -> Maybe Dimension -> Z ()
+-- configureGeometry window p d = queue %:= Q.map configure'
+--     where
+--     configure' :: Client -> Client
+--     configure' client
+--         | client ^. xid == window = setClientGeometry p d client
+--         | otherwise =  client
+
+
+-- setClientGeometry :: Maybe Position -> Maybe Dimension -> Client -> Client
+-- setClientGeometry pos dim client = (geometry ^= (Geometry pos' dim')) client
+--     where
+--     pos' = fromMaybe (client ^. position <.> geometry) pos
+--     dim' = fromMaybe (client ^. dimension <.> geometry) dim
+
+
+
+-- modifyBy :: (Client -> Bool) -> (Client -> Client) -> Client -> Client
+-- modifyBy p f client = if p client then f client else client
+
+
+
+-- modify :: (Client -> Bool) -> (Client -> Client) -> [Client] -> [Client]
+-- modify pred f (c:cs)
+--     | pred c = f c : cs
+--     | otherwise = c : modifyClient pred f cs
+-- modify _ _ _ = []
+
+
+
+{-
 -- setClientPosition :: Client -> Position -> Client
 -- setClientPosition client = undefined -- client ^. geometry ^. position ^=
 
@@ -294,3 +346,4 @@ grabKeys = do
     getModmap (Right reply) =
         subLists (fi $ keycodes_per_modifier_GetModifierMappingReply reply)
                  (keycodes_GetModifierMappingReply reply)
+-}
