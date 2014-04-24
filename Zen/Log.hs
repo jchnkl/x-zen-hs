@@ -3,11 +3,9 @@
 module Log where
 
 import Control.Monad.Writer
+import Types
 
-type LogWT = WriterT [String]
 
-showLog :: [String] -> String
-showLog = ("\n" ++) . unlines . map ("\t" ++)
+toLog :: Monad m => String -> LogWT m ()
+toLog s = tell [s]
 
-runLog :: Monad m => LogWT m () -> m [String]
-runLog = execWriterT
