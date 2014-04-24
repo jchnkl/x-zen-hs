@@ -2,6 +2,9 @@
 
 module Util where
 
+import Data.Maybe (fromMaybe)
+import Data.Map (Map)
+import qualified Data.Map as M
 import Control.Monad.Writer
 import Graphics.XHB
 
@@ -39,3 +42,9 @@ getReplies = fmap replies . mapM getReply
     replies (Right reply : receipts) = replies receipts >>= Right . (reply :)
     replies (Left e : _) = Left e
     replies _ = Right []
+
+keysymToKeycode :: KEYSYM -> Map KEYCODE [KEYSYM] -> Maybe KEYCODE
+keysymToKeycode keysym = safeHead . M.keys . M.filter (fi keysym `elem`)
+
+keycodeToKeysym :: KEYCODE -> Map KEYCODE [KEYSYM] -> [KEYSYM]
+keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode

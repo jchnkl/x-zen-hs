@@ -202,9 +202,6 @@ keyboardMapping c receipt = keycodes' <$> getReply receipt
     partition _ [] = []
     partition n lst = take n lst : partition n (drop n lst)
 
-keysymToKeycode :: KEYSYM -> Map KEYCODE [KEYSYM] -> Maybe KEYCODE
-keysymToKeycode keysym = safeHead . M.keys . M.filter (fi keysym `elem`)
-
 grabKeys :: Connection -> Config -> Setup -> IO ()
 grabKeys c config setup = do
     -- let min_keycode = min_keycode_Setup $ connectionSetup c

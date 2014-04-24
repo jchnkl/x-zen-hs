@@ -5,6 +5,7 @@ module Event where
 import qualified Data.Map as M
 import Data.Word
 import Control.Monad
+import Control.Applicative
 import Graphics.XHB
 
 import Log
@@ -185,38 +186,47 @@ handleButtonRelease e = do
 
 
 handleKeyPress :: KeyPressEvent -> Z ()
-handleKeyPress _ = do
-    toLog "KeyPressEvent"
---     toLog $ show e
---
---     c <- asksL connection
---
---     let setup = connectionSetup c
---         min_keycode = min_keycode_Setup setup
---         max_keycode = max_keycode_Setup setup
---
---     kbdmap <- io (keyboardMapping c =<<
---         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
---
---     -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
---
---     -- let numlock = flip L.elemIndex modmap
---     -- <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
---     --     capslock = flip L.elemIndex modmap
--- --     <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
---     --     state = state_KeyPressEvent e
---
---
---     when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyPressEvent e)) $ do
---         forM_ (map fi [xK_Tab]) $ \keysym -> do
---             whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
---                 io $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
---                                                GrabModeAsync GrabModeAsync
---
---     when (keysymToKeycode (fi xK_Tab) kbdmap == Just (detail_KeyPressEvent e)) $ do
---         if KeyButMaskShift `elem` state_KeyPressEvent e
---             then toLog "Focus prev!"
---             else toLog "Focus next!"
+handleKeyPress e = do
+    toLog "ButtonReleaseEvent"
+
+    bindings <- asksL $ keyPressHandler <.> config
+    keysyms <- keycodeToKeysym (detail_KeyPressEvent e) <$> asksL keyboardMap
+    forM_ keysyms $ \keysym -> whenJust (M.lookup keysym bindings) $ \h -> h e
+
+    -- when (not $ null keysyms) $ do
+
+    -- return ()
+
+    -- keyPressHandler $-> mapM_ run
+
+--     where
+--     run 
+-- type KeyPressHandler = Map KEYSYM (KeyPressEvent -> Z ())
+
+    -- mask <- asksL (modMask <.> config)
+    -- when (toBit mask `notElem` map toBit (state_ButtonReleaseEvent e)) $ do
+    --     fs <- asksL (buttonReleaseHandler <.> config)
+    --     void $ whenJust (M.lookup (fromValue $ detail_ButtonReleaseEvent e) fs) $ \f -> f e
+
+    -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
+
+    -- let numlock = flip L.elemIndex modmap
+    -- <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     capslock = flip L.elemIndex modmap
+--     <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
+    --     state = state_KeyPressEvent e
+
+
+    -- when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyPressEvent e)) $ do
+    --     forM_ (map fi [xK_Tab]) $ \keysym -> do
+    --         whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
+    --             io $ grabKey c $ MkGrabKey True (getRoot c) [ModMask1] keycode
+    --                                            GrabModeAsync GrabModeAsync
+
+    -- when (keysymToKeycode (fi xK_Tab) kbdmap == Just (detail_KeyPressEvent e)) $ do
+    --     if KeyButMaskShift `elem` state_KeyPressEvent e
+    --         then toLog "Focus prev!"
+    --         else toLog "Focus next!"
 
 
 
@@ -224,6 +234,11 @@ handleKeyRelease :: KeyReleaseEvent -> Z ()
 handleKeyRelease e = do
     toLog "KeyReleaseEvent"
     toLog $ show e
+
+    bindings <- asksL $ keyReleaseHandler <.> config
+    keysyms <- keycodeToKeysym (detail_KeyReleaseEvent e) <$> asksL keyboardMap
+    forM_ keysyms $ \keysym -> whenJust (M.lookup keysym bindings) $ \h -> h e
+
 --
 --     c <- asksL connection
 --
