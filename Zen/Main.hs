@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
+import Data.Maybe (catMaybes)
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.List as L
@@ -172,32 +173,6 @@ makeSetup c = do
     modmap <- modifierMapping =<< getModifierMapping c
     return $ Setup config c (getRoot c) kbdmap modmap
 
-        -- time <- fmap show $ io getZonedTime
-        -- io . putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++)
---             =<< execWriterT (io (waitForEvent c) >>= dispatch)
---
---     c <- asksL connection
---
---     let mask = CWEventMask
---         values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify]
---         valueparam = toValueParam [(mask, values)]
---     io $ changeWindowAttributes c (getRoot c) valueparam
---
---     void $ execWriterT $ do
---         C.grabKeys
---         withRoot (io . queryTree c) >>= lift . io . getReply >>= manage
---
---     -- Main loop
---     forever $ do
---         time <- fmap show $ io getZonedTime
---         io . putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++)
---             =<< execWriterT (io (waitForEvent c) >>= dispatch)
---
---     where
---     manage (Left _) = return ()
---     manage (Right tree) = do
---         mapM_ C.grabButtons (children_QueryTreeReply tree)
---         mapM_ C.insertWindow (children_QueryTreeReply tree)
 
 -- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
 -- http://cgit.freedesktop.org/~arnau/xcb-util/tree/keysyms/keysyms.c
@@ -214,51 +189,30 @@ keyboardMapping c receipt = keycodes' <$> getReply receipt
             keysyms = partition ks_per_kc $ keysyms_GetKeyboardMappingReply reply
         in M.fromList $ zip [min_keycode ..] keysyms
 
-    partition :: Int -> [a] -> [[a]]
-    partition _ [] = []
-    partition n lst = take n lst : partition n (drop n lst)
+
+modifierMapping :: Receipt GetModifierMappingReply -> IO (Map MapIndex [KEYCODE])
+modifierMapping receipt = indices <$> getReply receipt
+    where
+    indices (Left _) = M.empty
+    indices (Right reply) =
+        let kc_per_mod = fi $ keycodes_per_modifier_GetModifierMappingReply reply
+            modifier = partition kc_per_mod $ keycodes_GetModifierMappingReply reply
+        in M.fromList $ zip [MapIndexShift ..] modifier
+
 
 grabKeys :: Connection -> Config -> Setup -> IO ()
 grabKeys c conf setup = do
-    -- let min_keycode = min_keycode_Setup $ connectionSetup c
-    --     max_keycode = max_keycode_Setup $ connectionSetup c
-
-    -- config ^. keyPressHandler
-    -- config ^. keyReleaseHandler
-
-
-    -- let numlock = join $ flip L.elemIndex modmap
-    --  <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
-    --     capslock = join $ flip L.elemIndex modmap
-    --  <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
-    --     mask = map fromBit $ catMaybes [numlock, capslock]
-
     let modmask = conf ^. modMask
         kbdmap = setup ^. keyboardMap
+        modmap = setup ^. modifierMap
         keys = M.keys (conf ^. keyHandler)
-            -- `L.union` M.keys (conf ^. keyReleaseHandler)
+        nl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
+        cl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+        grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
+                                                     mask keycode
+                                                     GrabModeAsync GrabModeAsync
 
-    forM_ keys $ \(mask, keysym) -> do
-        whenJust (keysymToKeycode (fi keysym) kbdmap) $ \keycode ->
-            io $ grabKey c $ MkGrabKey True (getRoot c)
-                                       (mask ++ modmask) keycode
-                                       GrabModeAsync GrabModeAsync
-
-    -- rks <- M.keys <$> getsL (buttonReleaseHandler <.> config)
-    -- forM_ (pbs `L.union` rbs) $ \button -> do
-
-    -- kbdmap <- io (keyboardMapping c =<<
-    --     getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
-
-    -- forM_ (map fi [xK_Alt_L]) $ \keysym -> do
-    --     whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
-    --         io $ grabKey c $ MkGrabKey True (getRoot c) [ModMaskAny] keycode
-    --                                        GrabModeAsync GrabModeAsync
-
---     where
---     getModmap (Left _) = []
---     getModmap (Right reply) =
---         subLists (fi $ keycodes_per_modifier_GetModifierMappingReply reply)
---                  (keycodes_GetModifierMappingReply reply)
--- -}
-
+    forM_ keys $ \(mask, keysym) ->
+        whenJust (keysymToKeycode (fi keysym) kbdmap) $
+            mapM_ grab . combos (modmask ++ mask)
