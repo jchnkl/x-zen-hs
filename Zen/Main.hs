@@ -117,6 +117,8 @@ core = Core
         , EventHandler handleDestroyNotify
         , EventHandler handleEnterNotify
         , EventHandler handleLeaveNotify
+        , EventHandler handleFocusIn
+        , EventHandler handleFocusOut
         , EventHandler handleButtonPress
         , EventHandler handleButtonRelease
         , EventHandler handleKeyPress

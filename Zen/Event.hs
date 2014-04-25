@@ -247,6 +247,12 @@ handleKeyRelease e = do
     runHandler (Just (KeyEventHandler _ rf)) = rf e
 
 
+handleFocusIn :: FocusInEvent -> Z ()
+handleFocusIn = toLog . show
+
+handleFocusOut :: FocusOutEvent -> Z ()
+handleFocusOut = toLog . show
+
 {-
 
 
