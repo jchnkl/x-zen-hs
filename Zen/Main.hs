@@ -137,6 +137,7 @@ startup (Just c) = do
     changeWindowAttributes c (getRoot c) valueparam
 
     setup <- makeSetup c
+    -- TODO: ungrab / regrab keys for MappingNotifyEvent
     grabKeys c config setup
 
     run setup
@@ -212,6 +213,8 @@ grabKeys c conf setup = do
         grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
                                                      mask keycode
                                                      GrabModeAsync GrabModeAsync
+
+    ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
 
     forM_ keys $ \(mask, keysym) ->
         whenJust (keysymToKeycode (fi keysym) kbdmap) $
