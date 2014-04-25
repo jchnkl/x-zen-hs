@@ -43,6 +43,10 @@ getReplies = fmap replies . mapM getReply
     replies (Left e : _) = Left e
     replies _ = Right []
 
+partition :: Int -> [a] -> [[a]]
+partition _ [] = []
+partition n lst = take n lst : partition n (drop n lst)
+
 keysymToKeycode :: KEYSYM -> Map KEYCODE [KEYSYM] -> Maybe KEYCODE
 keysymToKeycode keysym = safeHead . M.keys . M.filter (keysym `elem`)
 
@@ -51,3 +55,8 @@ keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode
 
 keycodeToModifier :: KEYCODE -> Map MapIndex [KEYCODE] -> Maybe MapIndex
 keycodeToModifier keycode = safeHead . M.keys . M.filter (keycode `elem`)
+
+keysymToModifier :: KEYSYM -> Map KEYCODE [KEYSYM] -> Map MapIndex [KEYCODE]
+                 -> Maybe MapIndex
+keysymToModifier keysym kbdmap modmap =
+    keysymToKeycode keysym kbdmap >>= flip keycodeToModifier modmap
