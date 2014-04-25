@@ -8,18 +8,18 @@ module Lens
     , (<.>)
     , (^.)
     , (^=)
-    , modL
-    , withL
-    , asksL
-    , getsL
-    , putsL
+    , convert
+    , mutate
+    , askL
+    , getL
+    , putL
     , (^:=)
     , modifyL
     , (%:=)
-    , getWithL
+    , getsL
     , ($*>)
     , (<*$)
-    , askWithL
+    , asksL
     , ($->)
     , (<-$)
     ) where
@@ -37,13 +37,13 @@ import Control.Monad.Reader
 
 -- | Simple Lens
 data Lens a b = Lens
-    { getL :: a -> b -- ^ getter
-    , setL :: b -> a -> a -- ^ setter
+    { inspect :: a -> b -- ^ getter
+    , adjust :: b -> a -> a -- ^ setter
     }
 
 instance Category Lens where
     -- (.) :: C b c -> C a b -> C a c
-    (.) l r = Lens (getL l . getL r) (\a c -> setL r (setL l a (getL r c)) c)
+    (.) l r = Lens (inspect l . inspect r) (\a c -> adjust r (adjust l a (inspect r c)) c)
     -- id :: C a a
     id = Lens id const
 
@@ -56,79 +56,81 @@ lens = Lens
 (<.>) = (.)
 infixr 9 <.>
 
--- | Infix getter. flip getL
+-- | Infix getter. flip inspect
 (^.) :: a -> Lens a b -> b
-(^.) = flip getL
+(^.) = flip inspect
 infixl 8 ^.
 
--- | Infix setter. setL
+-- | Infix setter. adjust
 (^=) :: Lens a b -> b -> a -> a
-(^=) = setL
+(^=) = adjust
 infix 8 ^=
 
+-- | inspect with a projection function
+convert :: Lens a b -> (b -> c) -> a -> c
+convert l f = f . (inspect l)
+
 -- | Functional modifier through a Lens
-modL :: Lens a b -> (b -> b) -> a -> a
-modL l f v = setL l (f $ getL l v) v
-
--- | Helper function to avoid functions like withThis, withThat, etc.
-withL :: Lens a b -> a -> (b -> c) -> c
-withL l v f = f (getL l v)
-
+mutate :: Lens a b -> (b -> b) -> a -> a
+mutate l f v = adjust l (f $ inspect l v) v
 
 -- | Monadic variants
 -- get for Lenses makes no sense, only zooming in with gets is supported
 -- Named after monadic functions with an L suffix
 
--- | asks for Lenses
-asksL :: (MonadReader a m, Monad m) => Lens a b -> m b
-asksL l = liftM (getL l) ask
+-- | ask for Lenses
+askL :: (MonadReader a m, Monad m) => Lens a b -> m b
+askL l = liftM (inspect l) ask
 
--- | gets for Lenses
-getsL :: (MonadState a m, Monad m) => Lens a b -> m b
-getsL l = liftM (getL l) get
+-- | get for Lenses
+getL :: (MonadState a m, Monad m) => Lens a b -> m b
+getL l = liftM (inspect l) get
 
--- | put for Lenses
-putsL :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
-putsL l v = get >>= put . setL l v
+-- | adjust for Lenses
+putL :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
+putL l v = get >>= put . adjust l v
 
--- | infix putsL
+-- | infix putL
 (^:=) :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
-l ^:= v = putsL l v
+l ^:= v = putL l v
 infix 1 ^:=
 
--- | modify for Lenses
-modifyL :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
-modifyL l f = get >>= put . modL l f
 
--- | infix modify
+-- | mutate for Lenses
+modifyL :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
+modifyL l f = get >>= put . mutate l f
+
+-- | infix modifyL
 (%:=) :: (MonadState a m, Monad m) => Lens a b -> (b -> b) -> m ()
 l %:= f = modifyL l f
 infix 1 %:=
 
--- | @withL@ for @MonadState@
-getWithL :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
-getWithL l f = gets (getL l) >>= f
 
--- | infix getWithL from left
+-- | @convert@ for @MonadState@
+getsL :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
+getsL l f = gets (inspect l) >>= f
+
+-- | infix getsL from left
 ($*>) :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
-($*>) = getWithL
+($*>) = getsL
 infixl 8 $*>
 
--- | infix getWithL
+-- | infix getsL
 (<*$) :: (Monad m, MonadState a m) => (b -> m c) -> Lens a b -> m c
-(<*$) = flip getWithL
+(<*$) = flip getsL
 infixr 8 <*$
 
--- | @withL@ for @MonadReader@
-askWithL :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
-askWithL l f = asks (getL l) >>= f
 
--- | infix askWithL from left
+-- | @convert@ for @MonadReader@
+asksL :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
+asksL l f = asks (inspect l) >>= f
+
+-- | infix asksL from left
 ($->) :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
-($->) = askWithL
+($->) = asksL
 infixl 8 $->
 
--- | infix askWithL from right
+-- | infix asksL from right
 (<-$) :: (Monad m, MonadReader a m) => (b -> m c) -> Lens a b -> m c
-(<-$) = flip askWithL
+(<-$) = flip asksL
 infixr 8 <-$
