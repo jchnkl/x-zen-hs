@@ -109,7 +109,7 @@ config = Config
 
 core :: Core
 core = Core
-    { _queue = Queue [] Nothing []
+    { _queue = M.empty
     , _eventHandler =
         [ EventHandler handleMapRequest
         , EventHandler handleConfigureRequest

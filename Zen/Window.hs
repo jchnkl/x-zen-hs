@@ -49,7 +49,7 @@ manage window = whenM (isClient <$> attributes) $ do
 
 
 unmanage :: WindowId -> Z ()
-unmanage w = queue %:= remove ((w ==) . getL xid)
+unmanage w = queue %:= remove w
 
 
 setBorderColor :: WindowId -> Word -> Z ()

@@ -119,20 +119,7 @@ pointer :: Lens Client Position
 pointer = lens _pointer (\v d -> d { _pointer = v })
 
 
-data Queue = Queue
-    { _above :: [Client]
-    , _focus :: Maybe Client
-    , _below :: [Client]
-    }
-
-above :: Lens Queue [Client]
-above = lens _above (\v d -> d { _above = v })
-
-focus :: Lens Queue (Maybe Client)
-focus = lens _focus (\v d -> d { _focus = v })
-
-below :: Lens Queue [Client]
-below = lens _below (\v d -> d { _below = v })
+type Queue = Map WindowId Client
 
 
 data Core = Core
