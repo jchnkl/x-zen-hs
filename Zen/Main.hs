@@ -130,37 +130,47 @@ main = connect >>= startup
 startup :: Maybe Connection -> IO ()
 startup Nothing = print "Got no connection!"
 startup (Just c) = do
-    -- ugly :/
     let mask = CWEventMask
         values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify]
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
-    let min_keycode = min_keycode_Setup $ connectionSetup c
-        max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
-    kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
-
-    let setup = Setup config c (getRoot c) kbdmap M.empty
-
+    setup <- makeSetup c
     grabKeys c config setup
 
-    reply <- queryTree c (getRoot c) >>= getReply
-    run setup =<< runReaderT (execStateT (execWriterT $ manage' reply) core) setup
+    run setup
+        =<< execCore setup core . mapM_ manage
+            =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
     where
     run :: Setup -> Core -> IO ()
     run setup core' = do
-        (logstr, core'') <- runReaderT (runStateT (execWriterT runCore) core') setup
+        (logstr, core'') <- runCore setup core' runZ
         time <- getZonedTime
         putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ logstr
         run setup core''
 
-    runCore :: Z ()
-    runCore = connection $-> io . waitForEvent >>= dispatch
+    runZ :: Z ()
+    runZ = connection $-> io . waitForEvent >>= dispatch
 
-    manage' :: Either SomeError QueryTreeReply -> Z ()
-    manage' (Left _) = return ()
-    manage' (Right reply) = mapM_ manage $ children_QueryTreeReply reply
+    runCore :: Setup -> Core -> Z () -> IO ([String], Core)
+    runCore setup core z = runReaderT (runStateT (execWriterT z) core) setup
+
+    execCore :: Setup -> Core -> Z () -> IO Core
+    execCore setup core z = runReaderT (execStateT (execWriterT z) core) setup
+
+    children :: Either SomeError QueryTreeReply -> [WindowId]
+    children (Left _) = []
+    children (Right reply) = children_QueryTreeReply reply
+
+
+makeSetup :: Connection -> IO Setup
+makeSetup c = do
+    let min_keycode = min_keycode_Setup $ connectionSetup c
+        max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
+    kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
+    modmap <- modifierMapping =<< getModifierMapping c
+    return $ Setup config c (getRoot c) kbdmap modmap
 
         -- time <- fmap show $ io getZonedTime
         -- io . putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++)
