@@ -227,14 +227,6 @@ handleKeyPress e = do
     runHandler Nothing = return ()
     runHandler (Just (KeyEventHandler pf _)) = pf e
 
-    -- modmap <- getModmap <$> io (getModifierMapping c >>= getReply)
-
-    -- let numlock = flip L.elemIndex modmap
-    -- <$> (keysymToKeycode (fi xK_Num_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
-    --     capslock = flip L.elemIndex modmap
---     <$> (keysymToKeycode (fi xK_Caps_Lock) kbdmap >>= \kc -> L.find (kc `elem`) modmap)
-    --     state = state_KeyPressEvent e
-
 
 
 handleKeyRelease :: KeyReleaseEvent -> Z ()
@@ -254,20 +246,6 @@ handleKeyRelease e = do
     runHandler Nothing = return ()
     runHandler (Just (KeyEventHandler _ rf)) = rf e
 
---
---     c <- asksL connection
---
---     let setup = connectionSetup c
---         min_keycode = min_keycode_Setup setup
---         max_keycode = max_keycode_Setup setup
---
---     kbdmap <- io (keyboardMapping c =<<
---         getKeyboardMapping c min_keycode (max_keycode - min_keycode + 1))
---
---     when (keysymToKeycode (fi xK_Alt_L) kbdmap == Just (detail_KeyReleaseEvent e)) $ do
---         forM_ (map fi [xK_Tab]) $ \keysym -> do
---             whenJust (keysymToKeycode keysym kbdmap) $ \keycode ->
---                 io $ ungrabKey c $ MkUngrabKey keycode (getRoot c) [ModMask1]
 
 {-
 
