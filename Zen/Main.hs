@@ -31,6 +31,7 @@ import Window
 
 -- IDEAS
 -- Use Mod4 with lock after timeout
+-- data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
 
 
 config :: Config
