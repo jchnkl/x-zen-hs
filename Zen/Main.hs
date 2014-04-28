@@ -105,13 +105,6 @@ config = Config
     }
 
 
-core :: Core
-core = Core
-    { _queue = M.empty
-    , _eventHandler = []
-    }
-
-
 main :: IO ()
 main = connect >>= startup
 
@@ -128,7 +121,7 @@ startup (Just c) = do
     grabKeys c config setup
 
     run setup
-        =<< execCore setup core . mapM_ manage
+        =<< execCore setup (Core M.empty []) . mapM_ manage
             =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
     where
