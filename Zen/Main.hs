@@ -64,9 +64,9 @@ config = Config
                     pos = Position (fi event_x) (fi event_y)
 
                 raise window
-                pushHandler $ EventHandler $ moveWindow $ Just pos
+                pushHandler $ moveWindow $ Just pos
 
-            , release = const $ popHandler $ EventHandler $ moveWindow Nothing
+            , release = const $ popHandler $ moveWindow Nothing
             }
           )
 
@@ -74,22 +74,20 @@ config = Config
             { press = \e -> do
                 toLog "Press ButtonIndex2"
                 let window = event_ButtonPressEvent e
-                    root_x = root_x_ButtonPressEvent e
-                    root_y = root_y_ButtonPressEvent e
-                    w' = fi . width_GetGeometryReply
-                    h' = fi . height_GetGeometryReply
-                    pos = Position (fi root_x) (fi root_y)
-                    dim g = Dimension (w' g) (h' g)
+                    root_x = fi $ root_x_ButtonPressEvent e
+                    root_y = fi $ root_y_ButtonPressEvent e
+                    geom_w = fi . width_GetGeometryReply
+                    geom_h = fi . height_GetGeometryReply
+                    handler g = resizeWindow $ Just (Position (root_x) (root_y),
+                                                     Dimension (geom_w g) (geom_h g))
 
                 raise window
 
-                reply' <- io . getReply =<<
-                    (io . flip getGeometry (convertXid window)) <-$ connection
+                connection $-> (io . flip getGeometry (convertXid window))
+                    >>= io . getReply
+                        >>= void . flip whenRight (pushHandler . handler)
 
-                void $ whenRight reply' $ \reply ->
-                    pushHandler $ EventHandler $ resizeWindow $ Just (pos, (dim reply))
-
-              , release = const $ popHandler $ EventHandler $ resizeWindow Nothing
+              , release = const $ popHandler $ resizeWindow Nothing
               }
           )
 

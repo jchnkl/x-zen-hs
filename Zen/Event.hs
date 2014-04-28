@@ -46,12 +46,12 @@ handleError Nothing = return ()
 handleError (Just se) = toLog $ "ERROR: " ++ show se
 
 
-popHandler :: EventHandler (Z ()) -> Z ()
-popHandler eh = eventHooks %:= (eh `S.delete`)
+popHandler :: Event a => (a -> Z ()) -> Z ()
+popHandler = (eventHooks %:=) . S.delete . EventHandler
 
 
-pushHandler :: EventHandler (Z ()) -> Z ()
-pushHandler eh = eventHooks %:= (S.insert eh)
+pushHandler :: Event a => (a -> Z ()) -> Z ()
+pushHandler = (eventHooks %:=) . S.insert . EventHandler
 
 
 dispatch :: SomeEvent -> Z ()
