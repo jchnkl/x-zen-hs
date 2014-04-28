@@ -7,7 +7,7 @@ import Util
 import Types -- hiding (queue) -- , focus)
 -- import qualified Types as T (focus)
 
-import LensUtil
+import Lens
 -- import Lens.Family
 -- import Lens.Family.State
 

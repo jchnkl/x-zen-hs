@@ -14,7 +14,7 @@ import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress,
 
 import Log
 import Util
-import LensUtil
+import Lens
 -- import Core
 import Types hiding (config)
 -- import Config

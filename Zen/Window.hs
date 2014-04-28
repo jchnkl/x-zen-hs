@@ -14,7 +14,7 @@ import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 -- import Log
 import Util
-import LensUtil
+import Lens
 -- import Core
 -- import Config
 -- import Setup

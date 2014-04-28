@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
-module LensUtil 
-    ( module LensUtil
+module Lens 
+    ( module Lens
     , module Lens.Family
     ) where
 

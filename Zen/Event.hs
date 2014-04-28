@@ -14,7 +14,7 @@ import Graphics.XHB
 import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 import Log
-import LensUtil
+import Lens
 import Util
 import Types -- hiding (focus)
 -- import Core
