@@ -64,7 +64,7 @@ config = Config
                 raise window
                 pushHandler $ EventHandler $ moveWindow pos
 
-            , release = \_ -> toLog "Release ButtonIndex1" >> popHandler
+            , release = const $ popHandler
             }
           )
 
