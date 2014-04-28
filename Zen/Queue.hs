@@ -4,14 +4,40 @@ import Prelude hiding (map)
 import qualified Data.Map as M
 import qualified Data.List as L
 import Util
-import Types hiding (queue) -- , focus)
+import Types -- hiding (queue) -- , focus)
 -- import qualified Types as T (focus)
+
+import LensUtil
+-- import Lens.Family
+-- import Lens.Family.State
 
 insert :: Client -> Queue -> Queue
 insert client = M.insert (client ^. xid) client
 
 remove :: WindowId -> Queue -> Queue
 remove = M.delete
+
+withClient :: WindowId -> (Client -> a) -> Queue -> Maybe a
+withClient w f = fmap f . M.lookup w
+
+-- TODO: more generic combinator?
+withClient' :: WindowId -> (Client -> Z a) -> Z (Maybe a)
+withClient' w f = queue $*> flip whenJust f . M.lookup w 
+
+-- Queue.hs|28 col 19 error| Couldn't match type `Setup' with `Core'
+-- || When using functional dependencies to combine
+-- ||   MonadReader r (ReaderT r m),
+-- ||     arising from the dependency `m -> r'
+-- ||     in the instance declaration in `Control.Monad.Reader.Class'
+-- ||   MonadReader Core (ReaderT Setup IO),
+-- ||     arising from a use of `Queue.take'
+-- ||     at /home/jrk/prj/sandbox/haskell_ffi/zen/Zen/Queue.hs:28:19-28
+-- || In the first argument of `(>>=)', namely `Queue.take queue'
+-- || In the expression:
+-- ||   Queue.take queue >>= flip whenJust f . M.lookup w
+
+modifyClient :: WindowId -> (Client -> Client) -> Queue -> Queue
+modifyClient w f = M.alter (fmap f) w
 
 -- flatten :: Queue -> [Client]
 -- flatten (Queue a Nothing b) = a ++ b

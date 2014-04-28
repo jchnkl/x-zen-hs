@@ -2,10 +2,10 @@
 
 {-# LANGUAGE ExistentialQuantification #-}
 
-module Types
-    ( module Types
-    , module Lens
-    ) where
+module Types where
+    -- ( module Types
+    -- , module Lens
+    -- ) where
 
 import Data.Word
 import Data.Map (Map)
@@ -15,22 +15,39 @@ import Control.Monad.Writer
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Types (KeySym)
 
-import Lens
+-- import Lens
+import Lens.Family
+-- import Lens.Family.State
+import Lens.Family.Unchecked
 
 data EventHandler b = forall a . Event a => EventHandler (a -> b)
 
-data KeyEventHandler = KeyEventHandler
-    { keyPress :: KeyPressEvent -> Z ()
-    , keyRelease :: KeyReleaseEvent -> Z ()
+data InputEventHandler pe re = InputHandler
+    { press   :: pe -> Z ()
+    , release :: re -> Z ()
     }
 
+-- mkInputHandler :: Maybe (pe -> Z ()) -> Maybe (re -> Z ()) -> InputEventHandler pe re
+mkInputHandler :: InputEventHandler pe re
+mkInputHandler = InputHandler (const $ return ()) (const $ return ())
+
+type KeyEventHandler = InputEventHandler KeyPressEvent KeyReleaseEvent
+type ButtonEventHandler = InputEventHandler ButtonPressEvent ButtonReleaseEvent
+
+-- data KeyEventHandler = KeyEventHandler
+--     { keyPress :: KeyPressEvent -> Z ()
+--     , keyRelease :: KeyReleaseEvent -> Z ()
+--     }
+
+-- type KeyHandler = Map ([ModMask], KeySym) KeyEventHandler
 type KeyHandler = Map ([ModMask], KeySym) KeyEventHandler
 
-data ButtonEventHandler = ButtonEventHandler
-    { buttonPress :: ButtonPressEvent -> Z ()
-    , buttonRelease :: ButtonReleaseEvent -> Z ()
-    }
+-- data ButtonEventHandler = ButtonEventHandler
+--     { buttonPress :: ButtonPressEvent -> Z ()
+--     , buttonRelease :: ButtonReleaseEvent -> Z ()
+--     }
 
+-- type ButtonHandler = Map ([ModMask], ButtonIndex) ButtonEventHandler
 type ButtonHandler = Map ([ModMask], ButtonIndex) ButtonEventHandler
 
 data Config = Config
@@ -40,29 +57,30 @@ data Config = Config
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
     , _keyHandler :: KeyHandler
+    -- , _buttonHandler :: ButtonHandler
     , _buttonHandler :: ButtonHandler
     }
 
-modMask :: Lens Config [ModMask]
-modMask = lens _modMask (\v d -> d { _modMask = v })
+modMask :: Functor f => LensLike' f Config [ModMask]
+modMask f d = (\v -> d { _modMask = v }) `fmap` (f (_modMask d))
 
-borderWidth :: Lens Config Word
-borderWidth = lens _borderWidth (\v d -> d { _borderWidth = v })
+borderWidth :: Functor f => LensLike' f Config Word
+borderWidth f d = (\v -> d { _borderWidth = v }) `fmap` (f (_borderWidth d))
 
-normalBorderColor :: Lens Config Word
-normalBorderColor = lens _normalBorderColor (\v d -> d { _normalBorderColor = v })
+normalBorderColor :: Functor f => LensLike' f Config Word
+normalBorderColor = lens _normalBorderColor (\d v -> d { _normalBorderColor = v })
 
-focusedBorderColor :: Lens Config Word
-focusedBorderColor = lens _focusedBorderColor (\v d -> d { _focusedBorderColor = v })
+focusedBorderColor :: Functor f => LensLike' f Config Word
+focusedBorderColor = lens _focusedBorderColor (\d v -> d { _focusedBorderColor = v })
 
-selectionBorderColor :: Lens Config Word
-selectionBorderColor = lens _selectionBorderColor (\v d -> d { _selectionBorderColor = v })
+selectionBorderColor :: Functor f => LensLike' f Config Word
+selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderColor = v })
 
-keyHandler :: Lens Config KeyHandler
-keyHandler = lens _keyHandler (\v d -> d { _keyHandler = v })
+keyHandler :: Functor f => LensLike' f Config KeyHandler
+keyHandler = lens _keyHandler (\d v -> d { _keyHandler = v })
 
-buttonHandler :: Lens Config ButtonHandler
-buttonHandler = lens _buttonHandler (\v d -> d { _buttonHandler = v })
+buttonHandler :: Functor f => LensLike' f Config ButtonHandler
+buttonHandler = lens _buttonHandler (\d v -> d { _buttonHandler = v })
 
 
 type WindowId = WINDOW
@@ -73,11 +91,11 @@ data Position = Position
     }
     deriving (Eq, Read, Show)
 
-x :: Lens Position Int
-x = lens _x (\v d -> d { _x = v })
+x :: Functor f => LensLike' f Position Int
+x = lens _x (\d v -> d { _x = v })
 
-y :: Lens Position Int
-y = lens _y (\v d -> d { _y = v })
+y :: Functor f => LensLike' f Position Int
+y = lens _y (\d v -> d { _y = v })
 
 
 data Dimension = Dimension
@@ -86,11 +104,11 @@ data Dimension = Dimension
     }
     deriving (Eq, Read, Show)
 
-width :: Lens Dimension Word
-width = lens _width (\v d -> d { _width = v })
+width :: Functor f => LensLike' f Dimension Word
+width = lens _width (\d v -> d { _width = v })
 
-height :: Lens Dimension Word
-height = lens _height (\v d -> d { _height = v })
+height :: Functor f => LensLike' f Dimension Word
+height = lens _height (\d v -> d { _height = v })
 
 
 data Geometry = Geometry
@@ -99,27 +117,46 @@ data Geometry = Geometry
     }
     deriving (Eq, Read, Show)
 
-position :: Lens Geometry Position
-position = lens _position (\v d -> d { _position = v })
+position :: Functor f => LensLike' f Geometry Position
+position = lens _position (\d v -> d { _position = v })
 
-dimension :: Lens Geometry Dimension
-dimension = lens _dimension (\v d -> d { _dimension = v })
+dimension :: Functor f => LensLike' f Geometry Dimension
+dimension = lens _dimension (\d v -> d { _dimension = v })
 
 
 data Client = Client
     { _xid :: WindowId
+    , _geometry :: Geometry
     , _pointer :: Position
     }
     deriving (Eq, Show)
 
-xid :: Lens Client WindowId
-xid = lens _xid (\v d -> d { _xid = v })
+xid :: Functor f => LensLike' f Client WindowId
+xid = lens _xid (\d v -> d { _xid = v })
 
-pointer :: Lens Client Position
-pointer = lens _pointer (\v d -> d { _pointer = v })
+geometry :: Functor f => LensLike' f Client Geometry
+geometry = lens _geometry (\d v -> d { _geometry = v })
+
+pointer :: Functor f => LensLike' f Client Position
+pointer = lens _pointer (\d v -> d { _pointer = v })
 
 
 type Queue = Map WindowId Client
+
+-- data Queue = Queue
+--     { _above :: [Client]
+--     , _focus :: Maybe Client
+--     , _below :: [Client]
+--     }
+
+-- above :: Lens Queue [Client]
+-- above = lens _above (\v d -> d { _above = v })
+
+-- focus :: Lens Queue (Maybe Client)
+-- focus = lens _focus (\v d -> d { _focus = v })
+
+-- below :: Lens Queue [Client]
+-- below = lens _below (\v d -> d { _below = v })
 
 
 data Core = Core
@@ -127,11 +164,11 @@ data Core = Core
     , _eventHandler :: [EventHandler (Z ())]
     }
 
-queue :: Lens Core Queue
-queue = lens _queue (\v d -> d { _queue = v })
+queue :: Functor f => LensLike' f Core Queue
+queue = lens _queue (\d v -> d { _queue = v })
 
-eventHandler :: Lens Core [EventHandler (Z ())]
-eventHandler = lens _eventHandler (\v d -> d { _eventHandler = v })
+eventHandler :: Functor f => LensLike' f Core [EventHandler (Z ())]
+eventHandler = lens _eventHandler (\d v -> d { _eventHandler = v })
 
 
 data Setup = Setup
@@ -142,20 +179,20 @@ data Setup = Setup
     , _modifierMap :: Map MapIndex [KEYCODE]
     }
 
-config :: Lens Setup Config
-config = lens _config (\v d -> d { _config = v })
+config :: Functor f => LensLike' f Setup Config
+config = lens _config (\d v -> d { _config = v })
 
-connection :: Lens Setup Connection
-connection = lens _connection (\v d -> d { _connection = v })
+connection :: Functor f => LensLike' f Setup Connection
+connection = lens _connection (\d v -> d { _connection = v })
 
-rootWindow :: Lens Setup WindowId
-rootWindow = lens _rootWindow (\v d -> d { _rootWindow = v })
+rootWindow :: Functor f => LensLike' f Setup WindowId
+rootWindow = lens _rootWindow (\d v -> d { _rootWindow = v })
 
-keyboardMap :: Lens Setup (Map KEYCODE [KEYSYM])
-keyboardMap = lens _keyboardMap (\v d -> d { _keyboardMap = v })
+keyboardMap :: Functor f => LensLike' f Setup (Map KEYCODE [KEYSYM])
+keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })
 
-modifierMap :: Lens Setup (Map MapIndex [KEYCODE])
-modifierMap = lens _modifierMap (\v d -> d { _modifierMap = v })
+modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
+modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 
 
 type LogWT = WriterT [String]

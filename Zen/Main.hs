@@ -14,11 +14,13 @@ import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress,
 
 import Log
 import Util
+import LensUtil
 -- import Core
 import Types hiding (config)
 -- import Config
 -- import Setup hiding (config)
 import Event
+import Queue
 import Window
 
 -- TODO:
@@ -40,55 +42,62 @@ config = Config
     , _selectionBorderColor = 0x00ff0000
 
     , _keyHandler = M.fromList
-        [ (([], xK_a), KeyEventHandler
-            { keyPress = io . print
-            , keyRelease = io . print
+        [ (([], xK_a), InputHandler
+            { press = io . print
+            , release = io . print
             } )
 
-        , (([ModMaskShift], xK_a), KeyEventHandler
-            { keyPress = io . print
-            , keyRelease = io . print
+        , (([ModMaskShift], xK_a), InputHandler
+            { press = io . print
+            , release = io . print
             } )
         ]
 
     , _buttonHandler = M.fromList
-        [ (([], ButtonIndex1), ButtonEventHandler
-            { buttonPress = \e -> do
+        [ (([], ButtonIndex1), InputHandler
+            { press = \e -> do
                 toLog "Press ButtonIndex1"
---                 let window = event_ButtonPressEvent e
---                     event_x = event_x_ButtonPressEvent e
---                     event_y = event_y_ButtonPressEvent e
---
---                 raise window
---                 pointer ^:= Position (fi event_x) (fi event_y)
---                 pushHandler $ EventHandler moveWindow
-            , buttonRelease = io . print
+                let window = event_ButtonPressEvent e
+                    event_x = event_x_ButtonPressEvent e
+                    event_y = event_y_ButtonPressEvent e
+                    pointer_position = Position (fi event_x) (fi event_y)
+
+                queue %:= modifyClient window (pointer .~ pointer_position)
+                pushHandler $ EventHandler moveWindow
+                raise window
+
+            , release = \_ -> toLog "Release ButtonIndex1" >> popHandler
             }
           )
 
---         , (ButtonIndex2, \e -> do
---                 toLog "Press ButtonIndex2"
--- --                 let window = event_ButtonPressEvent e
--- --                     root_x = root_x_ButtonPressEvent e
--- --                     root_y = root_y_ButtonPressEvent e
--- --                     w' = fi . width_GetGeometryReply
--- --                     h' = fi . height_GetGeometryReply
--- --                     update g = modifyClient window $ modL (dimension <.> geometry)
--- --                                                    $ const $ Dimension (w' g) (h' g)
--- --
--- --                 raise window
--- --                 -- TODO: do this with event_{x,y} and save pointer position in client
--- --                 pointer ^:= Position (fi root_x) (fi root_y)
--- --                 void $ flip whenRight update =<< io . getReply =<<
--- --                     withConnection (io . flip getGeometry (convertXid window))
--- --                 pushHandler $ EventHandler resizeWindow
---           )
+        , (([], ButtonIndex2), mkInputHandler
+            { press = \e -> do
+                toLog "Press ButtonIndex2"
+                let window = event_ButtonPressEvent e
+                    root_x = root_x_ButtonPressEvent e
+                    root_y = root_y_ButtonPressEvent e
+                    w' = fi . width_GetGeometryReply
+                    h' = fi . height_GetGeometryReply
+                    pos = Position (fi root_x) (fi root_y)
+                    dim g = Dimension (w' g) (h' g)
+                    update g = modifyL queue $ modifyClient window
+                                             $ (geometry . dimension .~ dim g)
 
-        -- , (ButtonIndex3, \e -> do
-        --         toLog "Press ButtonIndex3"
-        --         -- let window = event_ButtonPressEvent e
-        --         -- lower window
-        --   )
+                raise window
+                queue %:= modifyClient window (pointer .~ pos)
+                void $ flip whenRight update =<< io . getReply =<<
+                    (io . flip getGeometry (convertXid window)) <-$ connection
+                pushHandler $ EventHandler resizeWindow
+              }
+          )
+
+        , (([], ButtonIndex3), mkInputHandler
+            { press = lower . event_ButtonPressEvent }
+          )
+
+        , (([ModMaskShift], ButtonIndex3), mkInputHandler
+            { press = raise . event_ButtonPressEvent }
+          )
 
         ]
 
@@ -109,18 +118,34 @@ config = Config
 
 core :: Core
 core = Core
+    -- { _queue = Queue [] Nothing []
     { _queue = M.empty
     , _eventHandler =
+        -- Structure control events
         [ EventHandler handleMapRequest
         , EventHandler handleConfigureRequest
+        , EventHandler handleCirculateNotify
+        , EventHandler handleResizeRequest
+
+        -- Window state notification events
         , EventHandler handleCreateNotify
         , EventHandler handleDestroyNotify
+        , EventHandler handleMapNotify
+        , EventHandler handleUnmapNotify
+
+        -- Window crossing events
         , EventHandler handleEnterNotify
         , EventHandler handleLeaveNotify
+
+        -- Input focus events
         , EventHandler handleFocusIn
         , EventHandler handleFocusOut
+
+        -- Pointer events
         , EventHandler handleButtonPress
         , EventHandler handleButtonRelease
+
+        -- Keyboard events
         , EventHandler handleKeyPress
         , EventHandler handleKeyRelease
         ]
@@ -134,7 +159,7 @@ startup :: Maybe Connection -> IO ()
 startup Nothing = print "Got no connection!"
 startup (Just c) = do
     let mask = CWEventMask
-        values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify]
+        values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify, EventMaskFocusChange]
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
@@ -149,6 +174,7 @@ startup (Just c) = do
     where
     run :: Setup -> Core -> IO ()
     run setup core' = do
+        -- (logstr, core'') <- catch (runCore setup core' runZ) (\e -> print (e :: SomeException) >> return (["FUCKUP"], core'))
         (logstr, core'') <- runCore setup core' runZ
         time <- getZonedTime
         putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ logstr
@@ -209,8 +235,8 @@ grabKeys c conf setup = do
         kbdmap = setup ^. keyboardMap
         modmap = setup ^. modifierMap
         keys = M.keys (conf ^. keyHandler)
-        nl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
-        cl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
+        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
         combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
         grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
                                                      mask keycode

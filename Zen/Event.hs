@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, InstanceSigs, RankNTypes #-}
 
 module Event where
 
@@ -7,30 +8,39 @@ import Data.List ((\\))
 import qualified Data.Map as M
 import Data.Word
 import Control.Monad
+import Control.Monad.Reader
 import Control.Applicative
 import Graphics.XHB
 import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 import Log
-import Lens
+import LensUtil
 import Util
-import Types hiding (focus)
+import Types -- hiding (focus)
 -- import Core
 import Window
+import Queue
 
--- handler :: [EventHandler (Z ())]
--- handler =
---     [ EventHandler handleMapRequest
---     , EventHandler handleConfigureRequest
---     -- , EventHandler handleCreateNotify
---     -- , EventHandler handleDestroyNotify
---     -- , EventHandler handleEnterNotify
---     -- , EventHandler handleLeaveNotify
---     -- , EventHandler handleButtonPress
---     -- , EventHandler handleButtonRelease
---     -- , EventHandler handleKeyPress
---     -- , EventHandler handleKeyRelease
---     ]
+
+class InputEventDispatcher pe re where
+    dispatchPress   :: InputEventHandler pe re -> pe -> Z ()
+    dispatchRelease :: InputEventHandler pe re -> re -> Z ()
+
+    handlePress :: Maybe (InputEventHandler pe re) -> pe -> Z ()
+    handlePress Nothing _ = return ()
+    handlePress (Just h) e = dispatchPress h e
+
+    handleRelease :: Maybe (InputEventHandler pe re) -> re -> Z ()
+    handleRelease Nothing _ = return ()
+    handleRelease (Just h) e = dispatchRelease h e
+
+instance InputEventDispatcher KeyPressEvent KeyReleaseEvent where
+    dispatchPress   h e = (press h) e
+    dispatchRelease h e = (release h) e
+
+instance InputEventDispatcher ButtonPressEvent ButtonReleaseEvent where
+    dispatchPress   h e = (press h) e
+    dispatchRelease h e = (release h) e
 
 
 handleError :: Maybe SomeError -> Z ()
@@ -49,60 +59,43 @@ pushHandler :: EventHandler (Z ()) -> Z ()
 pushHandler eh = eventHandler %:= (eh :)
 
 
+-- append default handlers
 dispatch :: SomeEvent -> Z ()
--- dispatch e = eventHandler $*> mapM_ (\(EventHandler h) -> run' (fromEvent e) h)
--- dispatch e = eventHandler $*> mapM_ (\(EventHandler h) -> run' (fromEvent e) h)
--- dispatch e = eventHandler $*> mapM_ (run' (fromEvent e))
 dispatch e = mapM_ try <*$ eventHandler
     where
     try :: EventHandler (Z ()) -> Z ()
     try (EventHandler handler) = void $ whenJust (fromEvent e) handler
 
-    -- try :: [EventHandler (Z ())] -> Z ()
-    -- try hs = forM_ hs $ \(EventHandler h) -> run h (fromEvent e)
-    -- try (EventHandler h:hs) = run h (fromEvent e) >> try hs
-    -- try _ = return ()
+    defaultHandler :: [EventHandler (Z ())]
+    defaultHandler =
+        -- Structure control events
+        [ EventHandler handleMapRequest
+        , EventHandler handleConfigureRequest
+        , EventHandler handleCirculateNotify
+        , EventHandler handleResizeRequest
 
-    -- run :: (e -> Z ()) -> Maybe e -> Z ()
-    -- run _ Nothing = return ()
-    -- run handle (Just event) = handle event
+        -- Window state notification events
+        , EventHandler handleCreateNotify
+        , EventHandler handleDestroyNotify
+        , EventHandler handleMapNotify
+        , EventHandler handleUnmapNotify
 
-    -- foo :: Event e => e -> EventHandler (Z ()) -> Z ()
-    -- foo event (EventHandler handler) = handler event
+        -- Window crossing events
+        , EventHandler handleEnterNotify
+        , EventHandler handleLeaveNotify
 
-    -- run (Just event) handler = handler event
+        -- Input focus events
+        , EventHandler handleFocusIn
+        , EventHandler handleFocusOut
 
--- handler :: [EventHandler (Z ())]
--- handler =
---     [ EventHandler handleMapRequest
---     , EventHandler handleConfigureRequest
---     -- , EventHandler handleCreateNotify
---     -- , EventHandler handleDestroyNotify
---     -- , EventHandler handleEnterNotify
---     -- , EventHandler handleLeaveNotify
---     -- , EventHandler handleButtonPress
---     -- , EventHandler handleButtonRelease
---     -- , EventHandler handleKeyPress
---     -- , EventHandler handleKeyRelease
---     ]
+        -- Pointer events
+        , EventHandler handleButtonPress
+        , EventHandler handleButtonRelease
 
-    -- [ EventHandler $ \e -> do
-    --     let event_window = window_MapRequestEvent e
-    --     toLog "MapRequestEvent"
-    --     io $ print e
-    --     connection $-> io . flip mapWindow event_window
-    --     return True
-
-    -- , EventHandler $ \e -> do
-    --     let win = window_ConfigureRequestEvent e
-    --         values = toValueParam $ copyValues e (value_mask_ConfigureRequestEvent e)
-    --     toLog "ConfigureRequestEvent"
-    --     c <- asksL connection
-    --     io $ do
-    --         print e
-    --         configureWindow c win values
-    --     io (pollForError c) >>= handleError
-    --     return True
+        -- Keyboard events
+        , EventHandler handleKeyPress
+        , EventHandler handleKeyRelease
+        ]
 
 
 copyValues :: ConfigureRequestEvent -> [ConfigWindow] -> [(ConfigWindow, Word32)]
@@ -122,6 +115,20 @@ copyValues e (ConfigWindowStackMode   : ms) =
     (ConfigWindowStackMode,   toValue $ stack_mode_ConfigureRequestEvent e) : copyValues e ms
 copyValues _ _ = []
 
+
+cleanMask :: [KeyButMask] -> Z [ModMask]
+cleanMask mask = do
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+    let keycodes = catMaybes [ keysymToKeycode (fi xK_Num_Lock) kbdmap
+                             , keysymToKeycode (fi xK_Caps_Lock) kbdmap
+                             ]
+        modifier = catMaybes $ map (flip keycodeToModifier modmap) $ keycodes
+        modifiermask = map (fromBit . toBit) (mask \\ [KeyButMaskButton1 ..])
+    return $ modifiermask \\ map (fromBit . toValue) modifier
+
+
+-- Event handler
 
 handleMapRequest :: MapRequestEvent -> Z ()
 handleMapRequest e = do
@@ -146,86 +153,143 @@ handleConfigureRequest e = do
     -- values = toValueParam $ copyValues e (value_mask_ConfigureRequestEvent e)
 
 
+handleCirculateNotify :: CirculateNotifyEvent -> Z ()
+handleCirculateNotify _ = toLog "CirculateNotifyEvent"
+
+
+handleResizeRequest :: ResizeRequestEvent -> Z ()
+handleResizeRequest _ = toLog "ResizeRequestEvent"
+
+
+handleMapNotify :: MapNotifyEvent -> Z ()
+handleMapNotify _ = toLog "MapNotifyEvent"
+
+
+handleUnmapNotify :: UnmapNotifyEvent -> Z ()
+handleUnmapNotify _ = toLog "UnmapNotifyEvent"
+
+
 handleCreateNotify :: CreateNotifyEvent -> Z ()
 handleCreateNotify = manage .  window_CreateNotifyEvent
 
 
 handleDestroyNotify :: DestroyNotifyEvent -> Z ()
-handleDestroyNotify = unmanage . window_DestroyNotifyEvent
-    -- toLog "DestroyNotifyEvent"
-    -- removeWindow (window_DestroyNotifyEvent e) >> return True
+-- handleDestroyNotify = unmanage . window_DestroyNotifyEvent
+handleDestroyNotify e = toLog "DestroyNotifyEvent" >> unmanage ( window_DestroyNotifyEvent e)
 
 
 handleEnterNotify :: EnterNotifyEvent -> Z ()
-handleEnterNotify e = when (not isInferior) $ focus (event_EnterNotifyEvent e)
-    -- toLog "EnterNotifyEvent"
+handleEnterNotify e = do
+    toLog "EnterNotifyEvent"
+    when (not isInferior) $ focus (event_EnterNotifyEvent e)
     where isInferior = NotifyDetailInferior == detail_EnterNotifyEvent e
 
 
 handleLeaveNotify :: LeaveNotifyEvent -> Z ()
-handleLeaveNotify e = when (not isInferior) $ focus (event_LeaveNotifyEvent e)
-    -- toLog "LeaveNotifyEvent"
+handleLeaveNotify e = do
+    toLog "LeaveNotifyEvent"
+    when (not isInferior) $ unfocus (event_LeaveNotifyEvent e)
     where isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
-    -- case detail_LeaveNotifyEvent e of
-    --     NotifyDetailInferior -> return False
-    --     _ -> withClient (event_LeaveNotifyEvent e) unfocus >> return True
 
 
-cleanMask :: [KeyButMask] -> Z [ModMask]
-cleanMask mask = do
-    kbdmap <- asksL $ keyboardMap
-    modmap <- asksL $ modifierMap
-    let keycodes = catMaybes [ keysymToKeycode (fi xK_Num_Lock) kbdmap
-                             , keysymToKeycode (fi xK_Caps_Lock) kbdmap
-                             ]
-        modifier = catMaybes $ map (flip keycodeToModifier modmap) $ keycodes
-    return $ map (fromBit . toBit) mask \\ map (fromBit . toValue) modifier
+handleFocusIn :: FocusInEvent -> Z ()
+handleFocusIn _ = toLog "FocusInEvent"
+
+
+handleFocusOut :: FocusOutEvent -> Z ()
+handleFocusOut e = do
+    toLog $ "FocusOutEvent: " ++ show (mode_FocusOutEvent e)
+    -- unfocus (event_FocusOutEvent e)
+    -- where isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
+
+-- runHandler' :: Maybe (KeyButtonHandler e) -> e -> Z ()
+-- runHandler' Nothing _ = return ()
+-- runHandler' (Just (KeyButtonHandler _ rf)) e = rf e
+
+-- handleButtonPress :: ButtonPressEvent -> Z ()
+-- handleButtonPress e = do
+--     toLog "ButtonPressEvent"
+--     modmask <- askL (modMask <.> config)
+--     mask <- (\\ modmask) <$> cleanMask (state_ButtonPressEvent e)
+--     let lookup = M.lookup (mask, fromValue $ detail_ButtonPressEvent e)
+--     flip handlePress e =<< asksL (buttonHandler <.> config) lookup
+--     -- return ()
+--     -- when (null $ modmask \\ cleanmask) $ buttonHandler <.> config $->
+--         -- runHandler . M.lookup (cleanmask \\ modmask, button)
 
 
 handleButtonPress :: ButtonPressEvent -> Z ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
-    modmask <- asksL (modMask <.> config)
-    cleanmask <- cleanMask $ state_ButtonPressEvent e
-    when (null $ modmask \\ cleanmask) $ buttonHandler <.> config $->
-        runHandler . M.lookup (cleanmask \\ modmask, button)
-
-    where
-    button = fromValue $ detail_ButtonPressEvent e
-    runHandler Nothing = return ()
-    runHandler (Just (ButtonEventHandler pf _)) = pf e
+    let state = state_ButtonPressEvent e
+        button = fromValue $ detail_ButtonPressEvent e
+    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+    flip handlePress e . M.lookup (mask, button) <-$ config . buttonHandler
 
 
 handleButtonRelease :: ButtonReleaseEvent -> Z ()
 handleButtonRelease e = do
     toLog "ButtonReleaseEvent"
-    modmask <- asksL (modMask <.> config)
-    cleanmask <- cleanMask $ state_ButtonReleaseEvent e
-    when (null $ modmask \\ cleanmask) $ buttonHandler <.> config $->
-        runHandler . M.lookup (cleanmask \\ modmask, button)
-        -- asksL (buttonHandler <.> config) >>= runHandler . M.lookup (mask, button)
-
-    where
-    button = fromValue $ detail_ButtonReleaseEvent e
-    runHandler Nothing = return ()
-    runHandler (Just (ButtonEventHandler _ rf)) = rf e
+    let state = state_ButtonReleaseEvent e
+        button = fromValue $ detail_ButtonReleaseEvent e
+    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+    flip handleRelease e . M.lookup (mask, button) <-$ config . buttonHandler
 
 
 handleKeyPress :: KeyPressEvent -> Z ()
 handleKeyPress e = do
     toLog "KeyPressEvent"
+    let state = state_KeyPressEvent e
+        keycode = detail_KeyPressEvent e
 
-    modmask <- asksL (modMask <.> config)
+    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+
+    let lookupKeysym keysym = M.lookup (mask, fi keysym)
+    mapM_ (flip handlePress e)
+        =<< (mapM $ asksL (config . keyHandler) . lookupKeysym)
+            =<< asksL keyboardMap (keycodeToKeysym keycode)
+
+
+handleKeyRelease :: KeyReleaseEvent -> Z ()
+handleKeyRelease e = do
+    toLog "KeyReleaseEvent"
+    let state = state_KeyReleaseEvent e
+        keycode = detail_KeyReleaseEvent e
+
+    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+
+    let lookupKeysym keysym = M.lookup (mask, fi keysym)
+    mapM_ (flip handleRelease e)
+        =<< (mapM $ asksL (config . keyHandler) . lookupKeysym)
+            =<< asksL keyboardMap (keycodeToKeysym keycode)
+
+    -- forM_ keysyms $ 
+    --     (keyHandler <.> config $->) .       flip handlePress e . M.lookup . (,) mask
+        -- flip handlePress e . M.lookup (mask, keysym) <-$ keyHandler <.> config
+    
+    -- keyHandler <.> config $->
+    --     runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
+
+
+
+{-
+handleKeyPress :: KeyPressEvent -> Z ()
+handleKeyPress e = do
+    toLog "KeyPressEvent"
+
+    modmask <- askL (modMask <.> config)
     cleanmask <- cleanMask $ state_KeyPressEvent e
-    when (null $ modmask \\ cleanmask) $ do
-        keysyms <- keycodeToKeysym key <$> asksL keyboardMap
-        forM_ keysyms $ \keysym -> keyHandler <.> config $->
-            runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
+    return ()
+
+    -- when (null $ modmask \\ cleanmask) $ do
+    --     keysyms <- keycodeToKeysym key <$> askL keyboardMap
+    --     forM_ keysyms $ \keysym -> keyHandler <.> config $->
+    --         runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
 
     where
     key = detail_KeyPressEvent e
-    runHandler Nothing = return ()
-    runHandler (Just (KeyEventHandler pf _)) = pf e
+    -- runHandler Nothing = return ()
+    -- runHandler (Just (KeyEventHandler pf _)) = pf e
 
 
 
@@ -234,24 +298,63 @@ handleKeyRelease e = do
     toLog "KeyReleaseEvent"
     toLog $ show e
 
-    modmask <- asksL (modMask <.> config)
+    modmask <- askL (modMask <.> config)
     cleanmask <- cleanMask $ state_KeyReleaseEvent e
-    when (null $ modmask \\ cleanmask) $ do
-        keysyms <- keycodeToKeysym key <$> asksL keyboardMap
-        forM_ keysyms $ \keysym -> keyHandler <.> config $->
-            runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
+    return ()
+
+    -- when (null $ modmask \\ cleanmask) $ do
+    --     keysyms <- keycodeToKeysym key <$> askL keyboardMap
+    --     forM_ keysyms $ \keysym -> keyHandler <.> config $->
+    --         runHandler . M.lookup (cleanmask \\ modmask, fi keysym)
 
     where
     key = detail_KeyReleaseEvent e
-    runHandler Nothing = return ()
-    runHandler (Just (KeyEventHandler _ rf)) = rf e
+    -- runHandler Nothing = return ()
+    -- runHandler (Just (KeyEventHandler _ rf)) = rf e
+-}
 
 
-handleFocusIn :: FocusInEvent -> Z ()
-handleFocusIn = toLog . show
+-- Closure!
+-- moveWindow :: Position -> MotionNotifyEvent -> Z ()
+-- moveWindow :: MotionNotifyEvent -> Z ()
+moveWindow e = toLog "moveWindow" >> tryMove . (fmap (view pointer) . M.lookup window) <*$ queue
+    where
+    window = event_MotionNotifyEvent e
+    root_x = fi $ root_x_MotionNotifyEvent e
+    root_y = fi $ root_y_MotionNotifyEvent e
+    values (Position x' y') = [(ConfigWindowX, root_x - fi x'),
+                               (ConfigWindowY, root_y - fi y')]
+    tryMove p = void $ whenJust p $ configure window . values
 
-handleFocusOut :: FocusOutEvent -> Z ()
-handleFocusOut = toLog . show
+    -- configure c w (Position x' y') = io $ configureWindow c w $
+    --                              toValueParam [(ConfigWindowX, root_x - fi x'),
+    --                                            (ConfigWindowY, root_y - fi y')]
+
+
+-- Closure!
+-- resizeWindow :: Position -> Dimension -> MotionNotifyEvent -> Z ()
+resizeWindow :: MotionNotifyEvent -> Z ()
+resizeWindow e = do
+    toLog "resizeWindow"
+    -- TODO: do this with focused client
+    void $ connection $-> withClient' window . configure
+
+
+    where
+    window = event_MotionNotifyEvent e
+    newx = fi (root_x_MotionNotifyEvent e)
+    newy = fi (root_y_MotionNotifyEvent e)
+
+    -- TODO: use lenses
+    configure c (Client _ (Geometry _ (Dimension w' h')) (Position oldx oldy)) = do
+        -- Position oldx oldy <- getsL pointer
+        let neww = fi w' + fi (newx - oldx)
+            newh = fi h' + fi (newy - oldy)
+            values = toValueParam [(ConfigWindowWidth, neww),
+                                   (ConfigWindowHeight, newh)]
+        toLog $ "resize to " ++ show neww ++ "x" ++ show newh
+        io $ configureWindow c window values
+
 
 {-
 
@@ -299,7 +402,7 @@ handleMapRequest e = do
 handleConfigureRequest :: ConfigureRequestEvent -> Z ()
 handleConfigureRequest e = do
     toLog "ConfigureRequestEvent"
-    c <- asksL connection
+    c <- askL connection
     io $ do
         print e
         configureWindow c win values
@@ -332,38 +435,6 @@ handleConfigureRequest e = do
 
 
 
-moveWindow :: MotionNotifyEvent -> Z ()
-moveWindow e = do
-    withConnection $ \c -> getsL pointer >>= configure c window
-    where
-    root_x = fi $ root_x_MotionNotifyEvent e
-    root_y = fi $ root_y_MotionNotifyEvent e
-    window = event_MotionNotifyEvent e
-    configure c w (Position x' y') = io $ configureWindow c w $
-                                 toValueParam [(ConfigWindowX, root_x - fi x'),
-                                               (ConfigWindowY, root_y - fi y')]
-
-
-resizeWindow :: MotionNotifyEvent -> Z ()
-resizeWindow e = do
-    toLog "resizeWindow"
-    -- TODO: do this with focused client
-    void $ withConnection $ withClient window . configure
-
-
-    where
-    window = event_MotionNotifyEvent e
-    newx = fi (root_x_MotionNotifyEvent e)
-    newy = fi (root_y_MotionNotifyEvent e)
-
-    configure c (Client _ (Geometry _ (Dimension w' h'))) = do
-        Position oldx oldy <- getsL pointer
-        let neww = fi w' + fi (newx - oldx)
-            newh = fi h' + fi (newy - oldy)
-            values = toValueParam [(ConfigWindowWidth, neww),
-                                   (ConfigWindowHeight, newh)]
-        toLog $ "resize to " ++ show neww ++ "x" ++ show newh
-        io $ configureWindow c window values
 
 
 defaultKeyPressHandler :: KeyPressHandler

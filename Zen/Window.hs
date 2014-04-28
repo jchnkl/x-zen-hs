@@ -2,6 +2,7 @@
 
 module Window where
 
+import Data.Maybe (catMaybes)
 import Data.Word
 import qualified Data.Map as M
 import qualified Data.List as L
@@ -9,22 +10,22 @@ import Control.Monad
 -- import Control.Monad.State
 import Control.Applicative
 import Graphics.XHB
--- import Graphics.X11.Types hiding (Connection)
+import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 -- import Log
 import Util
-import Lens
+import LensUtil
 -- import Core
 -- import Config
 -- import Setup
-import Types hiding (focus)
+import Types -- hiding (focus)
 import Queue
 
 
 manage :: WindowId -> Z ()
 manage window = whenM (isClient <$> attributes) $ do
     configure'
-    queue %:= (insert $ Client window $ Position 0 0)
+    queue %:= (insert $ Client window (Geometry (Position 0 0) (Dimension 0 0)) $ Position 0 0)
 
     where
     attributes :: Z (Either SomeError GetWindowAttributesReply)
@@ -41,14 +42,15 @@ manage window = whenM (isClient <$> attributes) $ do
     configure' :: Z ()
     configure' = do
         let mask = CWEventMask
-            values = toMask [EventMaskEnterWindow, EventMaskLeaveWindow]
+            values = toMask [EventMaskEnterWindow, EventMaskLeaveWindow, EventMaskFocusChange]
             valueparam = toValueParam [(mask, values)]
         connection $-> \c -> io $ changeWindowAttributes c window valueparam
-        borderWidth <.> config $-> setBorderWidth window
+        config . borderWidth $-> setBorderWidth window
         grabButtons window
 
 
 unmanage :: WindowId -> Z ()
+-- unmanage w = queue %:= remove ((w ==) . getL xid)
 unmanage w = queue %:= remove w
 
 
@@ -67,17 +69,23 @@ setBorderWidth window bw = do
 focus :: WindowId -> Z ()
 focus window = do
     -- toLog $ "focus: " ++ show (client ^. xid)
+    config . focusedBorderColor $-> setBorderColor window -- client
     let mk_setinputfocus = MkSetInputFocus InputFocusNone
-                                           window -- (client ^. xid)
+                                           window
                                            (toValue TimeCurrentTime)
     connection $-> io . flip setInputFocus mk_setinputfocus
-    focusedBorderColor <.> config $-> setBorderColor window -- client
 
 
 unfocus :: WindowId -> Z ()
 unfocus window = do
     -- toLog $ "unfocus: " ++ show (client ^. xid)
-    normalBorderColor <.> config $-> setBorderColor window -- client
+    -- c <- askL connection
+    config . normalBorderColor $-> setBorderColor window -- client
+    connection $-> io . getInputFocus >>= void . io . getReply
+    -- let mk_setinputfocus = MkSetInputFocus InputFocusNone
+    --                                        (getRoot c)
+    --                                        (toValue TimeCurrentTime)
+    -- connection $-> io . flip setInputFocus mk_setinputfocus
 
 
 configure :: WindowId -> [(ConfigWindow, Word32)] -> Z ()
@@ -97,17 +105,48 @@ configure w vs = connection $-> \c -> io $ configureWindow c w $ toValueParam vs
     -- setValue _ _                  = id
 
 
+raise :: WindowId -> Z ()
+raise = flip configure [(ConfigWindowStackMode, toValue StackModeAbove)]
+
+
+lower :: WindowId -> Z ()
+lower = flip configure [(ConfigWindowStackMode, toValue StackModeBelow)]
+
+
+-- move :: WindowId -> Position -> Z ()
+-- move window (Position x' y') = configure window $ [(ConfigWindowX, fi x'),
+--                                                    (ConfigWindowY, fi y')]
+
+
 grabButtons :: WindowId -> Z ()
 grabButtons window = connection $-> \c -> do
-    modmask <- asksL (modMask <.> config)
-    mapM_ (grab c modmask) =<< M.keys <$> asksL (buttonHandler <.> config)
+    modmask <- askL (config . modMask)
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+    let nl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
+        cl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        combos m b = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [b, b ..]
+        -- grab (mask, button) = grabButton c $ MkGrabKey True window events
+        --                                                GrabModeAsync GrabModeAsync
+        --                                                (convertXid xidNone) (convertXid xidNone)
+        --                                                mask button
+
+        -- buttons = []
+    buttons <- asksL (config . buttonHandler) (M.keys)
+
+    forM_ buttons $ \(m, b) -> mapM_ (grab c) $ combos (modmask ++ m) b
+
+    -- modmask <- askL (modMask <.> config)
+    -- mapM_ (grab c modmask) =<< M.keys <$> askL (buttonHandler <.> config)
     where
     events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
-    grab c modmask (masks, button) =
+    -- grab c modmask (masks, button) = do
+    grab c (mask, button) = do
+        -- io . putStrLn $ "grab: " ++ show button ++ "; " ++ show (modmask ++ masks)
         io $ grabButton c $ MkGrabButton True window events
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)
-                            button (modmask ++ masks)
+                            button mask
 
 
     -- setValue ConfigWindowY v
@@ -214,7 +253,7 @@ insertClient client = do
 
 insertWindow :: WindowId -> Z ()
 insertWindow window = do
-    c <- asksL connection
+    c <- askL connection
     reply <- io (getWindowAttributes c window >>= getReply)
     case map_state_GetWindowAttributesReply <$> reply of
         Left _ -> return ()
@@ -235,7 +274,7 @@ insertWindow window = do
 
 insertWindows :: [WindowId] -> Z ()
 insertWindows windows = do
-    c <- asksL connection
+    c <- askL connection
     filterValid <$> attributes c
         >>= fmap (>>= makeClients) . geometries c
             >>= insert
@@ -283,13 +322,4 @@ deleteWindow _ _ = []
 removeWindow :: WindowId -> Z ()
 removeWindow window = clients <.> queue %:= (window `deleteWindow`)
 
-raise :: WindowId -> Z ()
-raise window = withConnection $ \c -> io $ configureWindow c window values
-    where
-    values = toValueParam [(ConfigWindowStackMode, toValue StackModeAbove)]
-
-lower :: WindowId -> Z ()
-lower window = withConnection $ \c -> io $ configureWindow c window values
-    where
-    values = toValueParam [(ConfigWindowStackMode, toValue StackModeBelow)]
-    -}
+-}
