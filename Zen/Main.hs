@@ -60,11 +60,10 @@ config = Config
                 let window = event_ButtonPressEvent e
                     event_x = event_x_ButtonPressEvent e
                     event_y = event_y_ButtonPressEvent e
-                    pointer_position = Position (fi event_x) (fi event_y)
+                    pos = Position (fi event_x) (fi event_y)
 
-                queue %:= modifyClient window (pointer .~ pointer_position)
-                pushHandler $ EventHandler moveWindow
                 raise window
+                pushHandler $ EventHandler $ moveWindow pos
 
             , release = \_ -> toLog "Release ButtonIndex1" >> popHandler
             }

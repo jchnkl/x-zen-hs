@@ -234,17 +234,13 @@ handleKeyRelease e = do
             =<< asksL keyboardMap (keycodeToKeysym keycode)
 
 
--- Closure!
--- moveWindow :: Position -> MotionNotifyEvent -> Z ()
-moveWindow :: MotionNotifyEvent -> Z ()
-moveWindow e = toLog "moveWindow" >> tryMove . (fmap (view pointer) . M.lookup window) <*$ queue
+moveWindow :: Position -> MotionNotifyEvent -> Z ()
+moveWindow (Position x' y') e = configure window values
     where
     window = event_MotionNotifyEvent e
     root_x = fi $ root_x_MotionNotifyEvent e
     root_y = fi $ root_y_MotionNotifyEvent e
-    values (Position x' y') = [(ConfigWindowX, root_x - fi x'),
-                               (ConfigWindowY, root_y - fi y')]
-    tryMove p = void $ whenJust p $ configure window . values
+    values = [(ConfigWindowX, root_x - fi x'), (ConfigWindowY, root_y - fi y')]
 
 
 resizeWindow :: Position -> Dimension -> MotionNotifyEvent -> Z ()
