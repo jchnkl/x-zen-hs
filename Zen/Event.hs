@@ -247,25 +247,12 @@ moveWindow e = toLog "moveWindow" >> tryMove . (fmap (view pointer) . M.lookup w
     tryMove p = void $ whenJust p $ configure window . values
 
 
--- Closure!
--- resizeWindow :: Position -> Dimension -> MotionNotifyEvent -> Z ()
-resizeWindow :: MotionNotifyEvent -> Z ()
-resizeWindow e = do
-    toLog "resizeWindow"
-    -- TODO: do this with focused client
-    void $ connection $-> withClient' window . configure'
-
-
+resizeWindow :: Position -> Dimension -> MotionNotifyEvent -> Z ()
+resizeWindow (Position x' y') (Dimension w' h') e = configure window values
     where
     window = event_MotionNotifyEvent e
-    newx = fi (root_x_MotionNotifyEvent e)
-    newy = fi (root_y_MotionNotifyEvent e)
-
-    -- TODO: use lenses
-    configure' c (Client _ (Geometry _ (Dimension w' h')) (Position oldx oldy)) = do
-        let neww = fi w' + fi (newx - oldx)
-            newh = fi h' + fi (newy - oldy)
-            values = toValueParam [(ConfigWindowWidth, neww),
-                                   (ConfigWindowHeight, newh)]
-        toLog $ "resize to " ++ show neww ++ "x" ++ show newh
-        io $ configureWindow c window values
+    x'' = root_x_MotionNotifyEvent e
+    y'' = root_y_MotionNotifyEvent e
+    w'' = w' + fi x'' - fi x'
+    h'' = h' + fi y'' - fi y'
+    values = [(ConfigWindowWidth, fi w''), (ConfigWindowHeight, fi h'')]

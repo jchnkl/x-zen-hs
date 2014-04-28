@@ -80,14 +80,14 @@ config = Config
                     h' = fi . height_GetGeometryReply
                     pos = Position (fi root_x) (fi root_y)
                     dim g = Dimension (w' g) (h' g)
-                    update g = modifyL queue $ modifyClient window
-                                             $ (geometry . dimension .~ dim g)
 
                 raise window
-                queue %:= modifyClient window (pointer .~ pos)
-                void $ flip whenRight update =<< io . getReply =<<
+
+                reply' <- io . getReply =<<
                     (io . flip getGeometry (convertXid window)) <-$ connection
-                pushHandler $ EventHandler resizeWindow
+
+                void $ whenRight reply' $ \reply ->
+                    pushHandler $ EventHandler $ resizeWindow pos (dim reply)
 
               , release = const $ popHandler
               }
