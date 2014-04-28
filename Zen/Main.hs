@@ -20,7 +20,6 @@ import Types hiding (config)
 -- import Config
 -- import Setup hiding (config)
 import Event
-import Queue
 import Window
 
 -- TODO:

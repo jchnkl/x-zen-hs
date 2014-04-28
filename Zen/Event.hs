@@ -17,7 +17,6 @@ import Lens
 import Util
 import Types
 import Window
-import Queue
 
 
 class InputEventDispatcher pe re where
