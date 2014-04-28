@@ -1,28 +1,30 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+-- {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, UndecidableInstances, DeriveFunctor, FunctionalDependencies #-}
 
-module Lens
-    ( Lens(..)
-    -- , (.)
-    -- , id
-    , lens
-    , (<.>)
-    , (^.)
-    , (^=)
-    , convert
-    , mutate
-    , askL
-    , getL
-    , putL
-    , (^:=)
-    , modifyL
-    , (%:=)
-    , getsL
-    , ($*>)
-    , (<*$)
-    , asksL
-    , ($->)
-    , (<-$)
-    ) where
+module Lens where
+    -- ( Lens(..)
+    -- -- , (.)
+    -- -- , id
+    -- , lens
+    -- , (<.>)
+    -- , (^.)
+    -- , (^=)
+    -- , convert
+    -- , mutate
+    -- , askL
+    -- , getL
+    -- , putL
+    -- , (^:=)
+    -- , modifyL
+    -- , (%:=)
+    -- , getsL
+    -- , ($*>)
+    -- , (<*$)
+    -- , asksL
+    -- , ($->)
+    -- , (<-$)
+    -- ) where
 
 -- vim macro for lens function type
 -- mx{jwyw'xdf_2f "0PxbPaLens j0
@@ -37,13 +39,30 @@ import Control.Monad.Reader
 
 -- | Simple Lens
 data Lens a b = Lens
-    { inspect :: a -> b -- ^ getter
+    { peekat :: a -> b -- ^ getter
     , adjust :: b -> a -> a -- ^ setter
     }
 
+-- data Projection a b = Projection
+--     { project :: a -> b -- ^ getter
+--     }
+
+-- class Projection l a b | a -> b where
+--     project :: l a b -> a -> b
+
+-- instance Functor (Projection a) where
+--     -- (a -> b) -> f a -> f b
+--     -- (b -> c) -> Lens a b -> Lens a c
+--     -- fmap f (Lens p _) = Lens (f . p) undefined
+--     fmap f (Projection p) = Projection (f . p)
+--     -- fmap = undefined
+
+-- instance Projection Lens a b where
+--     project = peekat
+
 instance Category Lens where
     -- (.) :: C b c -> C a b -> C a c
-    (.) l r = Lens (inspect l . inspect r) (\a c -> adjust r (adjust l a (inspect r c)) c)
+    (.) l r = Lens (peekat l . peekat r) (\a c -> adjust r (adjust l a (peekat r c)) c)
     -- id :: C a a
     id = Lens id const
 
@@ -56,9 +75,9 @@ lens = Lens
 (<.>) = (.)
 infixr 9 <.>
 
--- | Infix getter. flip inspect
+-- | Infix getter. flip peekat
 (^.) :: a -> Lens a b -> b
-(^.) = flip inspect
+(^.) = flip peekat
 infixl 8 ^.
 
 -- | Infix setter. adjust
@@ -66,13 +85,26 @@ infixl 8 ^.
 (^=) = adjust
 infix 8 ^=
 
--- | inspect with a projection function
+-- | peekat with a projection function
 convert :: Lens a b -> (b -> c) -> a -> c
-convert l f = f . (inspect l)
+convert l f = f . (peekat l)
+
+-- TODO: make this work generally Lens a (b -> c) ??
+-- | infix @convert@
+(^&) :: (b -> c) -> Lens a b -> a -> c
+(^&) = flip convert
+infixr 8 ^&
 
 -- | Functional modifier through a Lens
 mutate :: Lens a b -> (b -> b) -> a -> a
-mutate l f v = adjust l (f $ inspect l v) v
+mutate l f v = adjust l (f $ peekat l v) v
+
+-- -- foo :: (b -> c) -> Lens a b -> c
+-- foo :: (b -> c) -> (c -> b) -> Lens a b -> Lens a c
+-- foo f' f'' l = Lens (f' . peekat l) (adjust l . f'')
+
+-- transform :: (b -> c) -> Lens a b -> Projection a c
+-- transform f l = Projection (f . peekat l)
 
 -- | Monadic variants
 -- get for Lenses makes no sense, only zooming in with gets is supported
@@ -80,11 +112,11 @@ mutate l f v = adjust l (f $ inspect l v) v
 
 -- | ask for Lenses
 askL :: (MonadReader a m, Monad m) => Lens a b -> m b
-askL l = liftM (inspect l) ask
+askL l = liftM (peekat l) ask
 
 -- | get for Lenses
 getL :: (MonadState a m, Monad m) => Lens a b -> m b
-getL l = liftM (inspect l) get
+getL l = liftM (peekat l) get
 
 -- | adjust for Lenses
 putL :: (MonadState a m, Monad m) => Lens a b -> b -> m ()
@@ -107,30 +139,45 @@ infix 1 %:=
 
 
 -- | @convert@ for @MonadState@
-getsL :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
-getsL l f = gets (inspect l) >>= f
+getsL :: (Monad m, MonadState a m) => Lens a b -> (b -> c) -> m c
+getsL l f = liftM f (getL l) -- gets (peekat l) >>= f
 
 -- | infix getsL from left
 ($*>) :: (Monad m, MonadState a m) => Lens a b -> (b -> m c) -> m c
-($*>) = getsL
+($*>) l f = gets (peekat l) >>= f
 infixl 8 $*>
 
 -- | infix getsL
 (<*$) :: (Monad m, MonadState a m) => (b -> m c) -> Lens a b -> m c
-(<*$) = flip getsL
+(<*$) = flip ($*>)
 infixr 8 <*$
 
 
 -- | @convert@ for @MonadReader@
-asksL :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
-asksL l f = asks (inspect l) >>= f
+asksL :: (Monad m, MonadReader a m) => Lens a b -> (b -> c) -> m c
+asksL l f = liftM f (askL l)
+
+-- -- | infix @asksL@ from left
+-- (&->) :: (Monad m, MonadReader a m) => (b -> c) -> Lens a b -> m c
+-- (&->) = flip asksL
+-- infixl 8 &->
+
+-- -- | infix @asksL@ from right
+-- (<-%) :: (Monad m, MonadReader a m) => Lens a b -> (b -> c) -> m c
+-- (<-%) = asksL
+-- infixr 8 <-%
+
+-- -- |
+-- lmap :: (Monad m, MonadReader a m, Projection l a b) => (b -> m c) -> l a b -> m c
+-- lmap f l = asks (project l) >>= f
+-- -- infixl 8 $->
 
 -- | infix asksL from left
 ($->) :: (Monad m, MonadReader a m) => Lens a b -> (b -> m c) -> m c
-($->) = asksL
+($->) l f = asks (peekat l) >>= f
 infixl 8 $->
 
 -- | infix asksL from right
 (<-$) :: (Monad m, MonadReader a m) => (b -> m c) -> Lens a b -> m c
-(<-$) = flip asksL
+(<-$) = flip ($->)
 infixr 8 <-$
