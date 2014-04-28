@@ -241,9 +241,10 @@ moveWindow (Just (Position x' y')) e = configure window values
     values = [(ConfigWindowX, root_x - fi x'), (ConfigWindowY, root_y - fi y')]
 
 
-resizeWindow :: Maybe (Position, Dimension) -> MotionNotifyEvent -> Z ()
+resizeWindow :: Maybe Geometry -> MotionNotifyEvent -> Z ()
 resizeWindow Nothing _ = return ()
-resizeWindow (Just (Position x' y', Dimension w' h')) e = configure window values
+resizeWindow (Just (Geometry (Position x' y') (Dimension w' h'))) e =
+    configure window values
     where
     window = event_MotionNotifyEvent e
     x'' = root_x_MotionNotifyEvent e

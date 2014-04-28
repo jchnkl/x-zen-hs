@@ -78,8 +78,9 @@ config = Config
                     root_y = fi $ root_y_ButtonPressEvent e
                     geom_w = fi . width_GetGeometryReply
                     geom_h = fi . height_GetGeometryReply
-                    handler g = resizeWindow $ Just (Position (root_x) (root_y),
-                                                     Dimension (geom_w g) (geom_h g))
+                    geom g = Geometry (Position root_x root_y)
+                                      (Dimension (geom_w g) (geom_h g))
+                    handler = resizeWindow . Just . geom
 
                 raise window
 
