@@ -3,6 +3,7 @@
 import Data.Maybe (catMaybes)
 import Data.Map (Map)
 import qualified Data.Map as M
+import qualified Data.Set as S
 import qualified Data.List as L
 import Control.Monad.State
 import Control.Monad.Reader
@@ -64,7 +65,7 @@ config = Config
                 raise window
                 pushHandler $ EventHandler $ moveWindow pos
 
-            , release = const $ popHandler
+            , release = const $ popHandler $ EventHandler $ moveWindow (Position 0 0)
             }
           )
 
@@ -87,7 +88,7 @@ config = Config
                 void $ whenRight reply' $ \reply ->
                     pushHandler $ EventHandler $ resizeWindow pos (dim reply)
 
-              , release = const $ popHandler
+              , release = const $ popHandler $ EventHandler $ resizeWindow (Position 0 0) (Dimension 0 0)
               }
           )
 
@@ -119,7 +120,7 @@ startup (Just c) = do
     grabKeys c config setup
 
     run setup
-        =<< execCore setup (Core M.empty []) . mapM_ manage
+        =<< execCore setup (Core M.empty S.empty) . mapM_ manage
             =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
     where
@@ -134,10 +135,10 @@ startup (Just c) = do
     runZ = connection $-> io . waitForEvent >>= dispatch
 
     runCore :: Setup -> Core -> Z () -> IO ([String], Core)
-    runCore setup core z = runReaderT (runStateT (execWriterT z) core) setup
+    runCore setup core (Z z) = runReaderT (runStateT (execWriterT z) core) setup
 
     execCore :: Setup -> Core -> Z () -> IO Core
-    execCore setup core z = runReaderT (execStateT (execWriterT z) core) setup
+    execCore setup core (Z z) = runReaderT (execStateT (execWriterT z) core) setup
 
     children :: Either SomeError QueryTreeReply -> [WindowId]
     children (Left _) = []

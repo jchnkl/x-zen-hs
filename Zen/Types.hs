@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, GeneralizedNewtypeDeriving #-}
 
 module Types where
     -- ( module Types
@@ -8,7 +7,9 @@ module Types where
     -- ) where
 
 import Data.Word
+import Data.Typeable
 import Data.Map (Map)
+import Data.Set (Set)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -21,6 +22,17 @@ import Lens.Family
 import Lens.Family.Unchecked
 
 data EventHandler b = forall a . Event a => EventHandler (a -> b)
+    deriving Typeable
+
+data EventHook a = Typeable a => EventHook a
+    deriving Typeable
+
+instance Eq (EventHook a) where
+    EventHook l == EventHook r = typeOf l == typeOf r
+
+instance Ord (EventHook a) where
+    EventHook l `compare` EventHook r = typeOf l `compare` typeOf r
+
 
 data InputEventHandler pe re = InputHandler
     { press   :: pe -> Z ()
@@ -89,7 +101,7 @@ data Position = Position
     { _x :: Int
     , _y :: Int
     }
-    deriving (Eq, Read, Show)
+    deriving (Eq, Read, Show, Typeable)
 
 x :: Functor f => LensLike' f Position Int
 x = lens _x (\d v -> d { _x = v })
@@ -102,7 +114,7 @@ data Dimension = Dimension
     { _width :: Word
     , _height :: Word
     }
-    deriving (Eq, Read, Show)
+    deriving (Eq, Read, Show, Typeable)
 
 width :: Functor f => LensLike' f Dimension Word
 width = lens _width (\d v -> d { _width = v })
@@ -115,7 +127,7 @@ data Geometry = Geometry
     { _position :: Position
     , _dimension :: Dimension
     }
-    deriving (Eq, Read, Show)
+    deriving (Eq, Read, Show, Typeable)
 
 position :: Functor f => LensLike' f Geometry Position
 position = lens _position (\d v -> d { _position = v })
@@ -129,7 +141,7 @@ data Client = Client
     , _geometry :: Geometry
     , _pointer :: Position
     }
-    deriving (Eq, Show)
+    deriving (Eq, Show, Typeable)
 
 xid :: Functor f => LensLike' f Client WindowId
 xid = lens _xid (\d v -> d { _xid = v })
@@ -161,14 +173,18 @@ type Queue = Map WindowId Client
 
 data Core = Core
     { _queue :: Queue
-    , _eventHandler :: [EventHandler (Z ())]
+    , _eventHooks :: Set (EventHook (EventHandler (Z ())))
     }
+    deriving Typeable
 
 queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
-eventHandler :: Functor f => LensLike' f Core [EventHandler (Z ())]
-eventHandler = lens _eventHandler (\d v -> d { _eventHandler = v })
+eventHooks :: Functor f => LensLike' f Core (Set (EventHook (EventHandler (Z ()))))
+eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
+
+-- eventHandler :: Functor f => LensLike' f Core [EventHandler (Z ())]
+-- eventHandler = lens _eventHandler (\d v -> d { _eventHandler = v })
 
 
 data Setup = Setup
@@ -178,6 +194,7 @@ data Setup = Setup
     , _keyboardMap :: Map KEYCODE [KEYSYM]
     , _modifierMap :: Map MapIndex [KEYCODE]
     }
+    deriving Typeable
 
 config :: Functor f => LensLike' f Setup Config
 config = lens _config (\d v -> d { _config = v })
@@ -201,4 +218,13 @@ type CoreST = StateT Core
 
 type SetupRT = ReaderT Setup
 
-type Z = LogWT (CoreST (SetupRT IO))
+newtype Z a = Z (LogWT (CoreST (SetupRT IO  )) a)
+    deriving ( Applicative
+             , Functor
+             , Monad
+             , MonadIO
+             , MonadReader Setup
+             , MonadState Core
+             , MonadWriter [String]
+             , Typeable
+             )

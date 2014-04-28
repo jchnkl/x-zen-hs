@@ -6,6 +6,5 @@ import Control.Monad.Writer
 import Types
 
 
-toLog :: Monad m => String -> LogWT m ()
+toLog :: String -> Z ()
 toLog s = tell [s]
-

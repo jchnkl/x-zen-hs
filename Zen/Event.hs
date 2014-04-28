@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ExistentialQuantification, MultiParamTypeClasses #-}
 
 module Event where
 
 import Data.Maybe (catMaybes)
 import Data.List ((\\))
 import qualified Data.Map as M
+import Data.Set (Set)
+import qualified Data.Set as S
 import Data.Word
 import Control.Monad
 import Control.Applicative
@@ -45,23 +47,23 @@ handleError Nothing = return ()
 handleError (Just se) = toLog $ "ERROR: " ++ show se
 
 
-popHandler :: Z ()
-popHandler = eventHandler %:= safePop
-    where
-    safePop (_:es) = es
-    safePop _ = []
+popHandler :: EventHandler (Z ()) -> Z ()
+popHandler eh = eventHooks %:= ((EventHook eh) `S.delete`)
 
 
 pushHandler :: EventHandler (Z ()) -> Z ()
-pushHandler eh = eventHandler %:= (eh :)
+pushHandler eh = eventHooks %:= (S.insert (EventHook eh))
 
 
 -- TODO: append default handlers
 dispatch :: SomeEvent -> Z ()
-dispatch e = mapM_ try =<< getsL eventHandler (++ defaultHandler)
+dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . toHandler)
     where
     try :: EventHandler (Z ()) -> Z ()
     try (EventHandler handler) = void $ whenJust (fromEvent e) handler
+
+    toHandler :: Set (EventHook (EventHandler (Z ()))) -> [EventHandler (Z ())]
+    toHandler = let unwrap (EventHook hook) = hook in map unwrap . S.toList
 
     defaultHandler :: [EventHandler (Z ())]
     defaultHandler =
