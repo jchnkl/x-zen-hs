@@ -48,22 +48,20 @@ handleError (Just se) = toLog $ "ERROR: " ++ show se
 
 
 popHandler :: EventHandler (Z ()) -> Z ()
-popHandler eh = eventHooks %:= ((EventHook eh) `S.delete`)
+popHandler eh = eventHooks %:= (eh `S.delete`)
 
 
 pushHandler :: EventHandler (Z ()) -> Z ()
-pushHandler eh = eventHooks %:= (S.insert (EventHook eh))
+pushHandler eh = eventHooks %:= (S.insert eh)
 
 
 -- TODO: append default handlers
 dispatch :: SomeEvent -> Z ()
-dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . toHandler)
+dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . S.toList)
     where
     try :: EventHandler (Z ()) -> Z ()
     try (EventHandler handler) = void $ whenJust (fromEvent e) handler
 
-    toHandler :: Set (EventHook (EventHandler (Z ()))) -> [EventHandler (Z ())]
-    toHandler = let unwrap (EventHook hook) = hook in map unwrap . S.toList
 
     defaultHandler :: [EventHandler (Z ())]
     defaultHandler =

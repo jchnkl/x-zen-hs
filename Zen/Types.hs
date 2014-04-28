@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, FlexibleContexts, GeneralizedNewtypeDeriving #-}
 
 module Types where
     -- ( module Types
@@ -21,17 +21,14 @@ import Lens.Family
 -- import Lens.Family.State
 import Lens.Family.Unchecked
 
-data EventHandler b = forall a . Event a => EventHandler (a -> b)
+data EventHandler b = forall a . (Typeable (a -> b), Event a) => EventHandler (a -> b)
     deriving Typeable
 
-data EventHook a = Typeable a => EventHook a
-    deriving Typeable
+instance Eq (EventHandler a) where
+    EventHandler l == EventHandler r = typeOf l == typeOf r
 
-instance Eq (EventHook a) where
-    EventHook l == EventHook r = typeOf l == typeOf r
-
-instance Ord (EventHook a) where
-    EventHook l `compare` EventHook r = typeOf l `compare` typeOf r
+instance Ord (EventHandler a) where
+    EventHandler l `compare` EventHandler r = typeOf l `compare` typeOf r
 
 
 data InputEventHandler pe re = InputHandler
@@ -170,21 +167,19 @@ type Queue = Map WindowId Client
 -- below :: Lens Queue [Client]
 -- below = lens _below (\v d -> d { _below = v })
 
+type EventHooks = Set (EventHandler (Z ()))
 
 data Core = Core
     { _queue :: Queue
-    , _eventHooks :: Set (EventHook (EventHandler (Z ())))
+    , _eventHooks :: EventHooks
     }
     deriving Typeable
 
 queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
-eventHooks :: Functor f => LensLike' f Core (Set (EventHook (EventHandler (Z ()))))
+eventHooks :: Functor f => LensLike' f Core EventHooks
 eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
-
--- eventHandler :: Functor f => LensLike' f Core [EventHandler (Z ())]
--- eventHandler = lens _eventHandler (\d v -> d { _eventHandler = v })
 
 
 data Setup = Setup
@@ -218,7 +213,7 @@ type CoreST = StateT Core
 
 type SetupRT = ReaderT Setup
 
-newtype Z a = Z (LogWT (CoreST (SetupRT IO  )) a)
+newtype Z a = Z (LogWT (CoreST (SetupRT IO)) a)
     deriving ( Applicative
              , Functor
              , Monad
