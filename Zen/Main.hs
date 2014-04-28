@@ -118,7 +118,6 @@ config = Config
 
 core :: Core
 core = Core
-    -- { _queue = Queue [] Nothing []
     { _queue = M.empty
     , _eventHandler =
         -- Structure control events
@@ -174,7 +173,6 @@ startup (Just c) = do
     where
     run :: Setup -> Core -> IO ()
     run setup core' = do
-        -- (logstr, core'') <- catch (runCore setup core' runZ) (\e -> print (e :: SomeException) >> return (["FUCKUP"], core'))
         (logstr, core'') <- runCore setup core' runZ
         time <- getZonedTime
         putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ logstr
