@@ -76,11 +76,18 @@ config = Config
                 let window = event_ButtonPressEvent e
                     root_x = fi $ root_x_ButtonPressEvent e
                     root_y = fi $ root_y_ButtonPressEvent e
+                    event_x = fi $ event_x_ButtonPressEvent e
+                    event_y = fi $ event_y_ButtonPressEvent e
+                    geom_x = fi . x_GetGeometryReply
+                    geom_y = fi . y_GetGeometryReply
                     geom_w = fi . width_GetGeometryReply
                     geom_h = fi . height_GetGeometryReply
-                    geom g = Geometry (Position root_x root_y)
-                                      (Dimension (geom_w g) (geom_h g))
-                    handler = resizeWindow . Just . geom
+                    pos g = Position (geom_x g) (geom_y g)
+                    dim g = Dimension (geom_w g) (geom_h g)
+                    edges = getEdges . Geometry (Position event_x event_y) . dim
+                    handler g = resizeWindow $ Just (edges g,
+                                                     Position root_x root_y,
+                                                     Geometry (pos g) (dim g))
 
                 raise window
 

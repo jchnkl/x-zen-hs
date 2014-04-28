@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE ExistentialQuantification, MultiParamTypeClasses #-}
+{-# LANGUAGE ExistentialQuantification, MultiParamTypeClasses, LambdaCase #-}
 
 module Event where
 
@@ -241,14 +241,35 @@ moveWindow (Just (Position x' y')) e = configure window values
     values = [(ConfigWindowX, root_x - fi x'), (ConfigWindowY, root_y - fi y')]
 
 
-resizeWindow :: Maybe Geometry -> MotionNotifyEvent -> Z ()
+-- | Rather convulted function to resize a window from every corner/direction
+-- Uses closure for temporary state
+resizeWindow :: Maybe ((Edge, Edge), Position, Geometry)
+    -- ^ (({North, South or None},
+    --     {East, West or None}),
+    -- {Position of root window pointer event},
+    -- {Geometry of the window to be resized})
+             -> MotionNotifyEvent
+             -> Z ()
 resizeWindow Nothing _ = return ()
-resizeWindow (Just (Geometry (Position x' y') (Dimension w' h'))) e =
-    configure window values
+resizeWindow (Just (edges, Position o_root_x o_root_y, geom)) e =
+    configure window $ values (fst edges) ++ values (snd edges)
     where
+    gx = fi $ geom ^. position . x
+    gy = fi $ geom ^. position . y
+    gw = fi $ geom ^. dimension . width
+    gh = fi $ geom ^. dimension . height
+
+    n_root_x = root_x_MotionNotifyEvent e
+    n_root_y = root_y_MotionNotifyEvent e
+
     window = event_MotionNotifyEvent e
-    x'' = root_x_MotionNotifyEvent e
-    y'' = root_y_MotionNotifyEvent e
-    w'' = w' + fi x'' - fi x'
-    h'' = h' + fi y'' - fi y'
-    values = [(ConfigWindowWidth, fi w''), (ConfigWindowHeight, fi h'')]
+
+    delta_x = fi n_root_x - fi o_root_x
+    delta_y = fi n_root_y - fi o_root_y
+
+    values = \case
+        North -> [(ConfigWindowY, gy + delta_y), (ConfigWindowHeight, gh - delta_y)]
+        South -> [(ConfigWindowHeight, gh + delta_y)]
+        East  -> [(ConfigWindowWidth, gw + delta_x)]
+        West  -> [(ConfigWindowX, gx + delta_x), (ConfigWindowWidth, gw - delta_x)]
+        None  -> []
