@@ -59,7 +59,7 @@ pushHandler eh = eventHandler %:= (eh :)
 
 -- TODO: append default handlers
 dispatch :: SomeEvent -> Z ()
-dispatch e = mapM_ try <*$ eventHandler
+dispatch e = mapM_ try =<< getsL eventHandler (++ defaultHandler)
     where
     try :: EventHandler (Z ()) -> Z ()
     try (EventHandler handler) = void $ whenJust (fromEvent e) handler

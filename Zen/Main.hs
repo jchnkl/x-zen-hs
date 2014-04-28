@@ -108,35 +108,7 @@ config = Config
 core :: Core
 core = Core
     { _queue = M.empty
-    , _eventHandler =
-        -- Structure control events
-        [ EventHandler handleMapRequest
-        , EventHandler handleConfigureRequest
-        , EventHandler handleCirculateNotify
-        , EventHandler handleResizeRequest
-
-        -- Window state notification events
-        , EventHandler handleCreateNotify
-        , EventHandler handleDestroyNotify
-        , EventHandler handleMapNotify
-        , EventHandler handleUnmapNotify
-
-        -- Window crossing events
-        , EventHandler handleEnterNotify
-        , EventHandler handleLeaveNotify
-
-        -- Input focus events
-        , EventHandler handleFocusIn
-        , EventHandler handleFocusOut
-
-        -- Pointer events
-        , EventHandler handleButtonPress
-        , EventHandler handleButtonRelease
-
-        -- Keyboard events
-        , EventHandler handleKeyPress
-        , EventHandler handleKeyRelease
-        ]
+    , _eventHandler = []
     }
 
 
