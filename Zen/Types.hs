@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, FlexibleContexts, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification,
+             FlexibleContexts, GeneralizedNewtypeDeriving #-}
 
 module Types where
     -- ( module Types

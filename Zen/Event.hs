@@ -6,7 +6,6 @@ module Event where
 import Data.Maybe (catMaybes)
 import Data.List ((\\))
 import qualified Data.Map as M
-import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Word
 import Control.Monad
@@ -55,7 +54,6 @@ pushHandler :: EventHandler (Z ()) -> Z ()
 pushHandler eh = eventHooks %:= (S.insert eh)
 
 
--- TODO: append default handlers
 dispatch :: SomeEvent -> Z ()
 dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . S.toList)
     where
