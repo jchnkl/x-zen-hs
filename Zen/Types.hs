@@ -95,6 +95,9 @@ buttonHandler = lens _buttonHandler (\d v -> d { _buttonHandler = v })
 
 type WindowId = WINDOW
 
+data Edge = None | North | South | East | West
+    deriving (Eq, Ord, Read, Show, Typeable)
+
 data Position = Position
     { _x :: Int
     , _y :: Int

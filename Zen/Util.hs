@@ -7,6 +7,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Control.Monad.Writer
 import Graphics.XHB
+import Types
 
 fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
@@ -60,3 +61,20 @@ keysymToModifier :: KEYSYM -> Map KEYCODE [KEYSYM] -> Map MapIndex [KEYCODE]
                  -> Maybe MapIndex
 keysymToModifier keysym kbdmap modmap =
     keysymToKeycode keysym kbdmap >>= flip keycodeToModifier modmap
+
+
+getEdges :: Geometry -> (Edge, Edge)
+getEdges (Geometry (Position x' y') (Dimension w' h'))
+    -- 360 / 8 = 45; 45 / 2 = 22.5
+    | angle >  22.5 && angle <=  67.5 = (North, East)
+    | angle >  67.5 && angle <= 112.5 = (None,  East)
+    | angle > 112.5 && angle <= 157.5 = (South, East)
+    | angle > 157.5 && angle <= 202.5 = (South, None)
+    | angle > 202.5 && angle <= 247.5 = (South, West)
+    | angle > 247.5 && angle <= 292.5 = (None,  West)
+    | angle > 292.5 && angle <= 337.5 = (North, West)
+    | otherwise = (North, None)
+    where
+    norm_x = (fi x' - fi w' / 2.0) / (fi w' / 2.0)
+    norm_y = (fi y' - fi h' / 2.0) / (fi h' / 2.0)
+    angle = (180.0 / pi :: Double) * ((pi :: Double) - atan2 (norm_x) (norm_y))
