@@ -63,9 +63,9 @@ config = Config
                     pos = Position (fi event_x) (fi event_y)
 
                 raise window
-                pushHandler $ EventHandler $ moveWindow pos
+                pushHandler $ EventHandler $ moveWindow $ Just pos
 
-            , release = const $ popHandler $ EventHandler $ moveWindow (Position 0 0)
+            , release = const $ popHandler $ EventHandler $ moveWindow Nothing
             }
           )
 
@@ -86,9 +86,9 @@ config = Config
                     (io . flip getGeometry (convertXid window)) <-$ connection
 
                 void $ whenRight reply' $ \reply ->
-                    pushHandler $ EventHandler $ resizeWindow pos (dim reply)
+                    pushHandler $ EventHandler $ resizeWindow $ Just (pos, (dim reply))
 
-              , release = const $ popHandler $ EventHandler $ resizeWindow (Position 0 0) (Dimension 0 0)
+              , release = const $ popHandler $ EventHandler $ resizeWindow Nothing
               }
           )
 

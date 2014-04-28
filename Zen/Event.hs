@@ -231,8 +231,9 @@ handleKeyRelease e = do
             =<< asksL keyboardMap (keycodeToKeysym keycode)
 
 
-moveWindow :: Position -> MotionNotifyEvent -> Z ()
-moveWindow (Position x' y') e = configure window values
+moveWindow :: Maybe Position -> MotionNotifyEvent -> Z ()
+moveWindow Nothing _ = return ()
+moveWindow (Just (Position x' y')) e = configure window values
     where
     window = event_MotionNotifyEvent e
     root_x = fi $ root_x_MotionNotifyEvent e
@@ -240,8 +241,9 @@ moveWindow (Position x' y') e = configure window values
     values = [(ConfigWindowX, root_x - fi x'), (ConfigWindowY, root_y - fi y')]
 
 
-resizeWindow :: Position -> Dimension -> MotionNotifyEvent -> Z ()
-resizeWindow (Position x' y') (Dimension w' h') e = configure window values
+resizeWindow :: Maybe (Position, Dimension) -> MotionNotifyEvent -> Z ()
+resizeWindow Nothing _ = return ()
+resizeWindow (Just (Position x' y', Dimension w' h')) e = configure window values
     where
     window = event_MotionNotifyEvent e
     x'' = root_x_MotionNotifyEvent e
