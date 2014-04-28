@@ -88,6 +88,8 @@ config = Config
                 void $ flip whenRight update =<< io . getReply =<<
                     (io . flip getGeometry (convertXid window)) <-$ connection
                 pushHandler $ EventHandler resizeWindow
+
+              , release = const $ popHandler
               }
           )
 
@@ -100,19 +102,6 @@ config = Config
           )
 
         ]
-
-    -- , _buttonReleaseHandler = M.fromList
-    --     [ (ButtonIndex1, const $ do
-    --         toLog "Release ButtonIndex1"
-    --         -- popHandler
-    --       )
-    --     , (ButtonIndex3, const $ do
-    --         toLog "Release ButtonIndex2")
-    --     , (ButtonIndex2, const $ do
-    --         toLog "Release ButtonIndex3"
-    --         -- popHandler
-    --       )
-    --     ]
     }
 
 
