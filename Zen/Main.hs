@@ -27,10 +27,11 @@ import Event
 import Window
 
 -- TODO:
--- Lenses for data structures
 -- Free Monads for Layout
--- Use Word32 for xids & convert to from WINDOW, DRAWABLE, etc.
--- Use motionNotifyEvent_root_x instead of root_x_MotionNotifyEvent
+-- Split in proper modules
+--   Pointer -> grabButton, *Cursor, etc.
+--   Keyboard -> grabKeys, etc.
+--   or generic X module?
 
 -- IDEAS
 -- Use Mod4 with lock after timeout
@@ -140,6 +141,8 @@ startup (Just c) = do
         =<< execCore setup (Core M.empty S.empty M.empty) . mapM_ manage
             =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
+    -- TODO: freeCursor on exit
+
     where
     run :: Setup -> Core -> IO ()
     run setup core' = do
@@ -205,6 +208,7 @@ grabKeys c conf setup = do
         keys = M.keys (conf ^. keyHandler)
         nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
         cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        -- TODO: separate function
         combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
         grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
                                                      mask keycode
@@ -254,5 +258,6 @@ lookupCursor glyph = do
 changeCursor :: CURSOR -> Z ()
 changeCursor cursor = connection $-> io . flip changeActivePointerGrab changegrab
     where
+    -- TODO: mask in Setup -> askL buttonMask $->
     mask = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
     changegrab = MkChangeActivePointerGrab cursor (toValue TimeCurrentTime) mask

@@ -16,6 +16,7 @@ withClient :: WindowId -> (Client -> a) -> Queue -> Maybe a
 withClient w f = fmap f . M.lookup w
 
 -- TODO: more generic combinator?
+-- or at least withClient <=> withClientM
 withClient' :: WindowId -> (Client -> Z a) -> Z (Maybe a)
 withClient' w f = queue $*> flip whenJust f . M.lookup w 
 
