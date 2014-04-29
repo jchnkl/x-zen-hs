@@ -48,13 +48,13 @@ config = Config
 
     , _keyHandler = M.fromList
         [ (([], xK_a), InputHandler
-            { press = io . print
-            , release = io . print
+            { press = io . putStrLn . ("[], xK_a: " ++ ) . show
+            , release = io . putStrLn . ("[], xK_a: " ++ ) . show
             } )
 
         , (([ModMaskShift], xK_a), InputHandler
-            { press = io . print
-            , release = io . print
+            { press = io . putStrLn . ("[ModMaskShift], xK_a: " ++ ) . show
+            , release = io . putStrLn . ("[ModMaskShift], xK_a: " ++ ) . show
             } )
         ]
 
@@ -135,7 +135,8 @@ startup (Just c) = do
 
     setup <- makeSetup c
     -- TODO: ungrab / regrab keys for MappingNotifyEvent
-    grabKeys c config setup
+    -- grabKeys c config setup
+    grabModifier c config setup
 
     run setup
         =<< execCore setup (Core M.empty S.empty M.empty) . mapM_ manage
@@ -207,7 +208,7 @@ grabModifier c conf setup = do
         kbdmap = setup ^. keyboardMap
         modmap = setup ^. modifierMap
         -- keys = M.keys (conf ^. keyHandler)
-        keys = zip modmask $ concatMap (flip modifierToKeycode modmap . fromValue . toBit) modmask
+        -- keys = zip modmask $ concatMap (flip modifierToKeycode modmap . fromValue . toBit) modmask
 
         -- TODO: separate function
         nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
@@ -219,10 +220,17 @@ grabModifier c conf setup = do
 
     ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
 
-    -- mapM_ grab keys
-    forM_ keys $ \(mask, keycode) ->
-        -- whenJust (keysymToKeycode (fi keysym) kbdmap) $
-            mapM_ grab $ combos (mask : modmask) keycode
+    forM_ modmask $ \mask -> do
+        let keycodes = modifierToKeycode (fromValue . toBit $ mask) modmap
+        forM keycodes $ mapM_ grab . combos (mask `L.delete` modmask)
+
+    -- -- mapM_ grab keys
+    -- forM_ keys $ \(mask, keycode) -> do
+    --     -- whenJust (keysymToKeycode (fi keysym) kbdmap) $
+    --     let masks = mask `L.delete` modmask
+    --     io $ putStrLn $ "grabbing: " ++ show mask ++ " " ++ show keycode
+    --     io $ putStrLn $ "combos: " ++ show (combos masks keycode)
+    --     mapM_ grab $ combos masks keycode
 
     -- where
     -- permute :: [MapIndex] -> [[KEYCODE]] -> [([MapIndex], KEYCODE)]
