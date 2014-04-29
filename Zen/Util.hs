@@ -65,6 +65,9 @@ keysymToModifier :: KEYSYM -> Map KEYCODE [KEYSYM] -> Map MapIndex [KEYCODE]
 keysymToModifier keysym kbdmap modmap =
     keysymToKeycode keysym kbdmap >>= flip keycodeToModifier modmap
 
+modifierToKeycode :: MapIndex -> Map MapIndex [KEYCODE] -> [KEYCODE]
+modifierToKeycode = M.findWithDefault []
+
 
 getEdges :: Geometry -> (Edge, Edge)
 getEdges (Geometry (Position x' y') (Dimension w' h'))
