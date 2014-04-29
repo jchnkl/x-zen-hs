@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
-import Data.Maybe (catMaybes)
+import Data.Word
+import Data.Maybe (catMaybes, isJust, fromJust)
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -127,7 +128,7 @@ startup (Just c) = do
     grabKeys c config setup
 
     run setup
-        =<< execCore setup (Core M.empty S.empty) . mapM_ manage
+        =<< execCore setup (Core M.empty S.empty M.empty) . mapM_ manage
             =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
     where
@@ -205,3 +206,83 @@ grabKeys c conf setup = do
     forM_ keys $ \(mask, keysym) ->
         whenJust (keysymToKeycode (fi keysym) kbdmap) $
             mapM_ grab . combos (modmask ++ mask)
+
+
+-- TODO: error checking
+-- | Load a cursor
+loadCursor :: Connection
+           -> KEYSYM -- ^ Cursor keysym, e.g. xC_fleur
+           -> IO CURSOR -- ^ Cursor resource id, must be free'd with freeCursor
+loadCursor c keysym = do
+    font <- newResource c :: IO FONT
+    openFont c $ MkOpenFont font font_name_length font_name
+
+    cursor <- newResource c :: IO CURSOR
+    createGlyphCursor c $ MkCreateGlyphCursor cursor font font
+                                              source_char (source_char + 1)
+                                              0 0 0 0xffff 0xffff 0xffff
+
+    closeFont c font
+    return cursor
+
+    where
+    source_char = fi keysym
+    font_name = stringToCList "cursor"
+    font_name_length = fi $ length font_name
+
+
+getCursor :: KEYSYM -> Z CURSOR
+getCursor = getsL cursorShapes . M.findWithDefault (fromXid xidNone)
+
+lookupCursor :: KEYSYM -> Z CURSOR
+lookupCursor ks = do
+    cursor' <- getsL cursorShapes (M.lookup ks)
+    if isJust cursor'
+        then return $ fromJust cursor'
+        else do
+            cursor <- connection $-> io . flip loadCursor ks
+            cursorShapes %:= (M.insert ks cursor)
+            return cursor
+
+
+--         if (direction.first == NORTH && direction.second == NONE) {
+--           cursor = m_cursor[XC_top_side];
+--           m_motion = std::make_shared<motion<north, none>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == NORTH && direction.second == EAST) {
+--           cursor = m_cursor[XC_top_right_corner];
+--           m_motion = std::make_shared<motion<north, east>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == NORTH && direction.second == WEST) {
+--           cursor = m_cursor[XC_top_left_corner];
+--           m_motion = std::make_shared<motion<north, west>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == SOUTH && direction.second == NONE) {
+--           cursor = m_cursor[XC_bottom_side];
+--           m_motion = std::make_shared<motion<south, none>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == SOUTH && direction.second == EAST) {
+--           cursor = m_cursor[XC_bottom_right_corner];
+--           m_motion = std::make_shared<motion<south, east>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == SOUTH && direction.second == WEST) {
+--           cursor = m_cursor[XC_bottom_left_corner];
+--           m_motion = std::make_shared<motion<south, west>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == NONE && direction.second == EAST) {
+--           cursor = m_cursor[XC_right_side];
+--           m_motion = std::make_shared<motion<none, east>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--
+--         } else if (direction.first == NONE && direction.second == WEST) {
+--           cursor = m_cursor[XC_left_side];
+--           m_motion = std::make_shared<motion<none, west>>(
+--               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
+--         }
+--

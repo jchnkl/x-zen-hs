@@ -176,6 +176,7 @@ type EventHooks = Set (EventHandler (Z ()))
 data Core = Core
     { _queue :: Queue
     , _eventHooks :: EventHooks
+    , _cursorShapes :: Map KEYSYM CURSOR
     }
     deriving Typeable
 
@@ -184,6 +185,9 @@ queue = lens _queue (\d v -> d { _queue = v })
 
 eventHooks :: Functor f => LensLike' f Core EventHooks
 eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
+
+cursorShapes :: Functor f => LensLike' f Core (Map KEYSYM CURSOR)
+cursorShapes = lens _cursorShapes (\d v -> d { _cursorShapes = v })
 
 
 data Setup = Setup
