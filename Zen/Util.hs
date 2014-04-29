@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Util where
 
@@ -7,6 +8,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Control.Monad.Writer
 import Graphics.XHB
+import Graphics.X11.Xlib.Font (Glyph)
+import Graphics.X11.Xlib.Cursor
 import Types
 
 fi :: (Integral a, Num b) => a -> b
@@ -78,3 +81,16 @@ getEdges (Geometry (Position x' y') (Dimension w' h'))
     norm_x = (fi x' - fi w' / 2.0) / (fi w' / 2.0)
     norm_y = (fi y' - fi h' / 2.0) / (fi h' / 2.0)
     angle = (180.0 / pi :: Double) * ((pi :: Double) - atan2 (norm_x) (norm_y))
+
+
+getCursor :: (Edge, Edge) -> Glyph
+getCursor = \case
+    (North, None) -> xC_top_side
+    (North, East) -> xC_top_right_corner
+    (North, West) -> xC_top_left_corner
+    (South, None) -> xC_bottom_side
+    (South, East) -> xC_bottom_right_corner
+    (South, West) -> xC_bottom_left_corner
+    (None,  East) -> xC_right_side
+    (None,  West) -> xC_left_side
+    _             -> xC_sizing

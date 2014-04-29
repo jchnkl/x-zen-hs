@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# LANGUAGE LambdaCase #-}
 
-import Data.Word
 import Data.Maybe (catMaybes, isJust, fromJust)
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -12,6 +12,7 @@ import Control.Monad.Writer
 import Control.Applicative
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
+import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress, buttonRelease)
 
 import Log
@@ -92,9 +93,15 @@ config = Config
 
                 raise window
 
-                connection $-> (io . flip getGeometry (convertXid window))
-                    >>= io . getReply
-                        >>= void . flip whenRight (pushHandler . handler)
+                reply' <- io . getReply
+                    =<< connection $-> (io . flip getGeometry (convertXid window))
+
+                void $ whenRight reply' $ \reply -> do
+                    io $ putStrLn $ "event: " ++ show e ++ "\n"
+                    io $ putStrLn $ "reply: " ++ show reply ++ "\n"
+                    io $ putStrLn $ "edges: " ++ show (edges reply) ++ "\n"
+                    pushHandler $ handler reply
+                    lookupCursor (getCursor $ edges reply) >>= changeCursor
 
               , release = const $ popHandler $ resizeWindow Nothing
               }
@@ -211,9 +218,9 @@ grabKeys c conf setup = do
 -- TODO: error checking
 -- | Load a cursor
 loadCursor :: Connection
-           -> KEYSYM -- ^ Cursor keysym, e.g. xC_fleur
+           -> Glyph -- ^ Cursor glyph, e.g. xC_fleur
            -> IO CURSOR -- ^ Cursor resource id, must be free'd with freeCursor
-loadCursor c keysym = do
+loadCursor c glyph = do
     font <- newResource c :: IO FONT
     openFont c $ MkOpenFont font font_name_length font_name
 
@@ -226,63 +233,24 @@ loadCursor c keysym = do
     return cursor
 
     where
-    source_char = fi keysym
+    source_char = fi glyph
     font_name = stringToCList "cursor"
     font_name_length = fi $ length font_name
 
 
-getCursor :: KEYSYM -> Z CURSOR
-getCursor = getsL cursorShapes . M.findWithDefault (fromXid xidNone)
-
-lookupCursor :: KEYSYM -> Z CURSOR
-lookupCursor ks = do
-    cursor' <- getsL cursorShapes (M.lookup ks)
+lookupCursor :: Glyph -> Z CURSOR
+lookupCursor glyph = do
+    cursor' <- getsL cursorShapes (M.lookup glyph)
     if isJust cursor'
         then return $ fromJust cursor'
         else do
-            cursor <- connection $-> io . flip loadCursor ks
-            cursorShapes %:= (M.insert ks cursor)
+            cursor <- connection $-> io . flip loadCursor glyph
+            cursorShapes %:= (M.insert glyph cursor)
             return cursor
 
 
---         if (direction.first == NORTH && direction.second == NONE) {
---           cursor = m_cursor[XC_top_side];
---           m_motion = std::make_shared<motion<north, none>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == NORTH && direction.second == EAST) {
---           cursor = m_cursor[XC_top_right_corner];
---           m_motion = std::make_shared<motion<north, east>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == NORTH && direction.second == WEST) {
---           cursor = m_cursor[XC_top_left_corner];
---           m_motion = std::make_shared<motion<north, west>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == SOUTH && direction.second == NONE) {
---           cursor = m_cursor[XC_bottom_side];
---           m_motion = std::make_shared<motion<south, none>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == SOUTH && direction.second == EAST) {
---           cursor = m_cursor[XC_bottom_right_corner];
---           m_motion = std::make_shared<motion<south, east>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == SOUTH && direction.second == WEST) {
---           cursor = m_cursor[XC_bottom_left_corner];
---           m_motion = std::make_shared<motion<south, west>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == NONE && direction.second == EAST) {
---           cursor = m_cursor[XC_right_side];
---           m_motion = std::make_shared<motion<none, east>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---
---         } else if (direction.first == NONE && direction.second == WEST) {
---           cursor = m_cursor[XC_left_side];
---           m_motion = std::make_shared<motion<none, west>>(
---               e->root_x, e->root_y, g->x, g->y, g->width, g->height);
---         }
---
+changeCursor :: CURSOR -> Z ()
+changeCursor cursor = connection $-> io . flip changeActivePointerGrab changegrab
+    where
+    mask = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
+    changegrab = MkChangeActivePointerGrab cursor (toValue TimeCurrentTime) mask
