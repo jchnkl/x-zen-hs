@@ -200,6 +200,37 @@ modifierMapping receipt = indices <$> getReply receipt
         in M.fromList $ zip [MapIndexShift ..] modifier
 
 
+grabModifier :: Connection -> Config -> Setup -> IO ()
+grabModifier c conf setup = do
+    -- let modmask = map (fromValue . toBit) $ conf ^. modMask
+    let modmask = conf ^. modMask
+        kbdmap = setup ^. keyboardMap
+        modmap = setup ^. modifierMap
+        -- keys = M.keys (conf ^. keyHandler)
+        keys = zip modmask $ concatMap (flip modifierToKeycode modmap . fromValue . toBit) modmask
+
+        -- TODO: separate function
+        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
+        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+        grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
+                                                     mask keycode
+                                                     GrabModeAsync GrabModeAsync
+
+    ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
+
+    -- mapM_ grab keys
+    forM_ keys $ \(mask, keycode) ->
+        -- whenJust (keysymToKeycode (fi keysym) kbdmap) $
+            mapM_ grab $ combos (mask : modmask) keycode
+
+    -- where
+    -- permute :: [MapIndex] -> [[KEYCODE]] -> [([MapIndex], KEYCODE)]
+    -- permute ms (k:ks) = zip m ks : permute
+    --     where
+    --     permute' n ms (k:ks) = zip m ks : permute
+
+
 grabKeys :: Connection -> Config -> Setup -> IO ()
 grabKeys c conf setup = do
     let modmask = conf ^. modMask
