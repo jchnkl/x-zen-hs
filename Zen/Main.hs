@@ -13,6 +13,7 @@ import Control.Applicative
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
+import Graphics.X11.Xlib.Cursor (xC_fleur)
 import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress, buttonRelease)
 
 import Log
@@ -67,6 +68,7 @@ config = Config
 
                 raise window
                 pushHandler $ moveWindow $ Just pos
+                lookupCursor xC_fleur >>= changeCursor
 
             , release = const $ popHandler $ moveWindow Nothing
             }
