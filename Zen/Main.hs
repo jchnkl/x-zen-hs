@@ -38,6 +38,8 @@ import Window
 -- data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
 
 
+-- | Cursors to be loaded at program startup
+-- Cursors are available through @_glyphCursors@ in @Setup@
 cursorGlyphs :: [Glyph]
 cursorGlyphs =
     [ xC_fleur
