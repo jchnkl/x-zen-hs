@@ -153,12 +153,9 @@ startup (Just c) = do
         -- grabKeys c config setup
         grabModifier c config setup
 
-        run setup
-             =<< execCore setup (Core M.empty S.empty M.empty) . mapM_ manage
-                 =<< children <$> (queryTree c (getRoot c) >>= getReply)
-
-
-        run setup core'
+        run setup . snd
+            =<< runCore setup (Core M.empty S.empty) . mapM_ manage
+                =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
     where
     run :: Setup -> Core -> IO ()
@@ -173,9 +170,6 @@ startup (Just c) = do
 
     runCore :: Setup -> Core -> Z () -> IO ([String], Core)
     runCore setup core (Z z) = runReaderT (runStateT (execWriterT z) core) setup
-
-    execCore :: Setup -> Core -> Z () -> IO Core
-    execCore setup core (Z z) = runReaderT (execStateT (execWriterT z) core) setup
 
     children :: Either SomeError QueryTreeReply -> [WindowId]
     children (Left _) = []
