@@ -243,7 +243,8 @@ grabModifier c conf setup = do
     ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
 
     forM_ modmask $ \mask -> do
-        let keycodes = modifierToKeycode (fromValue . toBit $ mask) modmap
+        let mapindex = fromValue . toBit $ mask
+            keycodes = filter (/= 0) $ modifierToKeycode mapindex modmap
         forM keycodes $ mapM_ grab . combos (mask `L.delete` modmask)
 
 
