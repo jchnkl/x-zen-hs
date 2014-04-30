@@ -14,7 +14,13 @@ import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
-import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress, buttonRelease)
+import Graphics.X11.Types hiding ( Connection
+                                 , EventMask
+                                 , keyPress
+                                 , keyRelease
+                                 , buttonPress
+                                 , buttonRelease
+                                 )
 
 import Log
 import Util
@@ -54,6 +60,12 @@ cursorGlyphs =
     , xC_sizing
     ]
 
+eventMaskButton :: [EventMask]
+eventMaskButton =
+    [ EventMaskButtonMotion
+    , EventMaskButtonPress
+    , EventMaskButtonRelease
+    ]
 
 config :: Config
 config = Config
@@ -185,7 +197,7 @@ withSetup c f = withFont c "cursor" $ \font -> do
             max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
         kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
         modmap <- modifierMapping =<< getModifierMapping c
-        f $ Setup config c (getRoot c) kbdmap modmap cursors
+        f $ Setup config c (getRoot c) eventMaskButton kbdmap modmap cursors
 
 
 -- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
@@ -261,11 +273,10 @@ lookupCursor glyph = asksL glyphCursors (M.findWithDefault (fromXid xidNone) gly
 
 
 changeCursor :: CURSOR -> Z ()
-changeCursor cursor = connection $-> io . flip changeActivePointerGrab changegrab
+changeCursor cursor = connection $-> \c ->
+    askL buttonMask >>= io . changeActivePointerGrab c . changegrab
     where
-    -- TODO: mask in Setup -> askL buttonMask $->
-    mask = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
-    changegrab = MkChangeActivePointerGrab cursor (toValue TimeCurrentTime) mask
+    changegrab = MkChangeActivePointerGrab cursor (toValue TimeCurrentTime)
 
 
 withFont :: Connection -> String -> (FONT -> IO b) -> IO b

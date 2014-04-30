@@ -190,6 +190,7 @@ data Setup = Setup
     { _config :: Config
     , _connection :: Connection
     , _rootWindow :: WindowId
+    , _buttonMask :: [EventMask]
     , _keyboardMap :: Map KEYCODE [KEYSYM]
     , _modifierMap :: Map MapIndex [KEYCODE]
     , _glyphCursors :: Map Glyph CURSOR
@@ -204,6 +205,9 @@ connection = lens _connection (\d v -> d { _connection = v })
 
 rootWindow :: Functor f => LensLike' f Setup WindowId
 rootWindow = lens _rootWindow (\d v -> d { _rootWindow = v })
+
+buttonMask :: Functor f => LensLike' f Setup [EventMask]
+buttonMask = lens _buttonMask (\d v -> d { _buttonMask = v })
 
 keyboardMap :: Functor f => LensLike' f Setup (Map KEYCODE [KEYSYM])
 keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })

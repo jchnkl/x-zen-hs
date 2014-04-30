@@ -92,6 +92,7 @@ grabButtons window = connection $-> \c -> do
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
+    eventmask <- askL buttonMask
     let nl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
         cl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
         -- TODO: separate function
@@ -99,13 +100,11 @@ grabButtons window = connection $-> \c -> do
 
     buttons <- asksL (config . buttonHandler) (M.keys)
 
-    forM_ buttons $ \(m, b) -> mapM_ (grab c) $ combos (modmask ++ m) b
+    forM_ buttons $ \(m, b) -> mapM_ (grab c eventmask) $ combos (modmask ++ m) b
 
     where
-    -- TODO: mask in Setup -> askL buttonMask $->
-    events = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
-    grab c (mask, button) = do
-        io $ grabButton c $ MkGrabButton True window events
+    grab c eventmask (mask, button) = do
+        io $ grabButton c $ MkGrabButton True window eventmask
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)
                             button mask
