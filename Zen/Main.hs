@@ -10,10 +10,11 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Applicative
+import Control.Exception (bracket)
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
-import Graphics.X11.Xlib.Cursor (xC_fleur)
+import Graphics.X11.Xlib.Cursor
 import Graphics.X11.Types hiding (Connection, keyPress, keyRelease, buttonPress, buttonRelease)
 
 import Log
@@ -36,6 +37,21 @@ import Window
 -- IDEAS
 -- Use Mod4 with lock after timeout
 -- data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
+
+
+cursorGlyphs :: [Glyph]
+cursorGlyphs =
+    [ xC_fleur
+    , xC_top_side
+    , xC_top_right_corner
+    , xC_top_left_corner
+    , xC_bottom_side
+    , xC_bottom_right_corner
+    , xC_bottom_left_corner
+    , xC_right_side
+    , xC_left_side
+    , xC_sizing
+    ]
 
 
 config :: Config
@@ -133,16 +149,17 @@ startup (Just c) = do
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
-    setup <- makeSetup c
-    -- TODO: ungrab / regrab keys for MappingNotifyEvent
-    -- grabKeys c config setup
-    grabModifier c config setup
+    withSetup c $ \setup -> do
+        -- TODO: ungrab / regrab keys for MappingNotifyEvent
+        -- grabKeys c config setup
+        grabModifier c config setup
 
-    run setup
-        =<< execCore setup (Core M.empty S.empty M.empty) . mapM_ manage
-            =<< children <$> (queryTree c (getRoot c) >>= getReply)
+        run setup
+             =<< execCore setup (Core M.empty S.empty M.empty) . mapM_ manage
+                 =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
-    -- TODO: freeCursor on exit
+
+        run setup core'
 
     where
     run :: Setup -> Core -> IO ()
@@ -166,13 +183,14 @@ startup (Just c) = do
     children (Right reply) = children_QueryTreeReply reply
 
 
-makeSetup :: Connection -> IO Setup
-makeSetup c = do
-    let min_keycode = min_keycode_Setup $ connectionSetup c
-        max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
-    kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
-    modmap <- modifierMapping =<< getModifierMapping c
-    return $ Setup config c (getRoot c) kbdmap modmap
+withSetup :: Connection -> (Setup -> IO a) -> IO a
+withSetup c f = withFont c "cursor" $ \font -> do
+    withGlyphCursors c font cursorGlyphs $ \cursors -> do
+        let min_keycode = min_keycode_Setup $ connectionSetup c
+            max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
+        kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
+        modmap <- modifierMapping =<< getModifierMapping c
+        f $ Setup config c (getRoot c) kbdmap modmap cursors
 
 
 -- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
@@ -284,14 +302,7 @@ loadCursor c glyph = do
 
 
 lookupCursor :: Glyph -> Z CURSOR
-lookupCursor glyph = do
-    cursor' <- getsL cursorShapes (M.lookup glyph)
-    if isJust cursor'
-        then return $ fromJust cursor'
-        else do
-            cursor <- connection $-> io . flip loadCursor glyph
-            cursorShapes %:= (M.insert glyph cursor)
-            return cursor
+lookupCursor glyph = asksL glyphCursors (M.findWithDefault (fromXid xidNone) glyph)
 
 
 changeCursor :: CURSOR -> Z ()
@@ -300,3 +311,40 @@ changeCursor cursor = connection $-> io . flip changeActivePointerGrab changegra
     -- TODO: mask in Setup -> askL buttonMask $->
     mask = [EventMaskButtonMotion, EventMaskButtonPress, EventMaskButtonRelease]
     changegrab = MkChangeActivePointerGrab cursor (toValue TimeCurrentTime) mask
+
+
+withFont :: Connection -> String -> (FONT -> IO b) -> IO b
+withFont c name = bracket getFont (closeFont c)
+    where
+    getFont :: IO FONT
+    getFont = do
+        font <- newResource c :: IO FONT
+        openFont c $ MkOpenFont font (fi $ length name) (stringToCList name)
+        return font
+
+
+withGlyphCursor :: Connection -> FONT -> Glyph -> (CURSOR -> IO a) -> IO a
+withGlyphCursor c font glyph = bracket acquireCursor (freeCursor c)
+    where
+    source_char = fi glyph
+
+    acquireCursor :: IO CURSOR
+    acquireCursor = do
+        cursor <- newResource c :: IO CURSOR
+        createGlyphCursor c $ MkCreateGlyphCursor cursor font font
+                                                  source_char (source_char + 1)
+                                                  0 0 0 0xffff 0xffff 0xffff
+        return cursor
+
+
+withGlyphCursors :: Connection
+                 -> FONT
+                 -> [Glyph]
+                 -> (Map Glyph CURSOR -> IO a)
+                 -> IO a
+withGlyphCursors c font = run M.empty
+    where
+    run cursors (glyph:glyphs) f =
+        withGlyphCursor c font glyph $ \cursor ->
+            run (M.insert glyph cursor cursors) glyphs f
+    run cursors _ f = f cursors

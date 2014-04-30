@@ -177,7 +177,6 @@ type EventHooks = Set (EventHandler (Z ()))
 data Core = Core
     { _queue :: Queue
     , _eventHooks :: EventHooks
-    , _cursorShapes :: Map Glyph CURSOR
     }
     deriving Typeable
 
@@ -187,8 +186,6 @@ queue = lens _queue (\d v -> d { _queue = v })
 eventHooks :: Functor f => LensLike' f Core EventHooks
 eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
 
-cursorShapes :: Functor f => LensLike' f Core (Map Glyph CURSOR)
-cursorShapes = lens _cursorShapes (\d v -> d { _cursorShapes = v })
 
 
 data Setup = Setup
@@ -197,6 +194,7 @@ data Setup = Setup
     , _rootWindow :: WindowId
     , _keyboardMap :: Map KEYCODE [KEYSYM]
     , _modifierMap :: Map MapIndex [KEYCODE]
+    , _glyphCursors :: Map Glyph CURSOR
     }
     deriving Typeable
 
@@ -214,6 +212,9 @@ keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })
 
 modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
+
+glyphCursors :: Functor f => LensLike' f Setup (Map Glyph CURSOR)
+glyphCursors = lens _glyphCursors (\d v -> d { _glyphCursors = v })
 
 
 type LogWT = WriterT [String]
