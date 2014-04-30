@@ -278,29 +278,6 @@ grabKeys c conf setup = do
             mapM_ grab . combos (modmask ++ mask)
 
 
--- TODO: error checking
--- | Load a cursor
-loadCursor :: Connection
-           -> Glyph -- ^ Cursor glyph, e.g. xC_fleur
-           -> IO CURSOR -- ^ Cursor resource id, must be free'd with freeCursor
-loadCursor c glyph = do
-    font <- newResource c :: IO FONT
-    openFont c $ MkOpenFont font font_name_length font_name
-
-    cursor <- newResource c :: IO CURSOR
-    createGlyphCursor c $ MkCreateGlyphCursor cursor font font
-                                              source_char (source_char + 1)
-                                              0 0 0 0xffff 0xffff 0xffff
-
-    closeFont c font
-    return cursor
-
-    where
-    source_char = fi glyph
-    font_name = stringToCList "cursor"
-    font_name_length = fi $ length font_name
-
-
 lookupCursor :: Glyph -> Z CURSOR
 lookupCursor glyph = asksL glyphCursors (M.findWithDefault (fromXid xidNone) glyph)
 
