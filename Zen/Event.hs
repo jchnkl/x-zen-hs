@@ -203,6 +203,16 @@ handleButtonRelease e = do
     flip handleRelease e . M.lookup (mask, button) <-$ config . buttonHandler
 
 
+isModifier :: KEYCODE -> Z Bool
+isModifier keycode = asksL (config . modMask) . fold False <-$ modifierMap
+    where
+    fold def modmap (mask:masks) =
+        let mapindex = fromValue . toBit $ mask
+            keycodes = modifierToKeycode mapindex modmap
+        in fold (foldr (||) def $ map (== keycode) keycodes) modmap masks
+    fold def _ _ = def
+
+
 handleKeyPress :: KeyPressEvent -> Z ()
 handleKeyPress e = do
     toLog "KeyPressEvent"
