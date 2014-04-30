@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE LambdaCase #-}
 
-import Data.Maybe (catMaybes, isJust, fromJust)
+import Data.Maybe (catMaybes)
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -221,12 +220,9 @@ modifierMapping receipt = indices <$> getReply receipt
 
 grabModifier :: Connection -> Config -> Setup -> IO ()
 grabModifier c conf setup = do
-    -- let modmask = map (fromValue . toBit) $ conf ^. modMask
     let modmask = conf ^. modMask
         kbdmap = setup ^. keyboardMap
         modmap = setup ^. modifierMap
-        -- keys = M.keys (conf ^. keyHandler)
-        -- keys = zip modmask $ concatMap (flip modifierToKeycode modmap . fromValue . toBit) modmask
 
         -- TODO: separate function
         nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
@@ -241,20 +237,6 @@ grabModifier c conf setup = do
     forM_ modmask $ \mask -> do
         let keycodes = modifierToKeycode (fromValue . toBit $ mask) modmap
         forM keycodes $ mapM_ grab . combos (mask `L.delete` modmask)
-
-    -- -- mapM_ grab keys
-    -- forM_ keys $ \(mask, keycode) -> do
-    --     -- whenJust (keysymToKeycode (fi keysym) kbdmap) $
-    --     let masks = mask `L.delete` modmask
-    --     io $ putStrLn $ "grabbing: " ++ show mask ++ " " ++ show keycode
-    --     io $ putStrLn $ "combos: " ++ show (combos masks keycode)
-    --     mapM_ grab $ combos masks keycode
-
-    -- where
-    -- permute :: [MapIndex] -> [[KEYCODE]] -> [([MapIndex], KEYCODE)]
-    -- permute ms (k:ks) = zip m ks : permute
-    --     where
-    --     permute' n ms (k:ks) = zip m ks : permute
 
 
 grabKeys :: Connection -> Config -> Setup -> IO ()

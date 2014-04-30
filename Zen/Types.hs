@@ -186,8 +186,6 @@ queue = lens _queue (\d v -> d { _queue = v })
 eventHooks :: Functor f => LensLike' f Core EventHooks
 eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
 
-
-
 data Setup = Setup
     { _config :: Config
     , _connection :: Connection
