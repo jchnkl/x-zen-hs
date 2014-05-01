@@ -77,13 +77,13 @@ config = Config
 
     , _keyHandler = M.fromList
         [ (([], xK_a), InputHandler
-            { press = io . putStrLn . ("[], xK_a: " ++ ) . show
-            , release = io . putStrLn . ("[], xK_a: " ++ ) . show
+            { press = \_ -> (toLog ("[], xK_a" ))
+            , release = \_ -> (toLog ("[], xK_a"))
             } )
 
         , (([ModMaskShift], xK_a), InputHandler
-            { press = io . putStrLn . ("[ModMaskShift], xK_a: " ++ ) . show
-            , release = io . putStrLn . ("[ModMaskShift], xK_a: " ++ ) . show
+            { press = \_ -> (toLog ("[ModMaskShift], xK_a" ))
+            , release = \_ -> (toLog ("[ModMaskShift], xK_a"))
             } )
         ]
 
