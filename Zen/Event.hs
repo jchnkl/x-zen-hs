@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE ExistentialQuantification, MultiParamTypeClasses, LambdaCase #-}
+{-# LANGUAGE ExistentialQuantification, MultiParamTypeClasses,
+             LambdaCase, TupleSections #-}
 
 module Event where
 
@@ -7,6 +8,7 @@ import Data.Maybe (catMaybes)
 import Data.List ((\\))
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.List as L
 import Data.Word
 import Control.Monad
 import Control.Applicative
@@ -88,8 +90,10 @@ dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . S.toList)
         , EventHandler handleButtonRelease
 
         -- Keyboard events
-        , EventHandler handleKeyPress
-        , EventHandler handleKeyRelease
+        , EventHandler handleKeyPress2
+        , EventHandler handleKeyRelease2
+        -- , EventHandler handleKeyPress
+        -- , EventHandler handleKeyRelease
         ]
 
 
@@ -211,6 +215,91 @@ isModifier keycode = asksL (config . modMask) . fold False <-$ modifierMap
             keycodes = modifierToKeycode mapindex modmap
         in fold (foldr (||) def $ map (== keycode) keycodes) modmap masks
     fold def _ _ = def
+
+
+ungrabKeys :: Z ()
+ungrabKeys = connection $-> \c -> do
+    kbdmap <- askL keyboardMap
+    keys <- asksL (config . keyHandler) M.keys
+    forM_ keys $ \(_, keysym) ->
+        whenJust (keysymToKeycode (fi keysym) kbdmap) $ \keycode ->
+            io $ ungrabKey c $ MkUngrabKey keycode (getRoot c) [ModMaskAny]
+
+
+grabKeys :: Z ()
+grabKeys = connection $-> \c -> do
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+    keys <- asksL (config . keyHandler) M.keys
+
+    let nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
+        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        -- TODO: separate function
+        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+        grab (mask, keycode) = io $ grabKey c $ MkGrabKey True (getRoot c)
+                                                          mask keycode
+                                                          GrabModeAsync GrabModeAsync
+
+    forM_ keys $ \(mask, keysym) ->
+        whenJust (keysymToKeycode (fi keysym) kbdmap) $
+            mapM_ grab . combos mask
+
+
+-- KeyPressEvent:
+--   isModifier  True    |  False
+--   mode %:=    Manage  |  Normal
+--                       |  forM handlePress keyHandler
+
+-- KeyReleaseEvent
+--   isModifier  True            |  False
+--               mode == Normal  |  forM handleRelease keyHandler
+
+handleKeyPress2 :: KeyPressEvent -> Z ()
+handleKeyPress2 e =
+    isModifier (detail_KeyPressEvent e) >>= \case
+
+    True -> do
+        mode %:= (\m -> if m == Normal then Manage else Normal)
+        getL mode >>= toLog . ("KeyPressEvent: " ++) . show
+
+    False -> do
+        let state = state_KeyPressEvent e
+            keycode = detail_KeyPressEvent e
+
+        modmask <- asksL (config . modMask) (L.delete ModMaskAny)
+
+        when (all (`elem` state) $ map (fromBit . toBit) modmask) $
+            mode ^:= Normal
+
+        mask <- (\\ modmask) <$> cleanMask state
+
+        mapM_ (flip handlePress e)
+            =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
+                =<< asksL keyboardMap (keycodeToKeysym keycode)
+
+
+handleKeyRelease2 :: KeyReleaseEvent -> Z ()
+handleKeyRelease2 e =
+    isModifier (detail_KeyReleaseEvent e) >>= \case
+
+    True -> do
+        getL mode >>= \case
+            Normal -> do
+                toLog "KeyReleaseEvent: Normal!"
+                ungrabKeys
+            Manage -> do
+                toLog "KeyReleaseEvent: Manage!"
+                grabKeys
+
+    False -> do
+        let state = state_KeyReleaseEvent e
+            keycode = detail_KeyReleaseEvent e
+
+        mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+
+        mapM_ (flip handleRelease e)
+            =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
+                =<< asksL keyboardMap (keycodeToKeysym keycode)
 
 
 handleKeyPress :: KeyPressEvent -> Z ()

@@ -168,7 +168,7 @@ startup (Just c) = do
         grabModifier c config setup
 
         run setup . snd
-            =<< runCore setup (Core M.empty S.empty) . mapM_ manage
+            =<< runCore setup (Core Normal M.empty S.empty) . mapM_ manage
                 =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
     where

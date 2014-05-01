@@ -172,13 +172,20 @@ type Queue = Map WindowId Client
 -- below :: Lens Queue [Client]
 -- below = lens _below (\v d -> d { _below = v })
 
+data Mode = Normal | Manage
+    deriving (Eq, Read, Show, Typeable)
+
 type EventHooks = Set (EventHandler (Z ()))
 
 data Core = Core
-    { _queue :: Queue
+    { _mode :: Mode
+    , _queue :: Queue
     , _eventHooks :: EventHooks
     }
     deriving Typeable
+
+mode :: Functor f => LensLike' f Core Mode
+mode = lens _mode (\d v -> d { _mode = v })
 
 queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
