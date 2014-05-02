@@ -14,13 +14,15 @@ import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
-import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
+import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
 
 import Lens
 import Util
 import Types
 
 
+specialKeys :: [KeySym]
+specialKeys = [xK_Num_Lock, xK_Caps_Lock]
 
 keysymToKeycode :: KeyboardMap -> KEYSYM -> Maybe KEYCODE
 keysymToKeycode kbdmap = safeHead . M.keys . flip M.filter kbdmap . elem
@@ -46,10 +48,8 @@ modifierToKeycode = flip (M.findWithDefault [])
 cleanMask :: KeyboardMap -> ModifierMap -> [KeyButMask] -> [ModMask]
 cleanMask kbdmap modmap mask = modifiermask \\ map (fromBit . toValue) modifier
     where
-    keycodes = catMaybes [ keysymToKeycode (fi xK_Num_Lock) kbdmap
-                         , keysymToKeycode (fi xK_Caps_Lock) kbdmap
-                         ]
-    modifier = catMaybes $ map (flip keycodeToModifier modmap) $ keycodes
+    keycodes = catMaybes $ map (keysymToKeycode kbdmap . fi) specialKeys
+    modifier = catMaybes $ map (keycodeToModifier modmap) $ keycodes
     modifiermask = map (fromBit . toBit) (mask \\ [KeyButMaskButton1 ..])
 
 
