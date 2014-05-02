@@ -21,25 +21,26 @@ import Util
 import Types
 
 
-keysymToKeycode :: KEYSYM -> KeyboardMap -> Maybe KEYCODE
-keysymToKeycode keysym = safeHead . M.keys . M.filter (keysym `elem`)
+
+keysymToKeycode :: KeyboardMap -> KEYSYM -> Maybe KEYCODE
+keysymToKeycode kbdmap = safeHead . M.keys . flip M.filter kbdmap . elem
 
 
-keycodeToKeysym :: KEYCODE -> KeyboardMap -> [KEYSYM]
-keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode
+keycodeToKeysym :: KeyboardMap -> KEYCODE -> [KEYSYM]
+keycodeToKeysym kbdmap = fromMaybe [] . flip M.lookup kbdmap
 
 
-keycodeToModifier :: KEYCODE -> ModifierMap -> Maybe MapIndex
-keycodeToModifier keycode = safeHead . M.keys . M.filter (keycode `elem`)
+keycodeToModifier :: ModifierMap -> KEYCODE -> Maybe MapIndex
+keycodeToModifier modmap = safeHead . M.keys . flip M.filter modmap . elem
 
 
-keysymToModifier :: KEYSYM -> KeyboardMap -> ModifierMap -> Maybe MapIndex
-keysymToModifier keysym kbdmap modmap =
-    keysymToKeycode keysym kbdmap >>= flip keycodeToModifier modmap
+keysymToModifier :: KeyboardMap -> ModifierMap -> KEYSYM -> Maybe MapIndex
+keysymToModifier kbdmap modmap keysym =
+    keysymToKeycode kbdmap keysym >>= keycodeToModifier modmap
 
 
-modifierToKeycode :: MapIndex -> Map MapIndex [KEYCODE] -> [KEYCODE]
-modifierToKeycode = M.findWithDefault []
+modifierToKeycode :: ModifierMap -> MapIndex -> [KEYCODE]
+modifierToKeycode = flip (M.findWithDefault [])
 
 
 cleanMask :: KeyboardMap -> ModifierMap -> [KeyButMask] -> [ModMask]
@@ -93,8 +94,8 @@ grabModifier c conf setup = do
         modmap = setup ^. modifierMap
 
         -- TODO: separate function
-        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
-        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
+        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
         combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
         grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
                                                      mask keycode
@@ -104,7 +105,7 @@ grabModifier c conf setup = do
 
     forM_ modmask $ \mask -> do
         let mapindex = fromValue . toBit $ mask
-            keycodes = filter (/= 0) $ modifierToKeycode mapindex modmap
+            keycodes = filter (/= 0) $ modifierToKeycode modmap mapindex
         forM keycodes $ mapM_ grab . combos (mask `L.delete` modmask)
         -- forM keycodes $ \keycode -> do
         --     io . putStrLn $ "grabbing " ++ show (mask `L.delete` modmask) ++ " " ++ show keycode
