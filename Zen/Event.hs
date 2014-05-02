@@ -284,7 +284,7 @@ handleKeyRelease2 e =
         let state = state_KeyReleaseEvent e
             keycode = detail_KeyReleaseEvent e
 
-        mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+        mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
 
         mapM_ (flip handleRelease e)
             =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
