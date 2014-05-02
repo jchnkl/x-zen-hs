@@ -201,7 +201,7 @@ isModifier keycode = asksL (config . modMask) . fold False <-$ modifierMap
     where
     fold def modmap (mask:masks) =
         let mapindex = fromValue . toBit $ mask
-            keycodes = modifierToKeycode mapindex modmap
+            keycodes = modifierToKeycode modmap mapindex
         in fold (foldr (||) def $ map (== keycode) keycodes) modmap masks
     fold def _ _ = def
 
@@ -211,7 +211,7 @@ ungrabKeys = connection $-> \c -> do
     kbdmap <- askL keyboardMap
     keys <- asksL (config . keyHandler) M.keys
     forM_ keys $ \(_, keysym) ->
-        whenJust (keysymToKeycode (fi keysym) kbdmap) $ \keycode ->
+        whenJust (keysymToKeycode kbdmap (fi keysym)) $ \keycode ->
             io $ ungrabKey c $ MkUngrabKey keycode (getRoot c) [ModMaskAny]
 
 
@@ -221,8 +221,8 @@ grabKeys = connection $-> \c -> do
     modmap <- askL modifierMap
     keys <- asksL (config . keyHandler) M.keys
 
-    let nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
-        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+    let nl = catMaybes [(fromBit . toValue) <$> keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
+        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
         -- TODO: separate function
         combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
         grab (mask, keycode) = io $ grabKey c $ MkGrabKey True (getRoot c)
@@ -230,7 +230,7 @@ grabKeys = connection $-> \c -> do
                                                           GrabModeAsync GrabModeAsync
 
     forM_ keys $ \(mask, keysym) ->
-        whenJust (keysymToKeycode (fi keysym) kbdmap) $
+        whenJust (keysymToKeycode kbdmap (fi keysym)) $
             mapM_ grab . combos mask
 
 
@@ -264,7 +264,7 @@ handleKeyPress2 e =
 
         mapM_ (flip handlePress e)
             =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
-                =<< asksL keyboardMap (keycodeToKeysym keycode)
+                =<< asksL keyboardMap (flip keycodeToKeysym keycode)
 
 
 handleKeyRelease2 :: KeyReleaseEvent -> Z ()
@@ -288,6 +288,7 @@ handleKeyRelease2 e =
 
         mapM_ (flip handleRelease e)
             =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
+                =<< asksL keyboardMap (flip keycodeToKeysym keycode)
                 =<< asksL keyboardMap (keycodeToKeysym keycode)
 
 
@@ -302,7 +303,7 @@ handleKeyPress e = do
     let lookupKeysym keysym = M.lookup (mask, fi keysym)
     mapM_ (flip handlePress e)
         =<< (mapM $ asksL (config . keyHandler) . lookupKeysym)
-            =<< asksL keyboardMap (keycodeToKeysym keycode)
+            =<< asksL keyboardMap (flip keycodeToKeysym keycode)
 
 
 handleKeyRelease :: KeyReleaseEvent -> Z ()
@@ -316,7 +317,7 @@ handleKeyRelease e = do
     let lookupKeysym keysym = M.lookup (mask, fi keysym)
     mapM_ (flip handleRelease e)
         =<< (mapM $ asksL (config . keyHandler) . lookupKeysym)
-            =<< asksL keyboardMap (keycodeToKeysym keycode)
+            =<< asksL keyboardMap (flip keycodeToKeysym keycode)
 
 
 moveWindow :: Maybe Position -> MotionNotifyEvent -> Z ()
