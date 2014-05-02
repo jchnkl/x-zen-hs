@@ -13,19 +13,17 @@ import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
-import Graphics.X11.Types hiding (Connection, EventMask)
+import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
-import Log
 import Util
 import Lens
 -- import Core
 import Types hiding (config)
--- import Config
+import Config (defaultConfig)
 -- import Setup hiding (config)
 import Event
 import Window
 import Cursor
-import Pointer
 
 -- TODO:
 -- Free Monads for Layout
@@ -62,34 +60,6 @@ eventMaskButton =
     , EventMaskButtonRelease
     ]
 
-config :: Config
-config = Config
-    { _modMask = [ModMask1]
-    , _borderWidth = 3
-    , _normalBorderColor = 0x00a0a0a0
-    , _focusedBorderColor = 0x00ffce28
-    , _selectionBorderColor = 0x00ff0000
-
-    , _keyHandler = M.fromList
-        [ (([], xK_a), InputHandler
-            { press = \_ -> (toLog ("[], xK_a" ))
-            , release = \_ -> (toLog ("[], xK_a"))
-            } )
-
-        , (([ModMaskShift], xK_a), InputHandler
-            { press = \_ -> (toLog ("[ModMaskShift], xK_a" ))
-            , release = \_ -> (toLog ("[ModMaskShift], xK_a"))
-            } )
-        ]
-
-    , _buttonHandler = M.fromList
-        [ (([], ButtonIndex1), moveWindowHandler)
-        , (([], ButtonIndex2), resizeWindowHandler)
-        , (([], ButtonIndex3), lowerWindowHandler)
-        , (([ModMaskShift], ButtonIndex3), raiseWindowHandler)
-        ]
-    }
-
 
 main :: IO ()
 main = connect >>= startup
@@ -105,7 +75,7 @@ startup (Just c) = do
     withSetup c $ \setup -> do
         -- TODO: ungrab / regrab keys for MappingNotifyEvent
         -- grabKeys c config setup
-        grabModifier c config setup
+        grabModifier c defaultConfig setup
 
         run setup . snd
             =<< runCore setup (Core Normal M.empty S.empty) . mapM_ manage
@@ -137,7 +107,7 @@ withSetup c f = withFont c "cursor" $ \font -> do
             max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
         kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
         modmap <- modifierMapping =<< getModifierMapping c
-        f $ Setup config c (getRoot c) eventMaskButton kbdmap modmap cursors
+        f $ Setup defaultConfig c (getRoot c) eventMaskButton kbdmap modmap cursors
 
 
 -- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
