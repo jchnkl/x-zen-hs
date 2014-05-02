@@ -94,8 +94,8 @@ grabButtons window = connection $-> \c -> do
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
     eventmask <- askL buttonMask
-    let nl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
-        cl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+    let nl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
+        cl = catMaybes [fmap (fromBit . toValue) $ keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
         -- TODO: separate function
         combos m b = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [b, b ..]
 
