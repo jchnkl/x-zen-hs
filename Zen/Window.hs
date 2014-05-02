@@ -15,6 +15,7 @@ import Lens
 import Util
 import Types
 import Queue
+import Keyboard
 
 
 manage :: WindowId -> Z ()
