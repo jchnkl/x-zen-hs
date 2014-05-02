@@ -9,18 +9,11 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Applicative
-import Control.Exception (bracket)
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
-import Graphics.X11.Types hiding ( Connection
-                                 , EventMask
-                                 , keyPress
-                                 , keyRelease
-                                 , buttonPress
-                                 , buttonRelease
-                                 )
+import Graphics.X11.Types hiding (Connection, EventMask)
 
 import Log
 import Util
@@ -31,6 +24,8 @@ import Types hiding (config)
 -- import Setup hiding (config)
 import Event
 import Window
+import Cursor
+import Pointer
 
 -- TODO:
 -- Free Monads for Layout
@@ -88,65 +83,10 @@ config = Config
         ]
 
     , _buttonHandler = M.fromList
-        [ (([], ButtonIndex1), InputHandler
-            { press = \e -> do
-                toLog "Press ButtonIndex1"
-                let window = event_ButtonPressEvent e
-                    event_x = event_x_ButtonPressEvent e
-                    event_y = event_y_ButtonPressEvent e
-                    pos = Position (fi event_x) (fi event_y)
-
-                raise window
-                pushHandler $ moveWindow $ Just pos
-                lookupCursor xC_fleur >>= changeCursor
-
-            , release = const $ popHandler $ moveWindow Nothing
-            }
-          )
-
-        , (([], ButtonIndex2), mkInputHandler
-            { press = \e -> do
-                toLog "Press ButtonIndex2"
-                let window = event_ButtonPressEvent e
-                    root_x = fi $ root_x_ButtonPressEvent e
-                    root_y = fi $ root_y_ButtonPressEvent e
-                    event_x = fi $ event_x_ButtonPressEvent e
-                    event_y = fi $ event_y_ButtonPressEvent e
-                    geom_x = fi . x_GetGeometryReply
-                    geom_y = fi . y_GetGeometryReply
-                    geom_w = fi . width_GetGeometryReply
-                    geom_h = fi . height_GetGeometryReply
-                    pos g = Position (geom_x g) (geom_y g)
-                    dim g = Dimension (geom_w g) (geom_h g)
-                    edges = getEdges . Geometry (Position event_x event_y) . dim
-                    handler g = resizeWindow $ Just (edges g,
-                                                     Position root_x root_y,
-                                                     Geometry (pos g) (dim g))
-
-                raise window
-
-                reply' <- io . getReply
-                    =<< connection $-> (io . flip getGeometry (convertXid window))
-
-                void $ whenRight reply' $ \reply -> do
-                    io $ putStrLn $ "event: " ++ show e ++ "\n"
-                    io $ putStrLn $ "reply: " ++ show reply ++ "\n"
-                    io $ putStrLn $ "edges: " ++ show (edges reply) ++ "\n"
-                    pushHandler $ handler reply
-                    lookupCursor (getCursor $ edges reply) >>= changeCursor
-
-              , release = const $ popHandler $ resizeWindow Nothing
-              }
-          )
-
-        , (([], ButtonIndex3), mkInputHandler
-            { press = lower . event_ButtonPressEvent }
-          )
-
-        , (([ModMaskShift], ButtonIndex3), mkInputHandler
-            { press = raise . event_ButtonPressEvent }
-          )
-
+        [ (([], ButtonIndex1), moveWindowHandler)
+        , (([], ButtonIndex2), resizeWindowHandler)
+        , (([], ButtonIndex3), lowerWindowHandler)
+        , (([ModMaskShift], ButtonIndex3), raiseWindowHandler)
         ]
     }
 
@@ -267,51 +207,3 @@ grabKeys c conf setup = do
     forM_ keys $ \(mask, keysym) ->
         whenJust (keysymToKeycode (fi keysym) kbdmap) $
             mapM_ grab . combos (modmask ++ mask)
-
-
-lookupCursor :: Glyph -> Z CURSOR
-lookupCursor glyph = asksL glyphCursors (M.findWithDefault (fromXid xidNone) glyph)
-
-
-changeCursor :: CURSOR -> Z ()
-changeCursor cursor = connection $-> \c ->
-    askL buttonMask >>= io . changeActivePointerGrab c . changegrab
-    where
-    changegrab = MkChangeActivePointerGrab cursor (toValue TimeCurrentTime)
-
-
-withFont :: Connection -> String -> (FONT -> IO b) -> IO b
-withFont c name = bracket getFont (closeFont c)
-    where
-    getFont :: IO FONT
-    getFont = do
-        font <- newResource c :: IO FONT
-        openFont c $ MkOpenFont font (fi $ length name) (stringToCList name)
-        return font
-
-
-withGlyphCursor :: Connection -> FONT -> Glyph -> (CURSOR -> IO a) -> IO a
-withGlyphCursor c font glyph = bracket acquireCursor (freeCursor c)
-    where
-    source_char = fi glyph
-
-    acquireCursor :: IO CURSOR
-    acquireCursor = do
-        cursor <- newResource c :: IO CURSOR
-        createGlyphCursor c $ MkCreateGlyphCursor cursor font font
-                                                  source_char (source_char + 1)
-                                                  0 0 0 0xffff 0xffff 0xffff
-        return cursor
-
-
-withGlyphCursors :: Connection
-                 -> FONT
-                 -> [Glyph]
-                 -> (Map Glyph CURSOR -> IO a)
-                 -> IO a
-withGlyphCursors c font = run M.empty
-    where
-    run cursors (glyph:glyphs) f =
-        withGlyphCursor c font glyph $ \cursor ->
-            run (M.insert glyph cursor cursors) glyphs f
-    run cursors _ f = f cursors
