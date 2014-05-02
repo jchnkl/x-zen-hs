@@ -257,8 +257,7 @@ handleKeyPress2 e =
 
         modmask <- asksL (config . modMask) (L.delete ModMaskAny)
 
-        when (all (`elem` state) $ map (fromBit . toBit) modmask) $
-            mode ^:= Normal
+        when (all (`elem` state) $ convert modmask) $ mode ^:= Normal
 
         mask <- (\\ modmask) <$> getCleanMask state
 

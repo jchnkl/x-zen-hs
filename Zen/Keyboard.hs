@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, TupleSections #-}
+
 module Keyboard where
 
 import Data.Maybe (catMaybes, fromMaybe)
@@ -19,6 +21,16 @@ import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
 import Lens
 import Util
 import Types
+
+
+class TypeConversion a b where
+    convert :: a -> b
+
+instance TypeConversion [KeyButMask] [ModMask] where
+    convert = map (fromBit . toBit) . (\\ [KeyButMaskButton1 ..])
+
+instance TypeConversion [ModMask] [KeyButMask] where
+    convert = map (fromBit . toBit) . (\\ [ModMaskAny])
 
 
 specialKeys :: [KeySym]
@@ -45,15 +57,15 @@ modifierToKeycode :: ModifierMap -> MapIndex -> [KEYCODE]
 modifierToKeycode = flip (M.findWithDefault [])
 
 
-cleanMask :: KeyboardMap -> ModifierMap -> [KeyButMask] -> [ModMask]
-cleanMask kbdmap modmap mask = modifiermask \\ map (fromBit . toValue) modifier
+cleanMask :: TypeConversion [a] [ModMask]
+          => KeyboardMap -> ModifierMap -> [a] -> [ModMask]
+cleanMask kbdmap modmap mask = (convert mask) \\ map (fromBit . toValue) modifier
     where
     keycodes = catMaybes $ map (keysymToKeycode kbdmap . fi) specialKeys
     modifier = catMaybes $ map (keycodeToModifier modmap) $ keycodes
-    modifiermask = map (fromBit . toBit) (mask \\ [KeyButMaskButton1 ..])
 
 
-getCleanMask :: [KeyButMask] -> Z [ModMask]
+getCleanMask :: TypeConversion [a] [ModMask] => [a] -> Z [ModMask]
 getCleanMask mask = do
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
