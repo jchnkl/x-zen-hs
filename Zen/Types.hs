@@ -193,14 +193,18 @@ queue = lens _queue (\d v -> d { _queue = v })
 eventHooks :: Functor f => LensLike' f Core EventHooks
 eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
 
+type KeyboardMap = Map KEYCODE [KEYSYM]
+type ModifierMap = Map MapIndex [KEYCODE]
+type CursorMap   = Map Glyph CURSOR
+
 data Setup = Setup
     { _config :: Config
     , _connection :: Connection
     , _rootWindow :: WindowId
     , _buttonMask :: [EventMask]
-    , _keyboardMap :: Map KEYCODE [KEYSYM]
-    , _modifierMap :: Map MapIndex [KEYCODE]
-    , _glyphCursors :: Map Glyph CURSOR
+    , _keyboardMap :: KeyboardMap
+    , _modifierMap :: ModifierMap
+    , _glyphCursors :: CursorMap
     }
     deriving Typeable
 

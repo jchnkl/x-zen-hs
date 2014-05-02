@@ -3,9 +3,6 @@
 
 module Util where
 
-import Data.Maybe (fromMaybe)
-import Data.Map (Map)
-import qualified Data.Map as M
 import Control.Monad.Writer
 import Graphics.XHB
 import Graphics.X11.Xlib.Font (Glyph)
@@ -50,23 +47,6 @@ getReplies = fmap replies . mapM getReply
 partition :: Int -> [a] -> [[a]]
 partition _ [] = []
 partition n lst = take n lst : partition n (drop n lst)
-
-keysymToKeycode :: KEYSYM -> Map KEYCODE [KEYSYM] -> Maybe KEYCODE
-keysymToKeycode keysym = safeHead . M.keys . M.filter (keysym `elem`)
-
-keycodeToKeysym :: KEYCODE -> Map KEYCODE [KEYSYM] -> [KEYSYM]
-keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode
-
-keycodeToModifier :: KEYCODE -> Map MapIndex [KEYCODE] -> Maybe MapIndex
-keycodeToModifier keycode = safeHead . M.keys . M.filter (keycode `elem`)
-
-keysymToModifier :: KEYSYM -> Map KEYCODE [KEYSYM] -> Map MapIndex [KEYCODE]
-                 -> Maybe MapIndex
-keysymToModifier keysym kbdmap modmap =
-    keysymToKeycode keysym kbdmap >>= flip keycodeToModifier modmap
-
-modifierToKeycode :: MapIndex -> Map MapIndex [KEYCODE] -> [KEYCODE]
-modifierToKeycode = M.findWithDefault []
 
 
 getEdges :: Geometry -> (Edge, Edge)

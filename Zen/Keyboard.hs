@@ -1,9 +1,10 @@
 module Keyboard where
 
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Set as S
+import Data.List ((\\))
 import qualified Data.List as L
 import Control.Monad.State
 import Control.Monad.Reader
@@ -18,6 +19,44 @@ import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 import Lens
 import Util
 import Types
+
+
+keysymToKeycode :: KEYSYM -> KeyboardMap -> Maybe KEYCODE
+keysymToKeycode keysym = safeHead . M.keys . M.filter (keysym `elem`)
+
+
+keycodeToKeysym :: KEYCODE -> KeyboardMap -> [KEYSYM]
+keycodeToKeysym keycode = fromMaybe [] . M.lookup keycode
+
+
+keycodeToModifier :: KEYCODE -> ModifierMap -> Maybe MapIndex
+keycodeToModifier keycode = safeHead . M.keys . M.filter (keycode `elem`)
+
+
+keysymToModifier :: KEYSYM -> KeyboardMap -> ModifierMap -> Maybe MapIndex
+keysymToModifier keysym kbdmap modmap =
+    keysymToKeycode keysym kbdmap >>= flip keycodeToModifier modmap
+
+
+modifierToKeycode :: MapIndex -> Map MapIndex [KEYCODE] -> [KEYCODE]
+modifierToKeycode = M.findWithDefault []
+
+
+cleanMask :: KeyboardMap -> ModifierMap -> [KeyButMask] -> [ModMask]
+cleanMask kbdmap modmap mask = modifiermask \\ map (fromBit . toValue) modifier
+    where
+    keycodes = catMaybes [ keysymToKeycode (fi xK_Num_Lock) kbdmap
+                         , keysymToKeycode (fi xK_Caps_Lock) kbdmap
+                         ]
+    modifier = catMaybes $ map (flip keycodeToModifier modmap) $ keycodes
+    modifiermask = map (fromBit . toBit) (mask \\ [KeyButMaskButton1 ..])
+
+
+getCleanMask :: [KeyButMask] -> Z [ModMask]
+getCleanMask mask = do
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+    return $ cleanMask kbdmap modmap mask
 
 
 -- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html

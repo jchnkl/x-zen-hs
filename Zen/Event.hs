@@ -20,6 +20,7 @@ import Lens
 import Util
 import Types
 import Window
+import Keyboard
 
 
 class InputEventDispatcher pe re where
@@ -115,18 +116,6 @@ copyValues e (ConfigWindowStackMode   : ms) =
 copyValues _ _ = []
 
 
-cleanMask :: [KeyButMask] -> Z [ModMask]
-cleanMask mask = do
-    kbdmap <- askL keyboardMap
-    modmap <- askL modifierMap
-    let keycodes = catMaybes [ keysymToKeycode (fi xK_Num_Lock) kbdmap
-                             , keysymToKeycode (fi xK_Caps_Lock) kbdmap
-                             ]
-        modifier = catMaybes $ map (flip keycodeToModifier modmap) $ keycodes
-        modifiermask = map (fromBit . toBit) (mask \\ [KeyButMaskButton1 ..])
-    return $ modifiermask \\ map (fromBit . toValue) modifier
-
-
 -- Event handler
 
 handleMapRequest :: MapRequestEvent -> Z ()
@@ -194,7 +183,7 @@ handleButtonPress e = do
     toLog "ButtonPressEvent"
     let state = state_ButtonPressEvent e
         button = fromValue $ detail_ButtonPressEvent e
-    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+    mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
     flip handlePress e . M.lookup (mask, button) <-$ config . buttonHandler
 
 
@@ -203,7 +192,7 @@ handleButtonRelease e = do
     toLog "ButtonReleaseEvent"
     let state = state_ButtonReleaseEvent e
         button = fromValue $ detail_ButtonReleaseEvent e
-    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+    mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
     flip handleRelease e . M.lookup (mask, button) <-$ config . buttonHandler
 
 
@@ -271,7 +260,7 @@ handleKeyPress2 e =
         when (all (`elem` state) $ map (fromBit . toBit) modmask) $
             mode ^:= Normal
 
-        mask <- (\\ modmask) <$> cleanMask state
+        mask <- (\\ modmask) <$> getCleanMask state
 
         mapM_ (flip handlePress e)
             =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
@@ -295,7 +284,7 @@ handleKeyRelease2 e =
         let state = state_KeyReleaseEvent e
             keycode = detail_KeyReleaseEvent e
 
-        mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+        mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
 
         mapM_ (flip handleRelease e)
             =<< (mapM $ asksL (config . keyHandler) . M.lookup . (mask,) . fi)
@@ -308,7 +297,7 @@ handleKeyPress e = do
     let state = state_KeyPressEvent e
         keycode = detail_KeyPressEvent e
 
-    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+    mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
 
     let lookupKeysym keysym = M.lookup (mask, fi keysym)
     mapM_ (flip handlePress e)
@@ -322,7 +311,7 @@ handleKeyRelease e = do
     let state = state_KeyReleaseEvent e
         keycode = detail_KeyReleaseEvent e
 
-    mask <- (\\) <$> (cleanMask state) <*> askL (config . modMask)
+    mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
 
     let lookupKeysym keysym = M.lookup (mask, fi keysym)
     mapM_ (flip handleRelease e)
