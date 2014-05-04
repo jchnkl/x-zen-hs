@@ -28,14 +28,25 @@ eventDispatcher handler = forM_ handler . try
     try event (EventHandler h) = void $ whenJust (fromEvent event) h
 
 
+initSomeState :: Setup -> [SomeState] -> IO [SomeState]
+initSomeState setup states = run [] states
+    where
+    run result [] = return result
+    run result (Stateful i s f : somestates) = do
+        (logstr, s') <- runStateT (runReaderT (execWriterT i) setup) s
+        printLog logstr
+        run (Stateful i s' f : result) somestates
+    run result (s : somestates) = run (s : result) somestates
+
+
 runSomeState :: Setup -> [SomeState] -> SomeEvent -> IO [SomeState]
 runSomeState setup states event = run [] states
     where
     run result [] = return result
-    run result (Stateful s f : somestates) = do
+    run result (Stateful i s f : somestates) = do
         (logstr, s') <- runStateT (runReaderT (execWriterT (f event)) setup) s
         printLog logstr
-        run (Stateful s' f : result) somestates
+        run (Stateful i s' f : result) somestates
     run result (Stateless f : somestates) = do
         runReaderT (execWriterT (f event)) setup >>= printLog
         run (Stateless f : result) somestates
