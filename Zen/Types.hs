@@ -42,8 +42,7 @@ class ComponentClass m where
     init :: m ()
 
 
--- Component
-data SomeState
+data Component
     = forall s. Typeable s => Stateful
     { initState :: Z (StateT s IO) ()
     , someState :: s

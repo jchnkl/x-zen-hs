@@ -19,7 +19,7 @@ import Lens
 import Types
 import Window
 import Keyboard
-import SomeState
+import Component
 
 
 data ButtonConfig = ButtonConfig
@@ -38,7 +38,7 @@ data PointerMotion = M Position
 type PointerState = LogWT (SetupRT (StateT (Maybe PointerMotion) IO))
 
 
-pointerState :: SomeState
+pointerState :: Component
 pointerState = Stateful
     { initState = return ()
     , someState = Nothing
