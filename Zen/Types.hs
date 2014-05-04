@@ -7,6 +7,7 @@
              TypeSynonymInstances,
              StandaloneDeriving,
              GeneralizedNewtypeDeriving #-}
+             -- RankNTypes,
 
 module Types where
     -- ( module Types
@@ -16,10 +17,12 @@ module Types where
 import Data.Word
 import Data.Typeable
 import Data.Map (Map)
+-- import Data.Set (Set)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Graphics.XHB hiding (Setup)
+-- import Graphics.X11.Types (KeySym)
 import Graphics.X11.Xlib.Font (Glyph)
 
 -- import Lens
@@ -45,10 +48,13 @@ class ComponentClass m where
 
 -- Component
 data SomeState
+    -- = forall s. (ComponentClass s, Typeable s) => Stateful
     = forall s. Typeable s => Stateful
     { initState :: Z (StateT s IO) ()
     , someState :: s
     , stateHandler :: SomeEvent -> Z (StateT s IO) ()
+    -- , receiveMessage :: SomeMessage -> Z (StateT s IO) ()
+    -- = forall s. Typeable s => Stateful
     }
 
     | Stateless
@@ -56,6 +62,8 @@ data SomeState
     }
 
     deriving Typeable
+
+-- deriving instance Show Component
 
 
 
@@ -102,7 +110,13 @@ data Config = Config
     , _components :: [Component]
     , _componentConfigs :: [ComponentConfig]
     }
+    -- deriving (Show, Typeable)
     deriving (Typeable)
+    -- | NormalConfig
+    -- { _this :: Int }
+    -- | ManageConfig
+    -- { _that :: String }
+    -- deriving Typeable
 
 modMask :: Functor f => LensLike' f Config [ModMask]
 modMask f d = (\v -> d { _modMask = v }) `fmap` (f (_modMask d))
