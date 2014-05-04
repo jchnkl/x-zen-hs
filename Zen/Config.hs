@@ -6,7 +6,16 @@ import Graphics.X11.Types -- hiding (Connection, EventMask)
 
 import Log
 import Types
-import Pointer
+
+import Button
+
+buttonConfig :: ButtonConfig
+buttonConfig = ButtonConfig $ M.fromList
+    [ (([],             ButtonIndex1), Move)
+    , (([],             ButtonIndex2), Resize)
+    , (([],             ButtonIndex3), Lower)
+    , (([ModMaskShift], ButtonIndex3), Raise)
+    ]
 
 
 defaultConfig :: Config
@@ -43,4 +52,6 @@ defaultConfig = Config
         , (([], ButtonIndex3), lowerWindowHandler)
         , (([ModMaskShift], ButtonIndex3), raiseWindowHandler)
         ]
+
+    , _componentConfigs = [ComponentConfig buttonConfig]
     }
