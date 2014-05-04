@@ -183,12 +183,9 @@ type Queue = Map WindowId Client
 data Mode = Normal | Manage
     deriving (Eq, Read, Show, Typeable)
 
-type EventHooks = Set (EventHandler (Z ()))
-
 data Core = Core
     { _mode :: Mode
     , _queue :: Queue
-    , _eventHooks :: EventHooks
     }
     deriving Typeable
 
@@ -197,9 +194,6 @@ mode = lens _mode (\d v -> d { _mode = v })
 
 queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
-
-eventHooks :: Functor f => LensLike' f Core EventHooks
-eventHooks = lens _eventHooks (\d v -> d { _eventHooks = v })
 
 type KeyboardMap = Map KEYCODE [KEYSYM]
 type ModifierMap = Map MapIndex [KEYCODE]
