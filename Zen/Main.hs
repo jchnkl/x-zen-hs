@@ -18,6 +18,7 @@ import Types hiding (config)
 import Config (defaultConfig)
 -- import Setup hiding (config)
 import Window
+import Keyboard
 
 import SomeState
 
@@ -80,7 +81,7 @@ startup (Just c) = do
         -- TODO: ungrab / regrab keys for MappingNotifyEvent
         -- grabKeys c config setup
 
-        run setup someStates
+        initSomeState setup someStates >>= run setup
 
     where
     run setup states = waitForEvent c >>= runSomeState setup states >>= run setup
