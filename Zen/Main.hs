@@ -20,7 +20,7 @@ import Config (defaultConfig)
 import Window
 import Keyboard
 
-import SomeState
+import Component
 
 import Event
 import Core
@@ -62,7 +62,7 @@ eventMaskButton =
     ]
 
 
-someStates :: [SomeState]
+someStates :: [Component]
 someStates = [baseEventHandler, coreState, pointerState]
 
 
@@ -81,10 +81,10 @@ startup (Just c) = do
         -- TODO: ungrab / regrab keys for MappingNotifyEvent
         -- grabKeys c config setup
 
-        initSomeState setup someStates >>= run setup
+        initComponent setup someStates >>= run setup
 
     where
-    run setup states = waitForEvent c >>= runSomeState setup states >>= run setup
+    run setup states = waitForEvent c >>= runComponent setup states >>= run setup
 
     runZ :: Z ()
     runZ = connection $-> io . waitForEvent >>= dispatch

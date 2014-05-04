@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE RankNTypes #-}
 
-module SomeState where
+module Component where
 
 import Data.Typeable
 import Control.Monad.State
@@ -28,8 +28,8 @@ eventDispatcher handler = forM_ handler . try
     try event (EventHandler h) = void $ whenJust (fromEvent event) h
 
 
-initSomeState :: Setup -> [SomeState] -> IO [SomeState]
-initSomeState setup states = run [] states
+initComponent :: Setup -> [Component] -> IO [Component]
+initComponent setup states = run [] states
     where
     run result [] = return result
     run result (Stateful i s f : somestates) = do
@@ -39,8 +39,8 @@ initSomeState setup states = run [] states
     run result (s : somestates) = run (s : result) somestates
 
 
-runSomeState :: Setup -> [SomeState] -> SomeEvent -> IO [SomeState]
-runSomeState setup states event = run [] states
+runComponent :: Setup -> [Component] -> SomeEvent -> IO [Component]
+runComponent setup states event = run [] states
     where
     run result [] = return result
     run result (Stateful i s f : somestates) = do

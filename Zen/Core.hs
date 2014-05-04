@@ -14,13 +14,13 @@ import Lens
 import Log
 import Queue
 import Window
-import SomeState
+import Component
 
 
 type CoreST m a = Z (StateT Core m) a
 
 
-coreState :: SomeState
+coreState :: Component
 coreState = Stateful (Core Normal M.empty)
                    $ eventDispatcher [ EventHandler handleCreateNotify
                                      , EventHandler handleDestroyNotify
