@@ -110,23 +110,13 @@ grabModifier c conf setup = do
         kbdmap = setup ^. keyboardMap
         modmap = setup ^. modifierMap
 
-        -- TODO: separate function
-        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
-        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
-        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+        modifier = [] : combinations (extraModifier kbdmap modmap)
+        keycodes = filter (/= 0)
+                 $ concatMap (modifierToKeycode modmap) (convert modmask)
         grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
                                                      mask keycode
                                                      GrabModeAsync GrabModeAsync
 
     ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
 
-    forM_ modmask $ \mask -> do
-        let mapindex = fromValue . toBit $ mask
-            keycodes = filter (/= 0) $ modifierToKeycode modmap mapindex
-        forM keycodes $ mapM_ grab . combos (mask `L.delete` modmask)
-        -- forM keycodes $ \keycode -> do
-        --     io . putStrLn $ "grabbing " ++ show (mask `L.delete` modmask) ++ " " ++ show keycode
-        --     io . putStrLn $ "combos: " ++ show (combos (mask `L.delete` modmask) keycode)
-
-        --     (io $ putStrLn $ "grabbing " ++ show (mask `L.delete` modmask) ++ " " ++ show k)
-        --     (grab (combos (mask `L.delete` modmask) k))
+    mapM_ grab $ concatMap (zip modifier . repeat) keycodes
