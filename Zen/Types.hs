@@ -138,6 +138,9 @@ x = lens _x (\d v -> d { _x = v })
 y :: Functor f => LensLike' f Position Int
 y = lens _y (\d v -> d { _y = v })
 
+nullPosition :: Position
+nullPosition = Position 0 0
+
 
 data Dimension = Dimension
     { _width :: Word
@@ -151,6 +154,9 @@ width = lens _width (\d v -> d { _width = v })
 height :: Functor f => LensLike' f Dimension Word
 height = lens _height (\d v -> d { _height = v })
 
+nullDimension :: Dimension
+nullDimension = Dimension 0 0
+
 
 data Geometry = Geometry
     { _position :: Position
@@ -163,6 +169,9 @@ position = lens _position (\d v -> d { _position = v })
 
 dimension :: Functor f => LensLike' f Geometry Dimension
 dimension = lens _dimension (\d v -> d { _dimension = v })
+
+nullGeometry :: Geometry
+nullGeometry = Geometry nullPosition nullDimension
 
 
 data Client = Client
