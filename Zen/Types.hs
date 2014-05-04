@@ -1,6 +1,12 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification,
-             FlexibleContexts, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable,
+             ExistentialQuantification,
+             FlexibleContexts,
+             FlexibleInstances,
+             MultiParamTypeClasses,
+             TypeSynonymInstances,
+             StandaloneDeriving,
+             GeneralizedNewtypeDeriving #-}
 
 module Types where
     -- ( module Types
@@ -23,15 +29,36 @@ import Lens.Family
 -- import Lens.Family.State
 import Lens.Family.Unchecked
 
-data EventHandler b = forall a . (Typeable (a -> b), Event a) => EventHandler (a -> b)
+
+data ComponentConfig
+
+data SomeMessage
+
+class ComponentMessage m where
+    send :: SomeMessage -> m ()
+    recv :: SomeMessage -> m ()
+
+class ComponentClass m where
+    init :: m ()
+
+
+-- Component
+data SomeState
+    = forall s. Typeable s => Stateful
+    { someState :: s
+    , stateHandler :: SomeEvent -> LogWT (SetupRT (StateT s IO)) ()
+    }
+
+    | Stateless
+    { eventHandler :: SomeEvent -> StatelessZ ()
+    }
+
     deriving Typeable
 
-instance Eq (EventHandler a) where
-    EventHandler l == EventHandler r = typeOf l == typeOf r
 
-instance Ord (EventHandler a) where
-    EventHandler l `compare` EventHandler r = typeOf l `compare` typeOf r
 
+
+data EventHandler b = forall a . (Event a) => EventHandler (a -> b)
 
 data InputEventHandler pe re = InputHandler
     { press   :: pe -> Z ()
@@ -232,17 +259,9 @@ glyphCursors = lens _glyphCursors (\d v -> d { _glyphCursors = v })
 
 type LogWT = WriterT [String]
 
-type CoreST = StateT Core
 
 type SetupRT = ReaderT Setup
 
-newtype Z a = Z (LogWT (CoreST (SetupRT IO)) a)
-    deriving ( Applicative
-             , Functor
-             , Monad
-             , MonadIO
-             , MonadReader Setup
-             , MonadState Core
-             , MonadWriter [String]
-             , Typeable
-             )
+type Z m a = LogWT (SetupRT m) a
+
+type StatelessZ a = Z IO a
