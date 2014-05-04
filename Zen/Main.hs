@@ -17,12 +17,14 @@ import Lens
 import Types hiding (config)
 import Config (defaultConfig)
 -- import Setup hiding (config)
+-- import Event
 import Window
+-- import Cursor
 import Keyboard
 
 import SomeState
-
 import Event
+
 import Core
 import Button
 
@@ -77,9 +79,15 @@ startup (Just c) = do
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
+    io . putStrLn $ show defaultConfig
     withSetup c $ \setup -> do
         -- TODO: ungrab / regrab keys for MappingNotifyEvent
         -- grabKeys c config setup
+        -- grabModifier c defaultConfig setup
+
+        -- run setup . snd
+        --     =<< runCore setup (Core Normal M.empty S.empty) . mapM_ manage
+        --         =<< children <$> (queryTree c (getRoot c) >>= getReply)
 
         initSomeState setup someStates >>= run setup
 
@@ -89,11 +97,32 @@ startup (Just c) = do
     runZ :: Z ()
     runZ = connection $-> io . waitForEvent >>= dispatch
 
+    -- run :: Setup -> Core -> IO ()
+    -- run setup core' = do
+    --     (logstr, core'') <- runCore setup core' runZ
+    --     time <- getZonedTime
+    --     putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ logstr
+    --     run setup core''
+
+    -- runZ :: Z ()
+    -- runZ = connection $-> io . waitForEvent >>= dispatch
+
+    -- runCore :: Setup -> Core -> Z () -> IO ([String], Core)
+    -- runCore setup core (Z z) = runReaderT (runStateT (execWriterT z) core) setup
 
     children :: Either SomeError QueryTreeReply -> [WindowId]
     children (Left _) = []
     children (Right reply) = children_QueryTreeReply reply
 
+
+-- withSetup :: Connection -> (Setup -> IO a) -> IO a
+-- withSetup c f = withFont c "cursor" $ \font -> do
+--     withGlyphCursors c font cursorGlyphs $ \cursors -> do
+--         let min_keycode = min_keycode_Setup $ connectionSetup c
+--             max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
+--         kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
+--         modmap <- modifierMapping =<< getModifierMapping c
+--         f $ Setup defaultConfig c (getRoot c) eventMaskButton kbdmap modmap cursors
 
 withSetup :: Connection -> (Setup -> IO a) -> IO a
 withSetup c f = do
