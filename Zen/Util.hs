@@ -56,31 +56,31 @@ combinations (u:[]) = [[u]]
 combinations (u:us) = [u] : map (\v -> [u,v]) us ++ combinations us
 
 
-getEdges :: Geometry -> (Edge, Edge)
+getEdges :: Geometry -> (Maybe Edge, Maybe Edge)
 getEdges (Geometry (Position x' y') (Dimension w' h'))
     -- 360 / 8 = 45; 45 / 2 = 22.5
-    | angle >  22.5 && angle <=  67.5 = (North, East)
-    | angle >  67.5 && angle <= 112.5 = (None,  East)
-    | angle > 112.5 && angle <= 157.5 = (South, East)
-    | angle > 157.5 && angle <= 202.5 = (South, None)
-    | angle > 202.5 && angle <= 247.5 = (South, West)
-    | angle > 247.5 && angle <= 292.5 = (None,  West)
-    | angle > 292.5 && angle <= 337.5 = (North, West)
-    | otherwise = (North, None)
+    | angle >  22.5 && angle <=  67.5 = (Just North, Just East)
+    | angle >  67.5 && angle <= 112.5 = (Nothing,    Just East)
+    | angle > 112.5 && angle <= 157.5 = (Just South, Just East)
+    | angle > 157.5 && angle <= 202.5 = (Just South, Nothing)
+    | angle > 202.5 && angle <= 247.5 = (Just South, Just West)
+    | angle > 247.5 && angle <= 292.5 = (Nothing,    Just West)
+    | angle > 292.5 && angle <= 337.5 = (Just North, Just West)
+    | otherwise                       = (Just North, Nothing)
     where
     norm_x = (fi x' - fi w' / 2.0) / (fi w' / 2.0)
     norm_y = (fi y' - fi h' / 2.0) / (fi h' / 2.0)
     angle = (180.0 / pi :: Double) * ((pi :: Double) - atan2 (norm_x) (norm_y))
 
 
-getCursor :: (Edge, Edge) -> Glyph
+getCursor :: (Maybe Edge, Maybe Edge) -> Glyph
 getCursor = \case
-    (North, None) -> xC_top_side
-    (North, East) -> xC_top_right_corner
-    (North, West) -> xC_top_left_corner
-    (South, None) -> xC_bottom_side
-    (South, East) -> xC_bottom_right_corner
-    (South, West) -> xC_bottom_left_corner
-    (None,  East) -> xC_right_side
-    (None,  West) -> xC_left_side
-    _             -> xC_sizing
+    (Just North, Nothing)   -> xC_top_side
+    (Just North, Just East) -> xC_top_right_corner
+    (Just North, Just West) -> xC_top_left_corner
+    (Just South, Nothing)   -> xC_bottom_side
+    (Just South, Just East) -> xC_bottom_right_corner
+    (Just South, Just West) -> xC_bottom_left_corner
+    (Nothing,    Just East) -> xC_right_side
+    (Nothing,    Just West) -> xC_left_side
+    _                       -> xC_sizing
