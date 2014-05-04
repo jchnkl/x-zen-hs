@@ -58,37 +58,7 @@ data SomeState
     deriving Typeable
 
 
-
-
 data EventHandler b = forall a . (Event a) => EventHandler (a -> b)
-
-data InputEventHandler pe re = InputHandler
-    { press   :: pe -> Z ()
-    , release :: re -> Z ()
-    }
-
--- mkInputHandler :: Maybe (pe -> Z ()) -> Maybe (re -> Z ()) -> InputEventHandler pe re
-mkInputHandler :: InputEventHandler pe re
-mkInputHandler = InputHandler (const $ return ()) (const $ return ())
-
-type KeyEventHandler = InputEventHandler KeyPressEvent KeyReleaseEvent
-type ButtonEventHandler = InputEventHandler ButtonPressEvent ButtonReleaseEvent
-
--- data KeyEventHandler = KeyEventHandler
---     { keyPress :: KeyPressEvent -> Z ()
---     , keyRelease :: KeyReleaseEvent -> Z ()
---     }
-
--- type KeyHandler = Map ([ModMask], KeySym) KeyEventHandler
-type KeyHandler = Map ([ModMask], KeySym) KeyEventHandler
-
--- data ButtonEventHandler = ButtonEventHandler
---     { buttonPress :: ButtonPressEvent -> Z ()
---     , buttonRelease :: ButtonReleaseEvent -> Z ()
---     }
-
--- type ButtonHandler = Map ([ModMask], ButtonIndex) ButtonEventHandler
-type ButtonHandler = Map ([ModMask], ButtonIndex) ButtonEventHandler
 
 data Config = Config
     { _modMask :: [ModMask]
@@ -96,9 +66,6 @@ data Config = Config
     , _normalBorderColor :: Word
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
-    , _keyHandler :: KeyHandler
-    -- , _buttonHandler :: ButtonHandler
-    , _buttonHandler :: ButtonHandler
     , _components :: [Component]
     , _componentConfigs :: [ComponentConfig]
     }
@@ -118,12 +85,6 @@ focusedBorderColor = lens _focusedBorderColor (\d v -> d { _focusedBorderColor =
 
 selectionBorderColor :: Functor f => LensLike' f Config Word
 selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderColor = v })
-
-keyHandler :: Functor f => LensLike' f Config KeyHandler
-keyHandler = lens _keyHandler (\d v -> d { _keyHandler = v })
-
-buttonHandler :: Functor f => LensLike' f Config ButtonHandler
-buttonHandler = lens _buttonHandler (\d v -> d { _buttonHandler = v })
 
 components :: Functor f => LensLike' f Config [Component]
 components = lens _components (\d v -> d { _components = v })
