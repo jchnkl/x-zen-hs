@@ -16,12 +16,10 @@ module Types where
 import Data.Word
 import Data.Typeable
 import Data.Map (Map)
-import Data.Set (Set)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Graphics.XHB hiding (Setup)
-import Graphics.X11.Types (KeySym)
 import Graphics.X11.Xlib.Font (Glyph)
 
 -- import Lens
