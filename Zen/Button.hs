@@ -52,12 +52,6 @@ pointerState = Stateful
 getButtonConfig :: [ComponentConfig] -> Maybe ButtonConfig
 getButtonConfig = getConfig
 
--- getButtonConfig :: [ComponentConfig] -> Maybe ButtonConfig
--- getButtonConfig (ComponentConfig c:cs) = case ((cast c) :: Maybe ButtonConfig) of
---     Just c' -> Just c' :: Maybe ButtonConfig
---     Nothing -> getConfig cs
--- getButtonConfig  _ = Nothing
-
 
 handleButtonPress :: ButtonPressEvent -> PointerState ()
 handleButtonPress e = do
@@ -115,17 +109,6 @@ doResize e = do
     edges = getEdges . Geometry (Position event_x event_y) . win_dim
 
 
--- handleButtonPress :: ButtonPressEvent -> Z ()
--- handleButtonPress e = do
---     toLog "ButtonPressEvent"
---     flip handlePress e . M.lookup (mask, button) <-$ config . buttonHandler
-
-    -- handlePress :: Maybe (InputEventHandler pe re) -> pe -> Z ()
-    -- handlePress Nothing _ = return ()
-    -- handlePress (Just h) e = dispatchPress h e
-
-
-
 handleMotionNotify :: MotionNotifyEvent -> PointerState ()
 handleMotionNotify e = get >>= handle
     where
@@ -158,9 +141,7 @@ handleMotionNotify e = get >>= handle
         _          -> []
 
 
-
 handleCreateNotify :: CreateNotifyEvent -> PointerState ()
--- handleCreateNotify = grabButtons . window_CreateNotifyEvent
 handleCreateNotify e = do
     toLog "CreateNotifyEvent"
     grabButtons $ window_CreateNotifyEvent e
@@ -175,26 +156,11 @@ grabButtons window = connection $-> \c -> whenM (isClient window) $ do
     modmap <- askL modifierMap
     eventmask <- askL buttonMask
 
-    -- buttons <- asksL (config . buttonHandler) (M.keys)
-    -- askL (config . componentConfigs) >>= toLog . show
-    asksL (config . componentConfigs) getButtonConfig >>= toLog . ("buttonConfig: " ++) . show
-
-    -- buttons <- asksL (config . buttonHandler) (M.keys)
     buttons <- asksL (config . componentConfigs)
                      (fromMaybe [] . fmap (M.keys . buttonActions) . getButtonConfig)
 
-    -- let modifier = combinations (m ++ extraModifier kbdmap modmap)
-
-    -- -- [1,2,3] -> [[1],[1,2],[1,3],[2],[2,3],[3]]
-    -- combinations :: [a] -> [[a]]
-
-    toLog $ "buttons: " ++ show buttons
-
     forM_ buttons $ \(m, b) -> do
-        -- let modifier = combinations (m ++ modmask ++ extraModifier kbdmap modmap)
         let keys = zip (combinations (m ++ modmask ++ extraModifier kbdmap modmap)) (repeat b)
-        -- toLog $ "modifier: " ++ show modifier
-        toLog $ "combinations: " ++ show keys
         mapM_ (grab c eventmask) keys
 
     where
