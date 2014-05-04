@@ -46,8 +46,9 @@ class ComponentClass m where
 -- Component
 data SomeState
     = forall s. Typeable s => Stateful
-    { someState :: s
-    , stateHandler :: SomeEvent -> LogWT (SetupRT (StateT s IO)) ()
+    { initState :: Z (StateT s IO) ()
+    , someState :: s
+    , stateHandler :: SomeEvent -> Z (StateT s IO) ()
     }
 
     | Stateless
