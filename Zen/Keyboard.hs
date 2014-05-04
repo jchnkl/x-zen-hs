@@ -31,6 +31,11 @@ instance TypeConversion [KeyButMask] [ModMask] where
 instance TypeConversion [ModMask] [KeyButMask] where
     convert = map (fromBit . toBit) . (\\ [ModMaskAny])
 
+instance TypeConversion [MapIndex] [ModMask] where
+    convert = map (fromBit . toValue)
+
+instance TypeConversion [ModMask] [MapIndex] where
+    convert = map (fromValue . toBit) . (\\ [ModMaskAny])
 
 specialKeys :: [KeySym]
 specialKeys = [xK_Num_Lock, xK_Caps_Lock]
