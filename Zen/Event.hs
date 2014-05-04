@@ -64,35 +64,43 @@ dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . S.toList)
     try (EventHandler handler) = void $ whenJust (fromEvent e) handler
 
 
-    defaultHandler :: [EventHandler (Z ())]
+baseEventHandler :: SomeState
+baseEventHandler = Stateless dispatch
+
+
+dispatch :: SomeEvent -> StatelessZ ()
+dispatch e = toLog "dispatch" >> mapM_ try defaultHandler
+    where
+    try :: EventHandler (StatelessZ ()) -> StatelessZ ()
+    try (EventHandler handler) = void $ whenJust (fromEvent e) handler
+
+    defaultHandler :: [EventHandler (StatelessZ ())]
     defaultHandler =
         -- Structure control events
         [ EventHandler handleMapRequest
         , EventHandler handleConfigureRequest
         , EventHandler handleCirculateNotify
-        , EventHandler handleResizeRequest
+        -- , EventHandler handleResizeRequest
 
-        -- Window state notification events
-        , EventHandler handleCreateNotify
-        , EventHandler handleDestroyNotify
-        , EventHandler handleMapNotify
-        , EventHandler handleUnmapNotify
+        -- -- Window state notification events
+        -- , EventHandler handleCreateNotify
+        -- , EventHandler handleDestroyNotify
+        -- , EventHandler handleMapNotify
+        -- , EventHandler handleUnmapNotify
 
-        -- Window crossing events
-        , EventHandler handleEnterNotify
-        , EventHandler handleLeaveNotify
+        -- -- Window crossing events
+        -- , EventHandler handleEnterNotify
+        -- , EventHandler handleLeaveNotify
 
-        -- Input focus events
-        , EventHandler handleFocusIn
-        , EventHandler handleFocusOut
+        -- -- Input focus events
+        -- , EventHandler handleFocusIn
+        -- , EventHandler handleFocusOut
 
-        -- Pointer events
-        , EventHandler handleButtonPress
-        , EventHandler handleButtonRelease
+        -- -- Pointer events
+        -- , EventHandler handleButtonPress
+        -- , EventHandler handleButtonRelease
 
-        -- Keyboard events
-        , EventHandler handleKeyPress2
-        , EventHandler handleKeyRelease2
+        -- -- Keyboard events
         -- , EventHandler handleKeyPress
         -- , EventHandler handleKeyRelease
         ]
@@ -117,6 +125,25 @@ copyValues _ _ = []
 
 
 -- Event handler
+
+handleMapRequest :: MapRequestEvent -> StatelessZ ()
+handleMapRequest e = do
+    toLog "MapRequestEvent"
+    connection $-> io . flip mapWindow (window_MapRequestEvent e)
+
+
+handleConfigureRequest :: ConfigureRequestEvent -> StatelessZ ()
+handleConfigureRequest e = do
+    toLog "ConfigureRequestEvent"
+    configure window values
+    where
+    window = window_ConfigureRequestEvent e
+    values = copyValues e (value_mask_ConfigureRequestEvent e)
+
+
+handleCirculateNotify :: CirculateNotifyEvent -> StatelessZ ()
+handleCirculateNotify _ = toLog "CirculateNotifyEvent"
+
 
 handleMapRequest :: MapRequestEvent -> Z ()
 handleMapRequest e = do
