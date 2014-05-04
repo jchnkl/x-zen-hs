@@ -12,7 +12,6 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Applicative
-import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
