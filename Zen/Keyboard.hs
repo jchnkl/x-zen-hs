@@ -72,6 +72,11 @@ getCleanMask mask = do
     return $ cleanMask kbdmap modmap mask
 
 
+extraModifier :: KeyboardMap -> ModifierMap -> [ModMask]
+extraModifier kbdmap modmap =
+    convert $ catMaybes $ map (keysymToModifier kbdmap modmap . fi) specialKeys
+
+
 -- http://tronche.com/gui/x/xlib/input/XGetKeyboardMapping.html
 -- http://cgit.freedesktop.org/~arnau/xcb-util/tree/keysyms/keysyms.c
 -- -> xcb_key_symbols_get_keysym
