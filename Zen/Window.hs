@@ -7,61 +7,30 @@ import Data.Maybe (catMaybes)
 import qualified Data.Map as M
 import qualified Data.List as L
 import Control.Monad
-import Control.Applicative ((<$>))
+import Control.Monad.IO.Class
 import Graphics.XHB
 import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 import Lens
 import Util
 import Types
-import Queue
 import Keyboard
 
 
-manage :: WindowId -> Z ()
-manage window = whenM (isClient <$> attributes) $ do
-    configure'
-    queue %:= (insert $ Client window (Geometry (Position 0 0) (Dimension 0 0)) $ Position 0 0)
 
-    where
-    attributes :: Z (Either SomeError GetWindowAttributesReply)
-    attributes = io . getReply =<<
-        io . flip getWindowAttributes window <-$ connection
-
-    isClient :: Either SomeError GetWindowAttributesReply -> Bool
-    isClient (Right reply) = not $ isUnviewable reply
-    isClient _             = False
-
-    isUnviewable :: GetWindowAttributesReply -> Bool
-    isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
-
-    configure' :: Z ()
-    configure' = do
-        let mask = CWEventMask
-            values = toMask [EventMaskEnterWindow, EventMaskLeaveWindow, EventMaskFocusChange]
-            valueparam = toValueParam [(mask, values)]
-        connection $-> \c -> io $ changeWindowAttributes c window valueparam
-        config . borderWidth $-> setBorderWidth window
-        grabButtons window
-
-
-unmanage :: WindowId -> Z ()
-unmanage w = queue %:= remove w
-
-
-setBorderColor :: WindowId -> Word -> Z ()
+setBorderColor :: MonadIO m => WindowId -> Word -> Z m ()
 setBorderColor window bc = do
     let vp = toValueParam [(CWBorderPixel, fi bc)]
     connection $-> \c -> io $ changeWindowAttributes c window vp
 
 
-setBorderWidth :: WindowId -> Word -> Z ()
+setBorderWidth :: MonadIO m => WindowId -> Word -> Z m ()
 setBorderWidth window bw = do
     let vp = toValueParam [(ConfigWindowBorderWidth, fi bw)]
     connection $-> \c -> io $ configureWindow c window vp
 
 
-focus :: WindowId -> Z ()
+focus :: MonadIO m => WindowId -> Z m ()
 focus window = do
     config . focusedBorderColor $-> setBorderColor window -- client
     let mk_setinputfocus = MkSetInputFocus InputFocusNone
@@ -70,25 +39,21 @@ focus window = do
     connection $-> io . flip setInputFocus mk_setinputfocus
 
 
-unfocus :: WindowId -> Z ()
+unfocus :: (Functor m, MonadIO m) => WindowId -> Z m ()
 unfocus window = do
     config . normalBorderColor $-> setBorderColor window
     connection $-> io . getInputFocus >>= void . io . getReply
 
 
-configure :: WindowId -> [(ConfigWindow, Word32)] -> Z ()
-configure w vs = connection $-> \c -> io $ configureWindow c w $ toValueParam vs
-
-
-raise :: WindowId -> Z ()
+raise :: MonadIO m => WindowId -> Z m ()
 raise = flip configure [(ConfigWindowStackMode, toValue StackModeAbove)]
 
 
-lower :: WindowId -> Z ()
+lower :: MonadIO m => WindowId -> Z m ()
 lower = flip configure [(ConfigWindowStackMode, toValue StackModeBelow)]
 
 
-grabButtons :: WindowId -> Z ()
+grabButtons :: MonadIO m => WindowId -> Z m ()
 grabButtons window = connection $-> \c -> do
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
@@ -109,3 +74,6 @@ grabButtons window = connection $-> \c -> do
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)
                             button mask
+
+configure :: MonadIO m => WindowId -> [(ConfigWindow, Word32)] -> Z m ()
+configure w vs = connection $-> \c -> io $ configureWindow c w $ toValueParam vs
