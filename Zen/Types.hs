@@ -28,7 +28,10 @@ import Lens.Family
 import Lens.Family.Unchecked
 
 
-data ComponentConfig
+data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
+    deriving Typeable
+
+deriving instance Show ComponentConfig
 
 data SomeMessage
 
@@ -95,7 +98,10 @@ data Config = Config
     , _keyHandler :: KeyHandler
     -- , _buttonHandler :: ButtonHandler
     , _buttonHandler :: ButtonHandler
+    , _components :: [Component]
+    , _componentConfigs :: [ComponentConfig]
     }
+    deriving (Typeable)
 
 modMask :: Functor f => LensLike' f Config [ModMask]
 modMask f d = (\v -> d { _modMask = v }) `fmap` (f (_modMask d))
@@ -117,6 +123,12 @@ keyHandler = lens _keyHandler (\d v -> d { _keyHandler = v })
 
 buttonHandler :: Functor f => LensLike' f Config ButtonHandler
 buttonHandler = lens _buttonHandler (\d v -> d { _buttonHandler = v })
+
+components :: Functor f => LensLike' f Config [Component]
+components = lens _components (\d v -> d { _components = v })
+
+componentConfigs :: Functor f => LensLike' f Config [ComponentConfig]
+componentConfigs = lens _componentConfigs (\d v -> d { _componentConfigs = v })
 
 
 type WindowId = WINDOW
