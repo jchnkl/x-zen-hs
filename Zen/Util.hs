@@ -49,6 +49,13 @@ partition _ [] = []
 partition n lst = take n lst : partition n (drop n lst)
 
 
+-- [1,2,3] -> [[1],[1,2],[1,3],[2],[2,3],[3]]
+combinations :: [a] -> [[a]]
+combinations    []  = []
+combinations (u:[]) = [[u]]
+combinations (u:us) = [u] : map (\v -> [u,v]) us ++ combinations us
+
+
 getEdges :: Geometry -> (Edge, Edge)
 getEdges (Geometry (Position x' y') (Dimension w' h'))
     -- 360 / 8 = 45; 45 / 2 = 22.5
