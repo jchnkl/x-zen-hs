@@ -33,11 +33,10 @@ data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
 
 deriving instance Show ComponentConfig
 
-data SomeMessage
+data SomeMessage = forall a. (Show a, Typeable a) => SomeMessage a
+    deriving Typeable
 
-class ComponentMessage m where
-    send :: SomeMessage -> m ()
-    recv :: SomeMessage -> m ()
+
 
 class ComponentClass m where
     init :: m ()
@@ -49,6 +48,7 @@ data SomeState
     { initState :: Z (StateT s IO) ()
     , someState :: s
     , stateHandler :: SomeEvent -> Z (StateT s IO) ()
+    , receiveMessage :: SomeMessage -> (StateT s IO) ()
     }
 
     | Stateless
