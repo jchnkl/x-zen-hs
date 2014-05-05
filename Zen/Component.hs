@@ -27,15 +27,23 @@ eventDispatcher handler = forM_ handler . try
     try :: (Functor m, Monad m) => SomeEvent -> EventHandler (m ()) -> m ()
     try event (EventHandler h) = void $ whenJust (fromEvent event) h
 
+runStack :: (Monad m, Monoid w)
+         => r
+         -> WriterT a (WriterT w (ReaderT r (StateT s m))) a1
+         -> s
+         -> m ((a, w), s)
+runStack setup f = runStateT (runReaderT (runWriterT (execWriterT f)) setup)
 
 initComponent :: Setup -> [Component] -> IO [Component]
 initComponent setup states = run [] states
     where
     run result [] = return result
+
     run result (Stateful i s f : somestates) = do
-        (logstr, s') <- runStateT (runReaderT (execWriterT i) setup) s
-        printLog logstr
-        run (Stateful i s' f : result) somestates
+        ((logs, msgs), s') <- runStack setup i s
+        printLog logs
+        run (Stateful i s f : result) somestates
+
     run result (s : somestates) = run (s : result) somestates
 
 
@@ -43,10 +51,13 @@ runComponent :: Setup -> [Component] -> SomeEvent -> IO [Component]
 runComponent setup states event = run [] states
     where
     run result [] = return result
+
     run result (Stateful i s f : somestates) = do
-        (logstr, s') <- runStateT (runReaderT (execWriterT (f event)) setup) s
-        printLog logstr
-        run (Stateful i s' f : result) somestates
+        ((logs, msgs), s') <- runStack setup (f event) s
+        printLog logs
+        run (Stateful i s f : result) somestates
+
     run result (Stateless f : somestates) = do
-        runReaderT (execWriterT (f event)) setup >>= printLog
+        (logs, msgs) <- runReaderT (runWriterT (execWriterT (f event))) setup
+        printLog logs
         run (Stateless f : result) somestates
