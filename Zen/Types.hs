@@ -10,6 +10,7 @@
              RankNTypes,
              ConstraintKinds,
              GeneralizedNewtypeDeriving #-}
+             -- DatatypeContexts,
 
 module Types where
     -- ( module Types
@@ -29,6 +30,7 @@ import Graphics.X11.Xlib.Font (Glyph)
 import Lens
 import Lens.Family.Unchecked (lens)
 
+printLog :: [String] -> IO ()
 printLog = print . show
 
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
@@ -39,268 +41,198 @@ deriving instance Show ComponentConfig
 data SomeMessage = forall a. (Typeable a) => SomeMessage a
     deriving Typeable
 
--- deriving instance Show SomeMessage
-
-
-
-{-
-class (MonadTrans t, Typeable s) => Acomponent t s where
-    -- init :: Z m s
-    -- component :: Z (t s m) ()
-    -- component :: Z (t IO) ()
-    -- execComponent :: StateT String IO () -> s -> m s
-    execComponent :: t IO a -> s -> IO s
-    -- execStateT :: Monad m => StateT s m a -> s -> m s
-    -- handleEvent :: SomeEvent -> Z m ()
-    -- eventHandler :: SomeEvent -> Z m ()
-
-acRun :: Z (StateT AC IO) ()
-acRun = undefined
-
-data AC = AC String
-    deriving Typeable
-
-data BC = BC Int
-    deriving Typeable
-
-type Foo = StateT AC
-type Bar = StateT BC
-type FooBar m a = Foo (Bar m) a
-
-instance Acomponent Bar BC where
-    execComponent f s = execStateT undefined (execStateT f s) undefined
-
-instance Acomponent (StateT AC) AC where
-    execComponent = execStateT
-
-data ComponentState
-    = forall t s. (Monad (t IO), MonadTrans t, Acomponent t s) =>
-        ComponentState s (Z (t IO) ())
-    |   ComponentWithoutState (Z (IO) ())
-
-runComponents :: Setup -> [ComponentState] -> IO [ComponentState]
-runComponents setup = run []
-    where
-    run :: [ComponentState] -> [ComponentState] -> IO [ComponentState]
-    run result (ComponentState s f : components) = do
-        s' <- execComponent (runReaderT (execWriterT (execWriterT f)) setup) s
-        run (ComponentState s' f : result) components
-    run result (ComponentWithoutState f : components) = do
-        -- _ <- (runReaderT (execWriterT f) setup)
-        _ <- (runReaderT (execWriterT (execWriterT f)) setup)
-        run (ComponentWithoutState f : result) components
-    run result _ = return result
-
-foo :: [ComponentState]
-foo = [ComponentState (AC "ac") acRun]
--}
-
-
-
 
 sendMessage :: Typeable s => SomeMessage -> Z (StateT s IO) ()
-sendMessage msg = do
-    cs <- askL (config . components)
+sendMessage _ = do
+    _ <- askL (config . components)
     -- forM_ cs $ send msg
     -- res <- send [] cs
     -- putL (config . components) res
     return ()
     -- where
 
--- -- send :: MonadIO m => SomeMessage -> [Component] -> [Component] ->
--- -- Z m [Component]
--- send msg result ((Stateful i s h r) : rest) = do
---     -- s' <- execStateT (runReaderT (execWriterT (r msg)) undefined) s
---     s' <- execStateT (r msg) s
---     send msg ((Stateful i s' h r) : result) rest
--- send msg result _ = return result
+
+class Typeable a => Component a where
+    fromComponent :: SomeComponent2 -> Maybe a
+    -- toComponent :: a -> SomeComponent
 
 
--- class SimpleComponent where
---     simple_handleEvent :: SomeEvent -> Z IO ()
---     simple_handleEvent _ = return ()
---
---     simple_receiveMessage :: SomeMessage -> Z IO ()
---     simple_receiveMessage _ = return ()
+class Typeable a => ComponentRunner a where
+    run :: Setup -> SomeEvent -> a -> IO a
 
--- class ComponentClass s where
---     runComponent :: MonadIO m => m a -> s -> IO (a, s)
+instance ComponentRunner PureComponent2 where
+    run setup event (PureComponent2 hevent) = do
+        (logs, _) <- runStack setup (hevent event)
+        printLog logs
+        return $ PureComponent2 hevent
 
--- class (MonadIO m, MonadTrans t) => EventHandlerClass t s m where
--- class MonadIO (t s IO) => EventHandlerClass t s where
---     handleEvent :: MonadIO (t s IO) => SomeEvent -> Z (t s IO) ()
+instance Typeable s => ComponentRunner (StateComponent2 s) where
+    run setup event (StateComponent2 s hevent hmsg) = do
+        ((logs, _), s') <- runStateT (runStack setup (hevent event)) s
+        printLog logs
+        return $ StateComponent2 s' hevent hmsg
 
-class ComponentClass s where
-    -- runComponent :: t s m a -> s -> m (a, s)
-    -- -- runComponent = runStateT
-    -- eventHandler :: SomeEvent -> Z (StateT s m) ()
-    -- messageHandler :: SomeMessage -> Z (StateT s m) ()
+instance Component PureComponent2 where
+    fromComponent (SomeComponent2 c) = cast c
+
+instance Typeable s => Component (StateComponent2 s) where
+    fromComponent (SomeComponent2 c) = cast c
+
+data SomeComponent2 = forall a. (ComponentRunner a) => SomeComponent2 a
+
+data PureComponent2 = PureComponent2 (SomeEvent -> Z IO ())
+    deriving Typeable
+
+data StateComponent2 s = StateComponent2
+    s
+    (SomeEvent -> Z (StateT s IO) ())
+    (SomeMessage -> Z (StateT s IO) ())
+    deriving Typeable
 
 
-data Component m s = StateComponent
-    { componentState :: s
-    , runComponent :: forall a. (Typeable a) => m a -> s -> IO (a, s)
-    -- , runComponent :: forall a. a => m a -> s -> IO (a, s)
-    , eventHandler :: SomeEvent -> Z m ()
-    , messageHandler :: SomeMessage -> Z m ()
+whenJust :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
+whenJust Nothing _ = return Nothing
+whenJust (Just v) f = liftM Just (f v)
+
+runComponents2 :: Setup -> SomeEvent -> [SomeComponent2] -> IO [SomeComponent2]
+runComponents2 setup event = run' []
+    where
+    run' result (sc:scs) = do
+        _ <- whenJust (fromComponent sc :: Maybe PureComponent2) $ run setup event
+        run' result scs
+    run' result _ = return result
+
+
+
+
+
+{-
+data SomeComponent3 = forall c. (c -> IO c) =>
+    -- SomeComponent3 c (Setup -> SomeEvent -> c -> IO c)
+    SomeComponent3 c
+
+foo :: Int -> IO Int
+foo = undefined
+
+myStateComponent3 = SomeComponent3 foo
+
+runComponents3 :: Setup -> SomeEvent -> [SomeComponent3] -> IO [SomeComponent3]
+runComponents3 setup event = run' []
+    where
+    run' result (_ : scs) = do
+    -- run' result (SomeComponent3 c f : scs) = do
+    --     c' <- f setup event c
+        run' result scs
+    run' result _ = return result
+
+
+data SomeComponent4 = forall a c. (Typeable c) => SomeComponent4
+    c
+    (Setup -> SomeEvent -> c -> IO (([String], [SomeMessage]), c))
+
+
+myStateComponentHandleEvent4 :: SomeEvent -> Z (StateT Int IO) ()
+myStateComponentHandleEvent4 = undefined
+
+myStateComponentFun4 :: Setup -> SomeEvent -> Int -> IO (([String], [SomeMessage]), Int)
+myStateComponentFun4 setup event s =
+    runStateT (runStack setup (myStateComponentHandleEvent4 event)) s
+
+myStateComponent4 = SomeComponent4 (1::Int) myStateComponentFun4
+-}
+
+data MyStateComponent5 = MyStateComponent5
+    Int
+    (SomeEvent -> Z (StateT Int IO) ())
+    deriving Typeable
+
+runMyStateComponent5 :: (Z (StateT Int IO) () -> (StateT Int IO) a)
+                     -> SomeEvent
+                     -> MyStateComponent5
+                     -> IO (a, MyStateComponent5)
+runMyStateComponent5 f event (MyStateComponent5 s ehandler) = do
+    (a, s') <- runStateT (f (ehandler event)) s
+    return (a, MyStateComponent5 s' ehandler)
+
+data SomeComponent5 = forall m c. (MonadIO m, Typeable c) => SomeComponent5
+    { component :: c
+    , runComponent :: (Z m () -> m ([String], [SomeMessage]))
+                   -> SomeEvent
+                   -> c
+                   -> IO (([String], [SomeMessage]), c)
     }
 
-data SomeComponent = forall s m. (Monad m) => SomeComponent (Component m s)
-
-foo :: Component (StateT String IO) String
-foo = StateComponent
-    ("")
-    runStateT
-    (\_ -> return ())
-    (\_ -> return ())
-
-bar :: Component (StateT Int IO) Int
-bar = StateComponent
-    (1::Int)
-    runStateT
-    (\_ -> return ())
-    (\_ -> return ())
-
-foobar = [SomeComponent foo, SomeComponent bar]
-
-baz :: IO [SomeComponent]
-baz = runComponents undefined foobar undefined
-
--- class ComponentClass s where
---     -- componentState :: Z (StateT s IO) a
---     -- componentState :: Monad (t s IO) => Z (t s IO) a
---     -- runComponent :: MonadIO m => m a -> s -> IO (a, s)
---     runComponent :: t s IO a -> s -> IO (a, s)
---     eventHandler :: SomeEvent -> Z (StateT s IO) ()
---     messageHandler :: SomeMessage -> Z (StateT s IO) ()
+mySomeComponent5 :: SomeComponent5
+mySomeComponent5 = SomeComponent5
+    (MyStateComponent5 1 (\_ -> return ()))
+    runMyStateComponent5
 
 
--- class MonadIO m => ComponentHandler m where
---     eventHandler :: SomeEvent -> Z m ()
---     messageHandler :: SomeMessage -> Z m ()
+
+runComponents5 :: Setup -> SomeEvent -> [SomeComponent5] -> IO [SomeComponent5]
+runComponents5 setup event = run' []
+    where
+    run' result (SomeComponent5 c f : scs) = do
+        _ <- f (runStack setup) event c
+        run' result scs
+    run' result _ = return result
 
 
--- data Cfoo where
---     MkCfoo :: forall m s a b. (MonadIO m, ComponentClass s) =>
---         s -> (Z m ()) -> (m (a, b) -> s -> IO ((a, b), s)) -> Cfoo
-
--- something :: IO () -> Int -> IO ((), Int)
--- something = undefined
-
--- cfoos :: Setup -> [Cfoo] -> IO [Cfoo]
--- cfoos setup (MkCfoo c f r : _) = do
---     ((_, _), _) <- r (runStack setup f) c
---     return []
-
--- data Foo m s a = Foo
---     { foo_State :: s
---     -- , foo_Function :: forall m. (MonadIO m) => m a
---     , foo_Function :: forall a. (forall m s. StateT s m a) => StateT s m a
---     , foo_RunState :: StateT s m a -> s -> m (a, s)
---     }
---     -- deriving Typeable2
---     -- deriving Typeable2
-
--- deriving instance Typeable1 m => Typeable (Foo m s a)
-
--- foo_bar :: StateT Int IO ()
--- foo_bar = undefined
-
--- foo :: Foo (StateT Int IO) Int ()
--- foo :: Foo Int ()
--- foo = Foo (1::Int) foo_bar runStateT
-
--- runFoo :: Foo Int () -> IO ()
--- runFoo (Foo s f rf) = do
---     (_,_) <- rf f s
---     return ()
-
--- data FooWrapper = forall a. (Typeable a) => FooWrapper a
--- data FooWrapper2 = forall a. (forall s. StateT s IO a) => FooWrapper2 a
--- data FooWrapper3 = forall a s. StateT s IO a => FooWrapper3 a
-
--- foos :: [FooWrapper]
--- foos = [FooWrapper foo]
-
--- data Component = Dummy
---                -- | forall m. MonadIO m => Simple
---                | forall m. MonadIO m => Simple
---                     (SomeEvent -> Z m ())
---                     (SomeMessage -> Z m ())
-
-               -- | forall s m. (MonadIO m, ComponentClass s) => Complex
-               --      s
-               --      (SomeEvent -> Z m ())
-               --      (SomeMessage -> Z m ())
 
 
---                | forall a s m. (ComponentClass s) => Complex
---                     -- s
---                     -- (SomeEvent -> Z m ())
---                     -- (SomeMessage -> Z m ())
---
---                     { complex_State :: s
---                     , complex_Run :: (m a -> s -> IO (a, s))
---                     -- , complex_Run :: StateT s IO ([String], [SomeMessage]) -> s -> IO (([String], [SomeMessage]), s)
---                     , complex_HandleEvent :: (SomeEvent -> Z m ())
---                     , complex_HandleMessage :: Int -- (SomeMessage -> Z (m s) ())
---                     }
 
--- data Component -- = SimpleComponent => SimpleComponent
---                -- = forall s. StateTComponent s => StateTComponent s
---                -- = forall s m. (Monad m, Foo s m) => Bar s (Z m ())
---                = Simple (SomeEvent -> Z IO ())
---                | forall m s. (MonadIO m, ComponentClass s) =>
---                     Complex s (SomeEvent -> Z m ())
---                     -- Complex s (SomeEvent -> Z m ())
-
--- runStack :: (Monad m, Monoid w)
---          => r -> WriterT a (WriterT w (ReaderT r m)) a1 -> m (a, w)
+runStack :: MonadIO m => Setup -> Z m () -> m ([String], [SomeMessage])
 runStack setup f = runReaderT (runWriterT (execWriterT f)) setup
 
-runComponents :: Setup -> [SomeComponent] -> SomeEvent -> IO [SomeComponent]
-runComponents setup states event = run [] states
+
+{-
+data SomeComponent
+
+    = PureComponent
+        (SomeEvent -> Z IO ())
+
+    | forall s. (Typeable s) => StateComponent
+        s
+        (SomeEvent -> Z (StateT s IO) ())
+        (SomeMessage -> Z (StateT s IO) ())
+
+
+
+myPureComponent :: SomeComponent
+myPureComponent = PureComponent
+    (\_ -> (tell ["tell myPureComponent"]) >> (liftIO . print $ "myPureComponent"))
+
+myStateComponent :: SomeComponent
+myStateComponent = StateComponent
+    (1::Int)
+    (\_ -> (tell ["tell myStateComponent"]) >> (get >>= liftIO . print . ("myStateComponent with state: " ++) . show))
+    (\_ -> (tell ["tell myStateComponent"]) >> (get >>= liftIO . print . ("myStateComponent with state: " ++) . show))
+
+myComponents :: [SomeComponent]
+myComponents = [myPureComponent, myStateComponent]
+
+runStack :: MonadIO m => Setup -> Z m () -> m ([String], [SomeMessage])
+runStack :: MonadIO m => Setup -> Z m () -> m ([String], [SomeMessage])
+runStack setup f = runReaderT (runWriterT (execWriterT f)) setup
+
+runStack setup f = runReaderT (runWriterT (execWriterT f)) setup
+
+runComponents :: Setup -> SomeEvent -> [SomeComponent] -> IO [SomeComponent]
+runComponents setup event = run []
     where
-    run result [] = return result
-    run result (SomeComponent (StateComponent s r e m) : rest) = do
-        ((logs, msgs), cstate') <- r (runStack setup (e event)) s
-    -- run result (Foo cstate : rest) = do
-        -- ((logs, msgs), cstate') <- runComponent (runStack setup (eventHandler event)) cstate
-        -- ((logs, msgs), cstate') <- runComponent (eventHandler event) cstate
-        -- runComponent (runStack setup (componentState)) cstate
-    -- run result (Complex cstate frun fevent fmessage : rest) = do
-    -- run result (Complex cstate : rest) = do
-        -- ((logs, msgs), cstate') <- runComponent (runStack setup (eventHandler event)) cstate
-        -- ((logs, msgs), cstate') <- frun (runStack setup (fevent event)) cstate
-        -- ((logs, msgs), cstate'') <- runComponent (runStack setup (fmessage undefined)) cstate'
+
+    run result (StateComponent s hevent hmsg : rest) = do
+        ((logs, msgs), s') <- runStateT (runStack setup (hevent event)) s
         printLog logs
+        run (StateComponent s' hevent hmsg : result) rest
 
-        run (SomeComponent (StateComponent cstate' r e m) : result) rest
-        -- return []
+    run result (PureComponent hevent : rest) = do
+        (logs, msgs) <- runStack setup (hevent event)
+        printLog logs
+        run (PureComponent hevent : result) rest
 
-    -- run result (StateTComponent s : rest) = do
-    --     ((logs, msgs), s') <- statet_runComponent (runStack setup (statet_handleEvent event)) s
-    --     -- printLog logs
-    --     run (StateTComponent s : result) rest
-
-
-    run result (s : somestates) = do
-        run (s : result) somestates
-    -- run result (SimpleComponent : somestates) = do
-    --     (logs, msgs) <- runStack setup (simple_handleEvent event)
-    --     -- printLog logs
-    --     run (SimpleComponent : result) somestates
-
-
--- data Component = forall s. Typeable s => Stateful
---                  { initState :: Z (StateT s IO) ()
---                  , someState :: s
---                  , stateHandler :: SomeEvent -> Z (StateT s IO) ()
---                  -- , receiveMessage :: SomeMessage -> Z m ()
---                  }
---                  | Stateless
---                  { eventHandler :: SomeEvent -> StatelessZ () }
---     deriving Typeable
+    run result _ = return result
+-}
 
 
 data EventHandler b = forall a . (Event a) => EventHandler (a -> b)
@@ -311,7 +243,7 @@ data Config = Config
     , _normalBorderColor :: Word
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
-    , _components :: [SomeComponent]
+    , _components :: [Int]
     , _componentConfigs :: [ComponentConfig]
     }
     deriving (Typeable)
@@ -331,7 +263,7 @@ focusedBorderColor = lens _focusedBorderColor (\d v -> d { _focusedBorderColor =
 selectionBorderColor :: Functor f => LensLike' f Config Word
 selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderColor = v })
 
-components :: Functor f => LensLike' f Config [SomeComponent]
+components :: Functor f => LensLike' f Config [Int]
 components = lens _components (\d v -> d { _components = v })
 
 componentConfigs :: Functor f => LensLike' f Config [ComponentConfig]
