@@ -14,7 +14,7 @@ import Graphics.X11.Xlib.Cursor
 import Util
 import Lens
 -- import Core
-import Types hiding (config)
+import Types
 import Config (defaultConfig)
 -- import Setup hiding (config)
 import Window
@@ -62,42 +62,43 @@ eventMaskButton =
     ]
 
 
-someStates :: [Component]
-someStates = [baseEventHandler, coreState, pointerState]
-
-
 main :: IO ()
-main = connect >>= startup
+main = connect >>= flip startup defaultConfig
 
-startup :: Maybe Connection -> IO ()
-startup Nothing = print "Got no connection!"
-startup (Just c) = do
+
+startup :: Maybe Connection -> Config -> IO ()
+startup Nothing _ = print "Got no connection!"
+startup (Just c) conf = do
     let mask = CWEventMask
-        values = toMask [EventMaskSubstructureRedirect, EventMaskSubstructureNotify, EventMaskFocusChange]
+        values = toMask [ EventMaskSubstructureRedirect
+                        , EventMaskSubstructureNotify
+                        , EventMaskFocusChange
+                        ]
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
-    withSetup c $ \setup -> do
+    withSetup c conf $ flip run (conf ^. components)
         -- TODO: ungrab / regrab keys for MappingNotifyEvent
         -- grabKeys c config setup
 
-        initComponent setup someStates >>= run setup
 
     where
-    run setup states = waitForEvent c >>= runComponent setup states >>= run setup
-
-    runZ :: Z ()
-    runZ = connection $-> io . waitForEvent >>= dispatch
-
+    run setup components = waitForEvent c
+                            >>= flip (runComponents setup) components
+                            >>= run setup
 
     children :: Either SomeError QueryTreeReply -> [WindowId]
     children (Left _) = []
     children (Right reply) = children_QueryTreeReply reply
 
 
-withSetup :: Connection -> (Setup -> IO a) -> IO a
-withSetup c f = do
-    f $ Setup defaultConfig c (getRoot c) eventMaskButton M.empty M.empty M.empty
+withSetup :: Connection -> Config -> (Setup -> IO a) -> IO a
+withSetup c conf f = do
+    let min_keycode = min_keycode_Setup $ connectionSetup c
+        max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
+    kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
+    modmap <- modifierMapping =<< getModifierMapping c
+    f $ Setup conf c (getRoot c) eventMaskButton kbdmap modmap M.empty
 
 
 
