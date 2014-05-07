@@ -17,25 +17,35 @@ import Window
 import Component
 
 
-type CoreST m a = Z (StateT Core m) a
+type CoreState = StateT Core IO
+coreComponent :: Component
+coreComponent = Component
+    { component = Core Normal M.empty
+    , runComponent = runCoreComponent
+    , initialize = return ()
+    , terminate = return ()
+    , handleEvent = eventDispatcher [ EventHandler handleCreateNotify
+                                    , EventHandler handleDestroyNotify
+                                    ]
+    , handleMessage = (\_ -> return ())
+    }
 
 
-coreState :: Component
-coreState = Stateful (Core Normal M.empty)
-                   $ eventDispatcher [ EventHandler handleCreateNotify
-                                     , EventHandler handleDestroyNotify
-                                     ]
+runCoreComponent :: CoreState a
+                 -> Core
+                 -> IO (a, Core)
+runCoreComponent = runStateT
 
 
-handleCreateNotify :: (Functor m, MonadIO m) => CreateNotifyEvent -> CoreST m ()
+handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
 handleCreateNotify = manage .  window_CreateNotifyEvent
 
 
-handleDestroyNotify :: MonadIO m => DestroyNotifyEvent -> CoreST m ()
+handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
 handleDestroyNotify e = toLog "DestroyNotifyEvent" >> unmanage (window_DestroyNotifyEvent e)
 
 
-manage :: (Functor m, MonadIO m) => WindowId -> CoreST m ()
+manage :: WindowId -> Z CoreState ()
 manage window = whenM (isClient <$> attributes) $ do
     configure'
     queue %:= (insert $ Client window (Geometry (Position 0 0) (Dimension 0 0)) $ Position 0 0)
@@ -59,8 +69,7 @@ manage window = whenM (isClient <$> attributes) $ do
             valueparam = toValueParam [(mask, values)]
         connection $-> \c -> io $ changeWindowAttributes c window valueparam
         config . borderWidth $-> setBorderWidth window
-        grabButtons window
 
 
-unmanage :: MonadIO m => WindowId -> CoreST m ()
+unmanage :: WindowId -> Z CoreState ()
 unmanage w = queue %:= remove w
