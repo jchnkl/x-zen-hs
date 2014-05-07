@@ -64,8 +64,22 @@ dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . S.toList)
     try (EventHandler handler) = void $ whenJust (fromEvent e) handler
 
 
-baseEventHandler :: SomeState
-baseEventHandler = Stateless dispatch
+data BaseComponent = BaseComponent
+    deriving Typeable
+
+baseComponent :: Component
+baseComponent = Component
+    { component = BaseComponent
+    , runComponent = runBaseComponent
+    , initialize = return ()
+    , terminate = return ()
+    , handleEvent = dispatch
+    , handleMessage = (\_ -> return ())
+    }
+
+
+runBaseComponent :: IO a -> BaseComponent -> IO (a, BaseComponent)
+runBaseComponent f b = (,b) <$> f
 
 
 dispatch :: SomeEvent -> StatelessZ ()
