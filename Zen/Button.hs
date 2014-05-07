@@ -35,25 +35,35 @@ data PointerMotion = M Position
                    | R (Maybe Edge, Maybe Edge) Position Geometry
     deriving (Show, Typeable)
 
-type PointerState = LogWT (SetupRT (StateT (Maybe PointerMotion) IO))
+
+type PointerState = StateT (Maybe PointerMotion) IO
 
 
-pointerState :: Component
-pointerState = Stateful
-    { initState = return ()
-    , someState = Nothing
-    , stateHandler = eventDispatcher [ EventHandler handleButtonPress
-                                     , EventHandler handleMotionNotify
-                                     , EventHandler handleCreateNotify
-                                     ]
+pointerComponent :: Component
+pointerComponent = Component
+    { component = Nothing
+    , runComponent = runPointerComponent
+    , initialize = return ()
+    , terminate = return ()
+    , handleEvent = eventDispatcher [ EventHandler handleButtonPress
+                                    , EventHandler handleMotionNotify
+                                    , EventHandler handleCreateNotify
+                                    ]
+    , handleMessage = (\_ -> return ())
     }
+
+
+runPointerComponent :: PointerState a
+                    -> Maybe PointerMotion
+                    -> IO (a, Maybe PointerMotion)
+runPointerComponent = runStateT
 
 
 getButtonConfig :: [ComponentConfig] -> Maybe ButtonConfig
 getButtonConfig = getConfig
 
 
-handleButtonPress :: ButtonPressEvent -> PointerState ()
+handleButtonPress :: ButtonPressEvent -> Z PointerState ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
 
@@ -66,7 +76,7 @@ handleButtonPress e = do
     state = state_ButtonPressEvent e
     button = fromValue $ detail_ButtonPressEvent e
 
-    handle :: PointerAction -> PointerState ()
+    handle :: PointerAction -> Z PointerState ()
     handle = \case
         Move   -> doMove e
         Resize -> doResize e
@@ -74,13 +84,13 @@ handleButtonPress e = do
         Lower  -> doLower e
 
 
-doRaise :: ButtonPressEvent -> PointerState ()
+doRaise :: ButtonPressEvent -> Z PointerState ()
 doRaise = raise . event_ButtonPressEvent
 
-doLower :: ButtonPressEvent -> PointerState ()
+doLower :: ButtonPressEvent -> Z PointerState ()
 doLower = lower . event_ButtonPressEvent
 
-doMove :: ButtonPressEvent -> PointerState ()
+doMove :: ButtonPressEvent -> Z PointerState ()
 doMove e = do
     doRaise e
     put $ Just $ M (Position root_x root_y)
@@ -89,7 +99,7 @@ doMove e = do
     root_y = fi $ root_y_ButtonPressEvent e
 
 
-doResize :: ButtonPressEvent -> PointerState ()
+doResize :: ButtonPressEvent -> Z PointerState ()
 doResize e = do
     doRaise e
     reply' <- io . getReply
@@ -109,10 +119,10 @@ doResize e = do
     edges = getEdges . Geometry (Position event_x event_y) . win_dim
 
 
-handleMotionNotify :: MotionNotifyEvent -> PointerState ()
+handleMotionNotify :: MotionNotifyEvent -> Z PointerState ()
 handleMotionNotify e = get >>= handle
     where
-    handle :: Maybe PointerMotion -> PointerState ()
+    handle :: Maybe PointerMotion -> Z PointerState ()
     handle Nothing                   = return ()
     handle (Just (M p))           = configure window
         $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
@@ -141,13 +151,13 @@ handleMotionNotify e = get >>= handle
         _          -> []
 
 
-handleCreateNotify :: CreateNotifyEvent -> PointerState ()
+handleCreateNotify :: CreateNotifyEvent -> Z PointerState ()
 handleCreateNotify e = do
     toLog "CreateNotifyEvent"
     grabButtons $ window_CreateNotifyEvent e
 
 
-grabButtons :: WindowId -> PointerState ()
+grabButtons :: WindowId -> Z PointerState ()
 grabButtons window = connection $-> \c -> whenM (isClient window) $ do
     toLog $ "grabButtons for " ++ show window
 
