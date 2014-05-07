@@ -27,37 +27,29 @@ eventDispatcher handler = forM_ handler . try
     try :: (Functor m, Monad m) => SomeEvent -> EventHandler (m ()) -> m ()
     try event (EventHandler h) = void $ whenJust (fromEvent event) h
 
+
 runStack :: (Monad m, Monoid w)
          => r
-         -> WriterT a (WriterT w (ReaderT r (StateT s m))) a1
-         -> s
-         -> m ((a, w), s)
-runStack setup f = runStateT (runReaderT (runWriterT (execWriterT f)) setup)
+         -> WriterT a (WriterT w (ReaderT r m)) a1
+         -> m (a, w)
+runStack setup f = runReaderT (runWriterT (execWriterT f)) setup
 
-initComponent :: Setup -> [Component] -> IO [Component]
-initComponent setup states = run [] states
+
+runComponents :: Setup -> SomeEvent -> [Component] -> IO [Component]
+runComponents setup event = run' []
     where
-    run result [] = return result
-
-    run result (Stateful i s f : somestates) = do
-        ((logs, msgs), s') <- runStack setup i s
+    run' result (Component c runc i t hevent hmsg : scs) = do
+        ((logs, _), c') <- runc ((runStack setup) (hevent event)) c
         printLog logs
-        run (Stateful i s f : result) somestates
+        run' (Component c' runc i t hevent hmsg : result) scs
+    run' result _ = return result
 
-    run result (s : somestates) = run (s : result) somestates
+
+handleMessages :: Setup -> [SomeMessage] -> Component -> IO Component
+handleMessages setup (msg:msgs) (Component c runc i t hevent hmsg) = do
+    ((logs, msgs'), c') <- runc ((runStack setup) (hmsg msg)) c
+    printLog logs
+    handleMessages setup (msgs ++ msgs') (Component c' runc i t hevent hmsg)
+handleMessages _ _ sc = return sc
 
 
-runComponent :: Setup -> [Component] -> SomeEvent -> IO [Component]
-runComponent setup states event = run [] states
-    where
-    run result [] = return result
-
-    run result (Stateful i s f : somestates) = do
-        ((logs, msgs), s') <- runStack setup (f event) s
-        printLog logs
-        run (Stateful i s f : result) somestates
-
-    run result (Stateless f : somestates) = do
-        (logs, msgs) <- runReaderT (runWriterT (execWriterT (f event))) setup
-        printLog logs
-        run (Stateless f : result) somestates
