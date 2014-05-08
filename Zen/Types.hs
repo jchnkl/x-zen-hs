@@ -13,7 +13,6 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Graphics.XHB hiding (Setup)
-import Graphics.X11.Xlib.Font (Glyph)
 
 -- import Log
 import Lens
@@ -182,17 +181,15 @@ queue = lens _queue (\d v -> d { _queue = v })
 
 type KeyboardMap = Map KEYCODE [KEYSYM]
 type ModifierMap = Map MapIndex [KEYCODE]
-type CursorMap   = Map Glyph CURSOR
 
 data Setup = Setup
     { _config :: Config
+
     , _connection :: Connection
     , _rootWindow :: WindowId
-    , _buttonMask :: [EventMask]
+
     , _keyboardMap :: KeyboardMap
     , _modifierMap :: ModifierMap
-    , _glyphCursors :: CursorMap
-    -- , _cursorMap :: CursorMap
     }
     deriving Typeable
 
@@ -205,18 +202,12 @@ connection = lens _connection (\d v -> d { _connection = v })
 rootWindow :: Functor f => LensLike' f Setup WindowId
 rootWindow = lens _rootWindow (\d v -> d { _rootWindow = v })
 
-buttonMask :: Functor f => LensLike' f Setup [EventMask]
-buttonMask = lens _buttonMask (\d v -> d { _buttonMask = v })
 
 keyboardMap :: Functor f => LensLike' f Setup (Map KEYCODE [KEYSYM])
 keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })
 
 modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
-
-glyphCursors :: Functor f => LensLike' f Setup (Map Glyph CURSOR)
-glyphCursors = lens _glyphCursors (\d v -> d { _glyphCursors = v })
-
 
 type LogWT = WriterT [String]
 
