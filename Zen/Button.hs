@@ -14,7 +14,7 @@ import Data.Typeable
 import Control.Exception (bracket)
 import Control.Monad.State
 import Control.Monad.Reader
-import Control.Arrow (first, second)
+import Control.Arrow (second)
 import Control.Applicative ((<*>), (<$>))
 import Graphics.XHB
 import Graphics.X11.Xlib.Font (Glyph)
@@ -44,32 +44,47 @@ cursorGlyphs =
     , xC_left_side
     ]
 
-data ButtonConfig = ButtonConfig
-    { buttonActions :: Map ([ModMask], ButtonIndex) PointerAction }
-    deriving (Eq, Show, Typeable)
-
 
 data PointerAction = Move | Resize | Raise | Lower
     deriving (Eq, Show, Typeable)
+
+type ButtonMap = Map ([ModMask], ButtonIndex) PointerAction
+
+data ButtonConfig = ButtonConfig
+    { _buttonActions :: ButtonMap
+    }
+    deriving (Eq, Show, Typeable)
+
+buttonActions :: Z PointerStack (Maybe ButtonMap)
+buttonActions = (_buttonActions <$>)
+            <$> asksL (config . componentConfigs) getButtonConfig
+
+
+type GlyphMap = Map Glyph CURSOR
+
+data PointerSetup = PointerSetup
+    { buttonMask :: [EventMask]
+    , glyphMap :: GlyphMap
+    }
+    deriving Typeable
 
 
 data PointerMotion = M Position
                    | R (Maybe Edge, Maybe Edge) Position Geometry
     deriving (Show, Typeable)
 
+type PointerStack = ReaderT PointerSetup (StateT (Maybe PointerMotion) IO)
 
-type GlyphMap = Map Glyph CURSOR
 
-
-type PointerState = StateT (GlyphMap, Maybe PointerMotion) IO
-
+asksPS :: (PointerSetup -> a) -> Z PointerStack a
+asksPS = lift . lift . lift . asks
 
 pointerComponent :: Component
 pointerComponent = Component
-    { component = (M.empty, Nothing)
+    { component = (PointerSetup [] M.empty, Nothing)
     , runComponent = runPointerComponent
-    , initialize = initializePointerComponent
-    , terminate = terminatePointerComponent
+    , initialize = return ()
+    , terminate = return ()
     , handleEvent = eventDispatcher [ EventHandler handleButtonPress
                                     , EventHandler handleMotionNotify
                                     , EventHandler handleCreateNotify
@@ -78,40 +93,41 @@ pointerComponent = Component
     }
 
 
-runPointerComponent :: PointerState a
-                    -> (GlyphMap, Maybe PointerMotion)
-                    -> IO (a, (GlyphMap, Maybe PointerMotion))
-runPointerComponent = runStateT
+runPointerComponent :: PointerStack a
+                    -> (PointerSetup, Maybe PointerMotion)
+                    -> IO (a, (PointerSetup, Maybe PointerMotion))
+runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 
-initializePointerComponent :: Z PointerState ()
-initializePointerComponent = connection $-> \c -> modify . first . const
-    =<< io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
+initializePointerComponent :: (PointerSetup, PointerMotion)
+                           -> Z IO (PointerSetup, PointerMotion)
+initializePointerComponent (PointerSetup m _, p) = connection $-> \c -> do
+    glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
+    return (PointerSetup m glyphs, p)
 
 
-terminatePointerComponent :: Z PointerState ()
-terminatePointerComponent =
-    connection $-> \c -> get >>= mapM_ (io . freeCursor c) . M.elems . fst
+terminatePointerComponent :: (PointerSetup, PointerMotion) -> Z IO ()
+terminatePointerComponent (PointerSetup _ glyphs, _) =
+    connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
 
 
 getButtonConfig :: [ComponentConfig] -> Maybe ButtonConfig
 getButtonConfig = getConfig
 
 
-handleButtonPress :: ButtonPressEvent -> Z PointerState ()
+handleButtonPress :: ButtonPressEvent -> Z PointerStack ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
 
     mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
     void $ flip whenJust handle =<<
-        ((M.lookup (mask, button) . buttonActions =<<) . getButtonConfig)
-            <$> askL (config . componentConfigs)
+        (join . (M.lookup (mask, button) <$>) <$> buttonActions)
 
     where
     bstate = state_ButtonPressEvent e
     button = fromValue $ detail_ButtonPressEvent e
 
-    handle :: PointerAction -> Z PointerState ()
+    handle :: PointerAction -> Z PointerStack ()
     handle = \case
         Move   -> doMove e
         Resize -> doResize e
@@ -119,34 +135,33 @@ handleButtonPress e = do
         Lower  -> doLower e
 
 
-doRaise :: ButtonPressEvent -> Z PointerState ()
+doRaise :: ButtonPressEvent -> Z PointerStack ()
 doRaise = raise . event_ButtonPressEvent
 
-doLower :: ButtonPressEvent -> Z PointerState ()
+doLower :: ButtonPressEvent -> Z PointerStack ()
 doLower = lower . event_ButtonPressEvent
 
-doMove :: ButtonPressEvent -> Z PointerState ()
+doMove :: ButtonPressEvent -> Z PointerStack ()
 doMove e = do
     doRaise e
-    modify . second . const $ Just . M $ Position event_x event_y
-    void . flip whenJust changeCursor =<< gets (M.lookup xC_fleur . fst)
+    put $ Just . M $ Position event_x event_y
+    void . flip whenJust changeCursor =<< asksPS (M.lookup xC_fleur . glyphMap)
     where
     event_x = fi $ event_x_ButtonPressEvent e
     event_y = fi $ event_y_ButtonPressEvent e
 
 
-doResize :: ButtonPressEvent -> Z PointerState ()
+doResize :: ButtonPressEvent -> Z PointerStack ()
 doResize e = do
     doRaise e
     reply' <- io . getReply
         =<< connection $-> (io . flip getGeometry (convertXid window))
     void $ whenRight reply' $ \reply -> do
-        modify . second . const
-            $ Just $ R (edges reply)
+        put $ Just $ R (edges reply)
                        (Position root_x root_y)
                        (Geometry (win_pos reply) (win_dim reply))
         void . flip whenJust changeCursor
-            =<< gets (M.lookup (getCursor $ edges reply) . fst)
+            =<< asksPS (M.lookup (getCursor $ edges reply) . glyphMap)
     where
     window = event_ButtonPressEvent e
     root_x = fi $ root_x_ButtonPressEvent e
@@ -158,14 +173,14 @@ doResize e = do
     edges = getEdges . Geometry (Position event_x event_y) . win_dim
 
 
-handleMotionNotify :: MotionNotifyEvent -> Z PointerState ()
+handleMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
 handleMotionNotify e = get >>= handle
     where
-    handle :: (GlyphMap, Maybe PointerMotion) -> Z PointerState ()
-    handle (_, Nothing)            = return ()
-    handle (_, Just (M p))         = configure window
+    handle :: Maybe PointerMotion -> Z PointerStack ()
+    handle Nothing              = return ()
+    handle (Just (M p))         = configure window
         $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
-    handle (_, Just (R edges p g)) = configure window
+    handle (Just (R edges p g)) = configure window
         $ (values (fst edges) p g) ++ (values (snd edges) p g)
 
     window = event_MotionNotifyEvent e
@@ -190,23 +205,21 @@ handleMotionNotify e = get >>= handle
         _          -> []
 
 
-handleCreateNotify :: CreateNotifyEvent -> Z PointerState ()
+handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify e = do
     toLog "CreateNotifyEvent"
     grabButtons $ window_CreateNotifyEvent e
 
 
-grabButtons :: WindowId -> Z PointerState ()
+grabButtons :: WindowId -> Z PointerStack ()
 grabButtons window = connection $-> \c -> whenM (isClient window) $ do
     toLog $ "grabButtons for " ++ show window
 
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
-    eventmask <- askL buttonMask
-
-    buttons <- asksL (config . componentConfigs)
-                     (fromMaybe [] . fmap (M.keys . buttonActions) . getButtonConfig)
+    eventmask <- asksPS buttonMask
+    buttons <- (fromMaybe [] . fmap M.keys) <$> buttonActions
 
     forM_ buttons $ \(m, b) -> do
         let keys = zip (combinations (m ++ modmask ++ extraModifier kbdmap modmap)) (repeat b)
@@ -264,10 +277,8 @@ withFont c name = bracket getFont (closeFont c)
         return font
 
 
-changeCursor :: CURSOR -> Z PointerState ()
-changeCursor cursor = connection $-> \c ->
-    buttonMask >>= void . flip whenJust (changeGrab c)
-
+changeCursor :: CURSOR -> Z PointerStack ()
+changeCursor cursor = connection $-> \c -> asksPS buttonMask >>= changeGrab c
     where
     changeGrab c = liftIO . changeActivePointerGrab c
                           . MkChangeActivePointerGrab cursor
