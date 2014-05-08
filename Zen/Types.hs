@@ -33,9 +33,9 @@ data Component = forall m c. (MonadIO m, Typeable c) => Component
       -- | Evaluation function
     , runComponent :: (forall a. m a -> c -> IO (a, c))
     -- | Function to run on startup
-    , initialize :: (Z m ())
+    , startup :: c -> Z IO c
     -- | Function to run on shutdown
-    , terminate :: (Z m ())
+    , cleanup :: c -> Z IO ()
     -- | Event handler
     , handleEvent :: (SomeEvent -> Z m ())
     -- | Message handler
