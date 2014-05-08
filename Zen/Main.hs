@@ -8,13 +8,11 @@ import Control.Monad.Writer
 import Control.Applicative
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
-import Graphics.X11.Xlib.Font (Glyph)
-import Graphics.X11.Xlib.Cursor
 
 import Util
 import Lens
 -- import Core
-import Types
+import Types hiding (startup)
 import Config (defaultConfig)
 -- import Setup hiding (config)
 import Window
@@ -38,21 +36,6 @@ import Button
 -- data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
 
 
--- | Cursors to be loaded at program startup
--- Cursors are available through @_glyphCursors@ in @Setup@
-cursorGlyphs :: [Glyph]
-cursorGlyphs =
-    [ xC_fleur
-    , xC_top_side
-    , xC_top_right_corner
-    , xC_top_left_corner
-    , xC_bottom_side
-    , xC_bottom_right_corner
-    , xC_bottom_left_corner
-    , xC_right_side
-    , xC_left_side
-    , xC_sizing
-    ]
 
 eventMaskButton :: [EventMask]
 eventMaskButton =
@@ -77,10 +60,10 @@ startup (Just c) conf = do
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
-    withSetup c conf $ flip run (conf ^. components)
+    withSetup c conf $ ap (flip withComponents (conf ^. components)) run
+
         -- TODO: ungrab / regrab keys for MappingNotifyEvent
         -- grabKeys c config setup
-
 
     where
     run setup components = waitForEvent c
@@ -98,8 +81,7 @@ withSetup c conf f = do
         max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
     kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
     modmap <- modifierMapping =<< getModifierMapping c
-    f $ Setup conf c (getRoot c) eventMaskButton kbdmap modmap M.empty
-
+    f $ Setup conf c (getRoot c) kbdmap modmap
 
 
 grabKeys :: Connection -> Config -> Setup -> IO ()
