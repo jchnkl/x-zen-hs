@@ -1,17 +1,24 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, LambdaCase #-}
+{-# LANGUAGE DeriveDataTypeable,
+             ScopedTypeVariables,
+             LambdaCase,
+             TupleSections #-}
 
 module Button where
-
 
 import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
 import Data.Typeable
-import Control.Monad.State hiding (state)
+import Control.Exception (bracket)
+import Control.Monad.State
+import Control.Monad.Reader
+import Control.Arrow (first, second)
 import Control.Applicative ((<*>), (<$>))
 import Graphics.XHB
+import Graphics.X11.Xlib.Font (Glyph)
+import Graphics.X11.Xlib.Cursor
 
 import Log
 import Util
@@ -21,6 +28,21 @@ import Window
 import Keyboard
 import Component
 
+
+-- | Cursors to be loaded at program startup
+-- Cursors are available through @_glyphCursors@ in @Setup@
+cursorGlyphs :: [Glyph]
+cursorGlyphs =
+    [ xC_fleur
+    , xC_top_side
+    , xC_top_right_corner
+    , xC_top_left_corner
+    , xC_bottom_side
+    , xC_bottom_right_corner
+    , xC_bottom_left_corner
+    , xC_right_side
+    , xC_left_side
+    ]
 
 data ButtonConfig = ButtonConfig
     { buttonActions :: Map ([ModMask], ButtonIndex) PointerAction }
@@ -36,15 +58,18 @@ data PointerMotion = M Position
     deriving (Show, Typeable)
 
 
-type PointerState = StateT (Maybe PointerMotion) IO
+type GlyphMap = Map Glyph CURSOR
+
+
+type PointerState = StateT (GlyphMap, Maybe PointerMotion) IO
 
 
 pointerComponent :: Component
 pointerComponent = Component
-    { component = Nothing
+    { component = (M.empty, Nothing)
     , runComponent = runPointerComponent
-    , initialize = return ()
-    , terminate = return ()
+    , initialize = initializePointerComponent
+    , terminate = terminatePointerComponent
     , handleEvent = eventDispatcher [ EventHandler handleButtonPress
                                     , EventHandler handleMotionNotify
                                     , EventHandler handleCreateNotify
@@ -54,9 +79,19 @@ pointerComponent = Component
 
 
 runPointerComponent :: PointerState a
-                    -> Maybe PointerMotion
-                    -> IO (a, Maybe PointerMotion)
+                    -> (GlyphMap, Maybe PointerMotion)
+                    -> IO (a, (GlyphMap, Maybe PointerMotion))
 runPointerComponent = runStateT
+
+
+initializePointerComponent :: Z PointerState ()
+initializePointerComponent = connection $-> \c -> modify . first . const
+    =<< io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
+
+
+terminatePointerComponent :: Z PointerState ()
+terminatePointerComponent =
+    connection $-> \c -> get >>= mapM_ (io . freeCursor c) . M.elems . fst
 
 
 getButtonConfig :: [ComponentConfig] -> Maybe ButtonConfig
@@ -93,7 +128,8 @@ doLower = lower . event_ButtonPressEvent
 doMove :: ButtonPressEvent -> Z PointerState ()
 doMove e = do
     doRaise e
-    put $ Just $ M (Position event_x event_y)
+    modify . second . const $ Just . M $ Position event_x event_y
+    void . flip whenJust changeCursor =<< gets (M.lookup xC_fleur . fst)
     where
     event_x = fi $ event_x_ButtonPressEvent e
     event_y = fi $ event_y_ButtonPressEvent e
@@ -104,10 +140,13 @@ doResize e = do
     doRaise e
     reply' <- io . getReply
         =<< connection $-> (io . flip getGeometry (convertXid window))
-    void $ whenRight reply' $ \reply ->
-        put $ Just $ R (edges reply)
-                            (Position root_x root_y)
-                            (Geometry (win_pos reply) (win_dim reply))
+    void $ whenRight reply' $ \reply -> do
+        modify . second . const
+            $ Just $ R (edges reply)
+                       (Position root_x root_y)
+                       (Geometry (win_pos reply) (win_dim reply))
+        void . flip whenJust changeCursor
+            =<< gets (M.lookup (getCursor $ edges reply) . fst)
     where
     window = event_ButtonPressEvent e
     root_x = fi $ root_x_ButtonPressEvent e
@@ -122,11 +161,11 @@ doResize e = do
 handleMotionNotify :: MotionNotifyEvent -> Z PointerState ()
 handleMotionNotify e = get >>= handle
     where
-    handle :: Maybe PointerMotion -> Z PointerState ()
-    handle Nothing                   = return ()
-    handle (Just (M p))           = configure window
+    handle :: (GlyphMap, Maybe PointerMotion) -> Z PointerState ()
+    handle (_, Nothing)            = return ()
+    handle (_, Just (M p))         = configure window
         $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
-    handle (Just (R edges p g)) = configure window
+    handle (_, Just (R edges p g)) = configure window
         $ (values (fst edges) p g) ++ (values (snd edges) p g)
 
     window = event_MotionNotifyEvent e
@@ -195,3 +234,41 @@ isClient window = check <$> attributes
 
     isUnviewable :: GetWindowAttributesReply -> Bool
     isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
+
+
+loadGlyphCursor :: Connection -> FONT -> Glyph -> IO CURSOR
+loadGlyphCursor c font glyph = do
+    cursor <- newResource c :: IO CURSOR
+    createGlyphCursor c $ MkCreateGlyphCursor cursor font font
+                                              (fi glyph) (fi glyph + 1)
+                                              0 0 0 0xffff 0xffff 0xffff
+    return cursor
+
+
+loadGlyphCursors :: Connection -> FONT -> [Glyph] -> IO GlyphMap
+loadGlyphCursors c font = load M.empty
+    where
+    load cursors (glyph:glyphs) = do
+        cursor <- loadGlyphCursor c font glyph
+        load (M.insert glyph cursor cursors) glyphs
+    load cursors _ = return cursors
+
+
+withFont :: Connection -> String -> (FONT -> IO b) -> IO b
+withFont c name = bracket getFont (closeFont c)
+    where
+    getFont :: IO FONT
+    getFont = do
+        font <- newResource c :: IO FONT
+        openFont c $ MkOpenFont font (fi $ length name) (stringToCList name)
+        return font
+
+
+changeCursor :: CURSOR -> Z PointerState ()
+changeCursor cursor = connection $-> \c ->
+    buttonMask >>= void . flip whenJust (changeGrab c)
+
+    where
+    changeGrab c = liftIO . changeActivePointerGrab c
+                          . MkChangeActivePointerGrab cursor
+                                                      (toValue TimeCurrentTime)
