@@ -83,8 +83,8 @@ pointerComponent :: Component
 pointerComponent = Component
     { component = (PointerSetup [] M.empty, Nothing)
     , runComponent = runPointerComponent
-    , initialize = return ()
-    , terminate = return ()
+    , startup = startupPointerComponent
+    , cleanup = cleanupPointerComponent
     , handleEvent = eventDispatcher [ EventHandler handleButtonPress
                                     , EventHandler handleMotionNotify
                                     , EventHandler handleCreateNotify
@@ -99,15 +99,15 @@ runPointerComponent :: PointerStack a
 runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 
-initializePointerComponent :: (PointerSetup, PointerMotion)
-                           -> Z IO (PointerSetup, PointerMotion)
-initializePointerComponent (PointerSetup m _, p) = connection $-> \c -> do
+startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
+                           -> Z IO (PointerSetup, Maybe PointerMotion)
+startupPointerComponent (PointerSetup m _, p) = connection $-> \c -> do
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
     return (PointerSetup m glyphs, p)
 
 
-terminatePointerComponent :: (PointerSetup, PointerMotion) -> Z IO ()
-terminatePointerComponent (PointerSetup _ glyphs, _) =
+cleanupPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
+cleanupPointerComponent (PointerSetup _ glyphs, _) =
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
 
 

@@ -22,8 +22,8 @@ coreComponent :: Component
 coreComponent = Component
     { component = Core Normal M.empty
     , runComponent = runCoreComponent
-    , initialize = return ()
-    , terminate = return ()
+    , startup = return . id
+    , cleanup = const $ return ()
     , handleEvent = eventDispatcher [ EventHandler handleCreateNotify
                                     , EventHandler handleDestroyNotify
                                     ]

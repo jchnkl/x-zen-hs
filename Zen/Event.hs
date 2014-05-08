@@ -71,8 +71,8 @@ baseComponent :: Component
 baseComponent = Component
     { component = BaseComponent
     , runComponent = runBaseComponent
-    , initialize = return ()
-    , terminate = return ()
+    , startup = return . id
+    , cleanup = const $ return ()
     , handleEvent = dispatch
     , handleMessage = (\_ -> return ())
     }
