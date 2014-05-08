@@ -17,7 +17,6 @@ import Graphics.X11.Xlib.Font (Glyph)
 
 -- import Log
 import Lens
-import Lens.Family.Unchecked (lens)
 
 
 data SomeMessage = forall a. (Typeable a) => SomeMessage a
