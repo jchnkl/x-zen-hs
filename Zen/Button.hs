@@ -93,10 +93,10 @@ doLower = lower . event_ButtonPressEvent
 doMove :: ButtonPressEvent -> Z PointerState ()
 doMove e = do
     doRaise e
-    put $ Just $ M (Position root_x root_y)
+    put $ Just $ M (Position event_x event_y)
     where
-    root_x = fi $ root_x_ButtonPressEvent e
-    root_y = fi $ root_y_ButtonPressEvent e
+    event_x = fi $ event_x_ButtonPressEvent e
+    event_y = fi $ event_y_ButtonPressEvent e
 
 
 doResize :: ButtonPressEvent -> Z PointerState ()
