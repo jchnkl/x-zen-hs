@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
-module Lens 
+module Lens
     ( module Lens
     , module Lens.Family
+    , lens
     ) where
 
 import Lens.Family
+import Lens.Family.Unchecked (lens)
 
 import Control.Monad.State
 import Control.Monad.Reader
