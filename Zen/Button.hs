@@ -102,13 +102,13 @@ handleButtonPress :: ButtonPressEvent -> Z PointerState ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
 
-    mask <- (\\) <$> (getCleanMask state) <*> askL (config . modMask)
+    mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
     void $ flip whenJust handle =<<
         ((M.lookup (mask, button) . buttonActions =<<) . getButtonConfig)
             <$> askL (config . componentConfigs)
 
     where
-    state = state_ButtonPressEvent e
+    bstate = state_ButtonPressEvent e
     button = fromValue $ detail_ButtonPressEvent e
 
     handle :: PointerAction -> Z PointerState ()
