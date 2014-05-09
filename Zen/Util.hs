@@ -28,13 +28,26 @@ whenM mb f = mb >>= flip when f
 unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM mb f = mb >>= flip unless f
 
-whenJust :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
-whenJust Nothing _ = return Nothing
-whenJust (Just v) f = liftM Just (f v)
+whenJust :: Maybe a -> (a -> b) -> (Maybe b)
+whenJust v f = fmap f v
 
-whenRight :: Monad m => Either a b -> (b -> m c) -> m (Maybe c)
-whenRight (Left _)  _ = return Nothing
-whenRight (Right v) f = liftM Just (f v)
+whenJustM :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
+whenJustM Nothing _ = return Nothing
+whenJustM (Just v) f = liftM Just (f v)
+
+whenJustM_ :: (Functor m, Monad m) => Maybe a -> (a -> m b) -> m ()
+whenJustM_ v = void . whenJustM v
+
+whenRight :: Either a b -> (b -> c) -> Maybe c
+whenRight (Left _)  _ = Nothing
+whenRight (Right v) f = Just (f v)
+
+whenRightM :: Monad m => Either a b -> (b -> m c) -> m (Maybe c)
+whenRightM (Left _)  _ = return Nothing
+whenRightM (Right v) f = liftM Just (f v)
+
+whenRightM_ :: (Functor m, Monad m) => Either a b -> (b -> m c) -> m ()
+whenRightM_ v = void . whenRightM v
 
 getReplies :: [Receipt a] -> IO (Either SomeError [a])
 getReplies = fmap replies . mapM getReply
