@@ -40,12 +40,6 @@ import Button
 
 
 
-eventMaskButton :: [EventMask]
-eventMaskButton =
-    [ EventMaskButtonMotion
-    , EventMaskButtonPress
-    , EventMaskButtonRelease
-    ]
 
 
 main :: IO ()

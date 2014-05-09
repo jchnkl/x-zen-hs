@@ -45,6 +45,14 @@ cursorGlyphs =
     ]
 
 
+buttonEventMask :: [EventMask]
+buttonEventMask =
+    [ EventMaskButtonMotion
+    , EventMaskButtonPress
+    , EventMaskButtonRelease
+    ]
+
+
 data PointerAction = Move | Resize | Raise | Lower
     deriving (Eq, Show, Typeable)
 
@@ -101,9 +109,9 @@ runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
                            -> Z IO (PointerSetup, Maybe PointerMotion)
-startupPointerComponent (PointerSetup m _, p) = connection $-> \c -> do
+startupPointerComponent (PointerSetup _ _, p) = connection $-> \c -> do
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
-    return (PointerSetup m glyphs, p)
+    return (PointerSetup buttonEventMask glyphs, p)
 
 
 cleanupPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
