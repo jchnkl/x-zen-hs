@@ -217,6 +217,6 @@ type MessageWT = WriterT [SomeMessage]
 
 type SetupRT = ReaderT Setup
 
-type Z m a = LogWT (MessageWT (SetupRT m)) a
+type Z m a = LogWT (SetupRT m) a
 
 type StatelessZ a = Z IO a
