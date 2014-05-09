@@ -29,7 +29,7 @@ eventDispatcher :: (Functor m, Monad m)
 eventDispatcher handler = forM_ handler . try
     where
     try :: (Functor m, Monad m) => SomeEvent -> EventHandler (m ()) -> m ()
-    try event (EventHandler h) = void $ whenJust (fromEvent event) h
+    try event (EventHandler h) = whenJustM_ (fromEvent event) h
 
 
 runStack :: r -> WriterT w1 (WriterT w (ReaderT r m)) a -> m ((a, w1), w)

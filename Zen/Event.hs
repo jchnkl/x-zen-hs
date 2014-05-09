@@ -86,7 +86,7 @@ dispatch :: SomeEvent -> StatelessZ ()
 dispatch e = toLog "dispatch" >> mapM_ try defaultHandler
     where
     try :: EventHandler (StatelessZ ()) -> StatelessZ ()
-    try (EventHandler handler) = void $ whenJust (fromEvent e) handler
+    try (EventHandler handler) = whenJustM_ (fromEvent e) handler
 
     defaultHandler :: [EventHandler (StatelessZ ())]
     defaultHandler =

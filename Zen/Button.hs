@@ -120,7 +120,7 @@ handleButtonPress e = do
     toLog "ButtonPressEvent"
 
     mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
-    void $ flip whenJust handle =<<
+    flip whenJustM_ handle =<<
         (join . (M.lookup (mask, button) <$>) <$> buttonActions)
 
     where
@@ -145,7 +145,7 @@ doMove :: ButtonPressEvent -> Z PointerStack ()
 doMove e = do
     doRaise e
     put $ Just . M $ Position event_x event_y
-    void . flip whenJust changeCursor =<< asksPS (M.lookup xC_fleur . glyphMap)
+    flip whenJustM_ changeCursor =<< asksPS (M.lookup xC_fleur . glyphMap)
     where
     event_x = fi $ event_x_ButtonPressEvent e
     event_y = fi $ event_y_ButtonPressEvent e
@@ -156,11 +156,11 @@ doResize e = do
     doRaise e
     reply' <- io . getReply
         =<< connection $-> (io . flip getGeometry (convertXid window))
-    void $ whenRight reply' $ \reply -> do
+    whenRightM_ reply' $ \reply -> do
         put $ Just $ R (edges reply)
                        (Position root_x root_y)
                        (Geometry (win_pos reply) (win_dim reply))
-        void . flip whenJust changeCursor
+        flip whenJustM_ changeCursor
             =<< asksPS (M.lookup (getCursor $ edges reply) . glyphMap)
     where
     window = event_ButtonPressEvent e
