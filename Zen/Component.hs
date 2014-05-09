@@ -8,6 +8,8 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Exception (bracket)
+import Control.Concurrent
+import Control.Concurrent.STM
 import Graphics.XHB (SomeEvent, fromEvent)
 
 import Log
@@ -36,41 +38,37 @@ runStack :: r -> WriterT w (ReaderT r m) a -> m (a, w)
 runStack setup f = runReaderT (runWriterT f) setup
 
 
-withComponents :: Setup -> [Component] -> ([Component] -> IO a) -> IO a
-withComponents setup cs = bracket startup' terminate'
-    where startup' = initializeComponents setup cs
-          terminate' = terminateComponents setup
+withComponent :: Setup -> Component -> (Component -> IO a) -> IO a
+withComponent setup c = bracket startup' cleanup'
+    where startup' = startupComponent setup c
+          cleanup' = cleanupComponent setup
 
 
-initializeComponents :: Setup -> [Component] -> IO [Component]
-initializeComponents setup = startup' []
+startupComponent :: Setup -> Component -> IO Component
+startupComponent setup (Component c runc startupc t e m) = do
+    (c', logs) <- runStack setup (startupc c)
+    printLog logs
+    return (Component c' runc startupc t e m)
+
+
+cleanupComponent :: Setup -> Component -> IO Component
+cleanupComponent setup (Component c runc s cleanupc e m) = do
+    (_, logs) <- runStack setup (cleanupc c)
+    printLog logs
+    return (Component c runc s cleanupc e m)
+
+
+startComponents :: Setup -> [Component] -> IO [ThreadId]
+startComponents setup = mapM (startComponent setup)
+
+
+startComponent :: Setup -> Component -> IO ThreadId
+startComponent setup = forkIO . flip (withComponent setup) run
     where
-    startup' result (Component c runc startupc t e m : cs) = do
-        (c', logs) <- runStack setup (startupc c)
+    run c = atomically (dupTChan $ _eventQueue setup) >>= flip loop c
+
+    loop chan (Component c runc i t hevent hmsg) = do
+        ((_, logs), c') <- flip runc c . runStack setup . hevent
+                           =<< atomically (readTChan chan)
         printLog logs
-        startup' (Component c' runc startupc t e m : result) cs
-    startup' result _ = return result
-
-
-terminateComponents :: Setup -> [Component] -> IO [Component]
-terminateComponents setup = cleanup' []
-    where
-    cleanup' result (Component c runc s cleanupc e m : cs) = do
-        (_, logs) <- runStack setup (cleanupc c)
-        printLog logs
-        cleanup' (Component c runc s cleanupc e m : result) cs
-    cleanup' result _ = return result
-
-
-runComponents :: Setup -> SomeEvent -> [Component] -> IO [Component]
-runComponents setup event = run' []
-    where
-    run' result (Component c runc i t hevent hmsg : scs) = do
-        ((_, logs), c') <- runc (runStack setup $ hevent event) c
-        printLog logs
-        run' (Component c' runc i t hevent hmsg : result) scs
-    run' result _ = return result
-
-
-
-
+        loop chan (Component c' runc i t hevent hmsg)

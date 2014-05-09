@@ -12,6 +12,7 @@ import Data.Map (Map)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Control.Concurrent.STM
 import Graphics.XHB hiding (Setup)
 
 -- import Log
@@ -190,6 +191,8 @@ data Setup = Setup
 
     , _keyboardMap :: KeyboardMap
     , _modifierMap :: ModifierMap
+
+    , _eventQueue :: TChan SomeEvent
     }
     deriving Typeable
 
