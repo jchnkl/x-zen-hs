@@ -77,7 +77,7 @@ type PointerStack = ReaderT PointerSetup (StateT (Maybe PointerMotion) IO)
 
 
 asksPS :: (PointerSetup -> a) -> Z PointerStack a
-asksPS = lift . lift . lift . asks
+asksPS = lift . lift . asks
 
 pointerComponent :: Component
 pointerComponent = Component
