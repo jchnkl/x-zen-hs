@@ -190,6 +190,8 @@ data Setup = Setup
 
     , _keyboardMap :: KeyboardMap
     , _modifierMap :: ModifierMap
+
+    , _eventQueue :: TChan SomeEvent
     }
     deriving Typeable
 

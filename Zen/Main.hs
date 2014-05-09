@@ -6,6 +6,9 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Applicative
+import Control.Exception
+import Control.Concurrent
+import Control.Concurrent.STM
 import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 
@@ -60,15 +63,21 @@ startup (Just c) conf = do
         valueparam = toValueParam [(mask, values)]
     changeWindowAttributes c (getRoot c) valueparam
 
-    withSetup c conf $ ap (flip withComponents (conf ^. components)) run
+    -- TODO: ungrab / regrab keys for MappingNotifyEvent
+    -- grabKeys c config setup
 
-        -- TODO: ungrab / regrab keys for MappingNotifyEvent
-        -- grabKeys c config setup
+    withSetup c conf $ \setup -> do
+        tids <- startThreads setup
+        eventLoop setup `finally` mapM_ killThread tids
 
     where
-    run setup components = waitForEvent c
-                            >>= flip (runComponents setup) components
-                            >>= run setup
+    startThreads :: Setup -> IO [ThreadId]
+    startThreads = flip startComponents (conf ^. components)
+
+    eventLoop :: Setup -> IO ()
+    eventLoop setup = do
+        waitForEvent c >>= atomically . writeTChan (_eventQueue setup)
+        eventLoop setup
 
     children :: Either SomeError QueryTreeReply -> [WindowId]
     children (Left _) = []
@@ -81,7 +90,8 @@ withSetup c conf f = do
         max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
     kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
     modmap <- modifierMapping =<< getModifierMapping c
-    f $ Setup conf c (getRoot c) kbdmap modmap
+    eventQueue <- newBroadcastTChanIO
+    f $ Setup conf c (getRoot c) kbdmap modmap eventQueue
 
 
 grabKeys :: Connection -> Config -> Setup -> IO ()
