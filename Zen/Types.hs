@@ -1,9 +1,10 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE DeriveDataTypeable, RankNTypes, ExistentialQuantification,
    StandaloneDeriving, FlexibleInstances,
-   MultiParamTypeClasses,
-   UndecidableInstances
+   FlexibleContexts,
+   MultiParamTypeClasses
    #-}
+   -- InstanceSigs
 
              -- FlexibleContexts,
              -- FlexibleInstances,
@@ -50,13 +51,104 @@ class Typeable a => Message a where
 data SomeMessage = forall a. Message a => SomeMessage a
     deriving Typeable
 
-data MessageHandler b = forall a . (Message a) => MessageHandler (a -> b)
+instance Message Int
+
+-- data MessageHandler b = forall a . (Message a) => MessageHandler (a -> b)
 
 
 
 
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
     deriving Typeable
+
+-- class ComponentClass c where
+--     runComponent_ :: m a -> c -> IO (a, c)
+--     startup_ :: c -> Z IO ()
+--     startup_ _ = return ()
+--     cleanup_ :: c -> Z IO ()
+--     cleanup_ _ = return ()
+--     eventHandler_ :: forall a m. c -> [a -> Z m ()]
+
+-- data SomeComponent = forall c. ComponentClass c => SomeComponent c
+
+-- data DummyComponent = DummyComponent
+--     { cd :: Int
+--     , ehs :: forall a m. [a -> Z m ()]
+--     }
+
+-- instance ComponentClass DummyComponent where
+--     runComponent_ = undefined
+--     eventHandler_ (DummyComponent _ hs) = hs
+
+-- dummyEventHandler :: SomeEvent -> Z m ()
+-- dummyEventHandler = undefined
+
+-- dummyMessageHandler :: SomeMessage -> Z m ()
+-- dummyMessageHandler = undefined
+
+-- dummyComponent = DummyComponent
+--     { cd = 1
+--     , ehs = [dummyEventHandler, dummyMessageHandler]
+--     }
+
+data SomeItem = forall a. Typeable a => SomeItem a
+
+whenJustM :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
+whenJustM Nothing _ = return Nothing
+whenJustM (Just v) f = liftM Just (f v)
+
+whenJustM_ :: (Functor m, Monad m) => Maybe a -> (a -> m b) -> m ()
+whenJustM_ v = void . whenJustM v
+
+class (Typeable a) => Item a where
+    toItem :: a -> SomeItem
+    toItem = SomeItem
+
+    fromItem :: SomeItem -> Maybe a
+    fromItem (SomeItem i) = cast i
+
+    -- call :: (Monad m, Functor m) => (a -> Z m ()) -> SomeItem -> Z m ()
+    -- call f i = whenJustM_ (fromItem i) f
+
+data SomeHandler b = forall a. (Handler a) => SomeHandler (a -> b)
+
+class Handler a where
+    call_ :: (Monad m) => (a -> Z m ()) -> SomeItem -> Z m ()
+    -- call_ f i = whenJustM_ (fromItem i) f
+
+deriving instance Typeable SomeEvent
+-- deriving instance Typeable1 (Event a)
+-- instance Item SomeEvent
+
+newtype WrappedEvent a = WrapEvent { unwrapEvent :: a }
+
+instance Event a => Handler (WrappedEvent a) where
+    -- call_ f item = undefined
+    -- call_ f item = whenJustM_ (fromItem item) (flip whenJustM_ f . fromEvent)
+    call_ f item = case (fromItem item >>= fromEvent) of
+        Nothing -> return ()
+        (Just e) -> f $ WrapEvent e
+
+-- instance Handler SomeMessage where
+--     call_ f item = undefined
+
+-- instance (Event b) => Handler SomeItem b where
+    -- call_ f item = whenJustM_ (fromItem item) (\e -> whenJustM_ (fromEvent e) f)
+    -- call_ f item = undefined
+
+-- instance Event b => Handler SomeEvent b where
+--     -- call_ :: (Event a, Monad m, Functor m) => (a -> Z m ()) -> b -> Z m ()
+--     call_ f se = whenJustM_ (fromEvent se) f
+
+instance Item SomeEvent
+    -- call f i = whenJustM_ (fromItem i) (\se -> whenJustM_ (fromEvent se) f)
+instance Item SomeMessage
+
+-- instance Event a => Item a where
+--     fromItem (SomeItem i) = cast i >>= fromEvent
+
+-- instance Item KeyPressEvent where
+--     fromItem (SomeItem i) = cast i >>= fromEvent
 
 
 data Component = forall m c. (MonadIO m, Typeable c) => Component
@@ -75,30 +167,32 @@ data Component = forall m c. (MonadIO m, Typeable c) => Component
     -- dispatcher :: [Dispatcher (Z m ())]
     -- eventHandler :: [SomeEvent -> Z m ()]
     -- messageHandler :: [SomeMessage -> Z m ()]
-    , consumer :: [Consumer]
+    -- , eventHandler :: forall a. (Handler a) => [a -> Z m ()]
+    , eventHandler :: [SomeHandler (Z m ())]
+    -- , eventHandler :: [SomeEvent -> Z m ()]
     }
 
-eventConsumer :: SomeEvent -> IO ()
-eventConsumer = undefined
+-- eventConsumer :: SomeEvent -> IO ()
+-- eventConsumer = undefined
 
-keyPressConsumer :: KeyPressEvent -> IO ()
-keyPressConsumer = undefined
+-- keyPressConsumer :: KeyPressEvent -> IO ()
+-- keyPressConsumer = undefined
 
-messageConsumer :: SomeMessage -> IO ()
-messageConsumer = undefined
+-- messageConsumer :: SomeMessage -> IO ()
+-- messageConsumer = undefined
 
-myConsumer :: [Consumer]
-myConsumer = [Consumer keyPressConsumer] -- , Consumer messageConsumer]
--- myConsumer = [Consumer eventConsumer, Consumer keyPressConsumer] -- , Consumer messageConsumer]
+-- myConsumer :: [Consumer]
+-- myConsumer = [Consumer keyPressConsumer] -- , Consumer messageConsumer]
+-- -- myConsumer = [Consumer eventConsumer, Consumer keyPressConsumer] -- , Consumer messageConsumer]
 
-runProducer :: Setup -> [Producer] -> IO [(ThreadId, SomeChannel)]
-runProducer setup = run []
-    where
-    run result [] = return result
-    run result (Producer p : ps) = do
-        tchan <- newBroadcastTChanIO
-        tid <- forkIO $ void $ runReaderT (execWriterT $ p tchan) setup
-        run ((tid, toChannel tchan) : result) ps
+-- runProducer :: Setup -> [Producer] -> IO [(ThreadId, SomeChannel)]
+-- runProducer setup = run []
+--     where
+--     run result [] = return result
+--     run result (Producer p : ps) = do
+--         tchan <- newBroadcastTChanIO
+--         tid <- forkIO $ void $ runReaderT (execWriterT $ p tchan) setup
+--         run ((tid, toChannel tchan) : result) ps
 
 
 {-
@@ -123,7 +217,6 @@ connectComponent setup (Component d r s c cconsumer) somecs = connect [] cconsum
     connect tids (c:cs) = do
         ts <- connectConsumer setup c somecs
         connect (ts ++ tids) cs
--}
 
 
 runConsumer :: Setup -> [TChan SomeItem] -> [Consumer] -> IO ()
@@ -154,14 +247,8 @@ runConsumer setup channels cs =
     -- tryRead Nothing = return Nothing
     -- tryRead (Just chan) = fmap Just $ atomically (readTChan chan)
 
+-}
 
-
-whenJustM :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
-whenJustM Nothing _ = return Nothing
-whenJustM (Just v) f = liftM Just (f v)
-
-whenJustM_ :: (Functor m, Monad m) => Maybe a -> (a -> m b) -> m ()
-whenJustM_ v = void . whenJustM v
 
 data EventHandler b = forall a . (Event a) => EventHandler (a -> b)
 
@@ -301,6 +388,7 @@ queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
 
+{-
 class Typeable a => Channel a where
     toChannel :: TChan a -> SomeChannel
     toChannel = SomeChannel
@@ -310,7 +398,7 @@ class Typeable a => Channel a where
 
 deriving instance Typeable SomeEvent
 instance Channel SomeEvent
-instance Channel SomeMessage
+-- instance Channel SomeMessage
 
 
 -- class Typeable a => Producer a where
@@ -348,6 +436,7 @@ instance Event a => Item a where
 
 data Consumer = forall a. (Item a) => Consumer (a -> IO ())
 
+-}
 
 {-
 data SomeObject = forall a. (Object a, Typeable a) => SomeObject a
@@ -420,13 +509,74 @@ data Setup = Setup
     , _keyboardMap :: KeyboardMap
     , _modifierMap :: ModifierMap
 
-    , _producer :: [Producer]
+    , _eventSources :: [[TMVar Component] -> IO ()]
+    -- , _producer :: [Producer]
     -- , _eventQueue :: TChan SomeEvent
     -- , _messageQueue :: TChan SomeMessage
     -- , _eventQueue :: Channel
     -- , _messageQueue :: Channel
     }
     deriving Typeable
+
+
+runStack :: r -> WriterT w (ReaderT r m) a -> m (a, w)
+runStack setup f = runReaderT (runWriterT f) setup
+
+someEventSource :: Setup -> [TMVar Component] -> IO ()
+someEventSource setup cvars = do
+    -- event <- waitForEvent (setup ^. connection)
+    -- mapM_ (withTMVar (dispatch setup event)) cvars
+    waitForEvent (setup ^. connection)
+        >>= forM_ cvars . withTMVar . dispatch setup . toItem
+
+
+someMessageSource :: Setup -> [TMVar Component] -> IO ()
+someMessageSource setup cvars = do
+    -- event <- waitForEvent (setup ^. connection)
+    -- mapM_ (withTMVar (dispatch setup event)) cvars
+    -- waitForEvent (setup ^. connection) >>= forM_ cvars . withTMVar . dispatch setup
+    forM_ cvars . withTMVar . dispatch setup . toItem $ SomeMessage (0::Int)
+
+
+withTMVar :: (a -> IO a) -> TMVar a -> IO ()
+withTMVar f var = atomically (takeTMVar var) >>= f >>= atomically . putTMVar var
+
+
+dispatch :: Setup -> SomeItem -> Component -> IO Component
+dispatch setup event (Component cdata runc s c hs) = do
+    cdata' <- run runc event cdata hs
+    return (Component cdata' runc s c hs)
+
+    where
+
+    -- run :: forall a m c. (m a -> c -> IO (a, c))
+    --     -> SomeItem
+    --     -> a
+    --     -> [SomeHandler (Z m ())]
+    --     -> m a
+    run _ e d []       = return d
+    run r e d (SomeHandler f : fs) = do
+        -- let d' = undefined
+        ((_, logs), d') <- r (runStack setup (call_ f e)) d
+        -- printLog logs
+        run r e d' fs
+
+runComponents :: Setup -> IO ()
+runComponents setup = do
+    cvars <- mapM newTMVarIO cs
+
+    -- tids <- mapM newTMVarIO cs >>= mapM forkIO . flip map sources . ($)
+
+    tids <- mapM forkIO $ map ($ cvars) sources
+    -- tids <- mapM forkIO $ map ($ cvars) $ map ($ setup) sources
+    -- mapM forkIO $ map ($ cvars) $ map ($ setup) sources
+
+    -- forM_ (_eventSources setup) (forkIO . ($ cvars))
+    forM_ ([someEventSource setup, someMessageSource setup]) (forkIO . ($ cvars))
+
+    where
+    cs = setup ^. config .components
+    sources= [someEventSource setup, someMessageSource setup]
 
 config :: Functor f => LensLike' f Setup Config
 config = lens _config (\d v -> d { _config = v })
@@ -454,7 +604,7 @@ modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 
 type LogWT = WriterT [String]
 
-type MessageWT = WriterT [SomeMessage]
+-- type MessageWT = WriterT [SomeMessage]
 
 type SetupRT = ReaderT Setup
 
