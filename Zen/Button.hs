@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
-import qualified Data.List as L
+-- import qualified Data.List as L
 import Data.Typeable
 import Control.Exception (bracket)
 import Control.Monad.State
@@ -93,18 +93,11 @@ pointerComponent = Component
     { componentData = (PointerSetup [] M.empty, Nothing)
     , runComponent = runPointerComponent
     , onStartup = startupPointerComponent
-    , onShutdown = \_ -> return () -- cleanupPointerComponent
-    -- , handler = [ SomeHandler handleButtonPress
-    --             , SomeHandler handleMotionNotify
-    --             , SomeHandler handleCreateNotify
-    --             ]
-    -- , handler = [ SomeHandler $ eventDispatcher [ EventHandler handleButtonPress
-    --                               , EventHandler handleMotionNotify
-    --                               , EventHandler handleCreateNotify
-    --                               ]
-    --             ]
-    -- , handleMessage = (\_ -> return ())
-    , eventHandler = const ([] :: [SomeHandler (Z PointerStack ())])
+    , onShutdown = shutdownPointerComponent
+    , genericHandler = [ EventHandler handleButtonPress
+                       , EventHandler handleMotionNotify
+                       , EventHandler handleCreateNotify
+                       ]
     }
 
 
@@ -114,28 +107,17 @@ runPointerComponent :: PointerStack a
 runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 
-startupPointerComponent :: Component -> Z IO Component
-startupPointerComponent (Component cdata r s c h) = do
-    cdata' <- whenJustM ((cast cdata) :: Maybe (PointerSetup, Maybe PointerMotion)) $ startupPointerComponent'
-    return (Component (fromMaybe cdata cdata') r s c h)
-
--- connection $-> \c -> do
---     toLog "Button startupPointerComponent"
---     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
---     return (PointerSetup buttonEventMask glyphs, p)
-
-
-startupPointerComponent' :: (PointerSetup, Maybe PointerMotion)
-                           -> Z IO (PointerSetup, Maybe PointerMotion)
-startupPointerComponent' (PointerSetup _ _, p) = connection $-> \c -> do
+startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
+                        -> Z IO (PointerSetup, Maybe PointerMotion)
+startupPointerComponent (PointerSetup _ _, p) = connection $-> \c -> do
     toLog "Button startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
     return (PointerSetup buttonEventMask glyphs, p)
 
 
-cleanupPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
-cleanupPointerComponent (PointerSetup _ glyphs, _) = do
-    toLog "Button cleanupPointerComponent"
+shutdownPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
+shutdownPointerComponent (PointerSetup _ glyphs, _) = do
+    toLog "Button shutdownPointerComponent"
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
 
 
@@ -203,9 +185,9 @@ doResize e = do
 
 handleMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
 handleMotionNotify e = do
-    x <- get
-    toLog $ "Button MotionNotifyEvent" ++ show x
-    handle x
+    x' <- get
+    toLog $ "Button MotionNotifyEvent" ++ show x'
+    handle x'
     where
     handle :: Maybe PointerMotion -> Z PointerStack ()
     handle Nothing              = return ()
