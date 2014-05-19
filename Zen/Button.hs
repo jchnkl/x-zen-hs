@@ -10,6 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
+import qualified Data.List as L
 import Data.Typeable
 import Control.Exception (bracket)
 import Control.Monad.State
@@ -74,7 +75,7 @@ data PointerSetup = PointerSetup
     { buttonMask :: [EventMask]
     , glyphMap :: GlyphMap
     }
-    deriving Typeable
+    deriving (Show, Typeable)
 
 
 data PointerMotion = M Position
@@ -89,15 +90,21 @@ asksPS = lift . lift . asks
 
 pointerComponent :: Component
 pointerComponent = Component
-    { component = (PointerSetup [] M.empty, Nothing)
+    { componentData = (PointerSetup [] M.empty, Nothing)
     , runComponent = runPointerComponent
-    , startup = startupPointerComponent
-    , cleanup = cleanupPointerComponent
-    , handleEvent = eventDispatcher [ EventHandler handleButtonPress
-                                    , EventHandler handleMotionNotify
-                                    , EventHandler handleCreateNotify
-                                    ]
-    , handleMessage = (\_ -> return ())
+    , onStartup = startupPointerComponent
+    , onShutdown = \_ -> return () -- cleanupPointerComponent
+    -- , handler = [ SomeHandler handleButtonPress
+    --             , SomeHandler handleMotionNotify
+    --             , SomeHandler handleCreateNotify
+    --             ]
+    -- , handler = [ SomeHandler $ eventDispatcher [ EventHandler handleButtonPress
+    --                               , EventHandler handleMotionNotify
+    --                               , EventHandler handleCreateNotify
+    --                               ]
+    --             ]
+    -- , handleMessage = (\_ -> return ())
+    , eventHandler = const ([] :: [SomeHandler (Z PointerStack ())])
     }
 
 
@@ -107,15 +114,28 @@ runPointerComponent :: PointerStack a
 runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 
-startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
+startupPointerComponent :: Component -> Z IO Component
+startupPointerComponent (Component cdata r s c h) = do
+    cdata' <- whenJustM ((cast cdata) :: Maybe (PointerSetup, Maybe PointerMotion)) $ startupPointerComponent'
+    return (Component (fromMaybe cdata cdata') r s c h)
+
+-- connection $-> \c -> do
+--     toLog "Button startupPointerComponent"
+--     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
+--     return (PointerSetup buttonEventMask glyphs, p)
+
+
+startupPointerComponent' :: (PointerSetup, Maybe PointerMotion)
                            -> Z IO (PointerSetup, Maybe PointerMotion)
-startupPointerComponent (PointerSetup _ _, p) = connection $-> \c -> do
+startupPointerComponent' (PointerSetup _ _, p) = connection $-> \c -> do
+    toLog "Button startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
     return (PointerSetup buttonEventMask glyphs, p)
 
 
 cleanupPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
-cleanupPointerComponent (PointerSetup _ glyphs, _) =
+cleanupPointerComponent (PointerSetup _ glyphs, _) = do
+    toLog "Button cleanupPointerComponent"
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
 
 
@@ -125,7 +145,7 @@ getButtonConfig = getConfig
 
 handleButtonPress :: ButtonPressEvent -> Z PointerStack ()
 handleButtonPress e = do
-    toLog "ButtonPressEvent"
+    toLog "Button ButtonPressEvent"
 
     mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
     flip whenJustM_ handle =<<
@@ -182,7 +202,10 @@ doResize e = do
 
 
 handleMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
-handleMotionNotify e = get >>= handle
+handleMotionNotify e = do
+    x <- get
+    toLog $ "Button MotionNotifyEvent" ++ show x
+    handle x
     where
     handle :: Maybe PointerMotion -> Z PointerStack ()
     handle Nothing              = return ()
@@ -215,14 +238,12 @@ handleMotionNotify e = get >>= handle
 
 handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify e = do
-    toLog "CreateNotifyEvent"
+    toLog "Button CreateNotifyEvent"
     grabButtons $ window_CreateNotifyEvent e
 
 
 grabButtons :: WindowId -> Z PointerStack ()
 grabButtons window = connection $-> \c -> whenM (isClient window) $ do
-    toLog $ "grabButtons for " ++ show window
-
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
@@ -235,7 +256,6 @@ grabButtons window = connection $-> \c -> whenM (isClient window) $ do
 
     where
     grab c eventmask (mask, button) = do
-        toLog $ "grabbing: " ++ show (mask, button)
         io $ grabButton c $ MkGrabButton True window eventmask
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)

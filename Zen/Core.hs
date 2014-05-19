@@ -20,14 +20,18 @@ import Component
 type CoreState = StateT Core IO
 coreComponent :: Component
 coreComponent = Component
-    { component = Core Normal M.empty
+    { componentData = Core Normal M.empty
     , runComponent = runCoreComponent
     , startup = return . id
     , cleanup = const $ return ()
-    , handleEvent = eventDispatcher [ EventHandler handleCreateNotify
-                                    , EventHandler handleDestroyNotify
-                                    ]
-    , handleMessage = (\_ -> return ())
+    -- , handler = [ SomeHandler handleCreateNotify
+    --             , SomeHandler handleDestroyNotify
+    --             ]
+    , handler = [ SomeHandler $ eventDispatcher [ EventHandler handleCreateNotify
+                                                , EventHandler handleDestroyNotify
+                                                ]
+                ]
+    -- , handleMessage = (\_ -> return ())
     }
 
 
@@ -38,11 +42,11 @@ runCoreComponent = runStateT
 
 
 handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
-handleCreateNotify = manage .  window_CreateNotifyEvent
+handleCreateNotify e = toLog "Core CreateNotifyEvent" >> manage (window_CreateNotifyEvent e)
 
 
 handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
-handleDestroyNotify e = toLog "DestroyNotifyEvent" >> unmanage (window_DestroyNotifyEvent e)
+handleDestroyNotify e = toLog "Core DestroyNotifyEvent" >> unmanage (window_DestroyNotifyEvent e)
 
 
 manage :: WindowId -> Z CoreState ()
@@ -69,6 +73,7 @@ manage window = whenM (isClient <$> attributes) $ do
             valueparam = toValueParam [(mask, values)]
         connection $-> \c -> io $ changeWindowAttributes c window valueparam
         config . borderWidth $-> setBorderWidth window
+        -- grabButtons window
 
 
 unmanage :: WindowId -> Z CoreState ()
