@@ -1,55 +1,25 @@
 -- vim: set sw=4 sws=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable,
-             ExistentialQuantification,
-             RankNTypes
-     , MultiParamTypeClasses
-    -- , TypeFamilies
-    -- , ConstraintKinds
-    , TupleSections
-    -- , StandaloneDeriving
-    , TypeSynonymInstances
-    , FlexibleInstances
-    -- , FlexibleContexts
-    #-}
--- {-# LANGUAGE DeriveDataTypeable, RankNTypes, ExistentialQuantification
---     , FlexibleInstances
---     , FunctionalDependencies
+{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, RankNTypes #-}
 
 module Types
     ( module Types
     , module Message
     ) where
 
-import GHC.Exts (Constraint)
 import Data.Word
-import Data.Hashable
-import Data.Maybe (catMaybes, fromMaybe)
 import Data.Typeable
 import Data.Map (Map)
-import qualified Data.Map as M
-import Control.Monad.Cont
-import Control.Arrow (second)
-import Control.Applicative
--- import Control.Monad
 
-import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 
--- import Control.Monad.Trans
--- import Control.Monad.Trans.State
--- import Control.Monad.Trans.Reader
--- import Control.Monad.Trans.Writer
-import Control.Concurrent
 import Control.Concurrent.STM
 import Graphics.XHB hiding (Setup)
 
--- import Log
 import Lens
-import Lens.Family.Stock
-import Message -- hiding (dispatch)
+import Message
 
 
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
