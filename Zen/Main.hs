@@ -29,18 +29,18 @@ import Component
 -- import Core
 -- import Button
 
--- TODO:
--- Free Monads for Layout
--- Split in proper modules
---   Pointer -> grabButton, *Cursor, etc.
---   Keyboard -> grabKeys, etc.
---   or generic X module?
-
--- IDEAS
--- Use Mod4 with lock after timeout
--- data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
-
 {-
+* TODO:
+    - Free Monads for Layout
+    - Split in proper modules
+      - Pointer -> grabButton, *Cursor, etc.
+      - Keyboard -> grabKeys, etc.
+        or generic X module?
+
+* IDEAS
+ - Use Mod4 with lock after timeout
+ - data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
+
  |-> Config | Normal | Manage
  |-> View:       Config determines State presentation
  |-> Controller: Config determines input interpretation
@@ -122,25 +122,3 @@ withSetup c conf sources f = do
     runThread :: (TChan SomeMessage -> IO ()) -> TChan SomeMessage -> IO ThreadId
     runThread = (forkIO .)
 
-
-{-
-grabKeys :: Connection -> Config -> Setup -> IO ()
-grabKeys c conf setup = do
-    let modmask = conf ^. modMask
-        kbdmap = setup ^. keyboardMap
-        modmap = setup ^. modifierMap
-        keys = M.keys (conf ^. keyHandler)
-        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
-        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
-        -- TODO: separate function
-        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
-        grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
-                                                     mask keycode
-                                                     GrabModeAsync GrabModeAsync
-
-    ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
-
-    forM_ keys $ \(mask, keysym) ->
-        whenJust (keysymToKeycode (fi keysym) kbdmap) $
-            mapM_ grab . combos (modmask ++ mask)
--}

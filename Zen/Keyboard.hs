@@ -124,3 +124,25 @@ grabModifier c conf setup = do
     ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
 
     mapM_ grab $ concatMap (zip modifier . repeat) keycodes
+
+{-
+grabKeys :: Connection -> Config -> Setup -> IO ()
+grabKeys c conf setup = do
+    let modmask = conf ^. modMask
+        kbdmap = setup ^. keyboardMap
+        modmap = setup ^. modifierMap
+        keys = M.keys (conf ^. keyHandler)
+        nl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Num_Lock) kbdmap modmap]
+        cl = catMaybes [(fromBit . toValue) <$> keysymToModifier (fi xK_Caps_Lock) kbdmap modmap]
+        -- TODO: separate function
+        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+        grab (mask, keycode) = grabKey c $ MkGrabKey True (getRoot c)
+                                                     mask keycode
+                                                     GrabModeAsync GrabModeAsync
+
+    ungrabKey c $ MkUngrabKey (toValue GrabAny) (getRoot c) [ModMaskAny]
+
+    forM_ keys $ \(mask, keysym) ->
+        whenJust (keysymToKeycode (fi keysym) kbdmap) $
+            mapM_ grab . combos (modmask ++ mask)
+-}
