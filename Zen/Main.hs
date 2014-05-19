@@ -1,33 +1,15 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE TupleSections #-}
 
--- import qualified Data.Map as M
--- import qualified Data.Set as S
-import Control.Monad
--- import Control.Monad.State
--- import Control.Monad.Reader
--- import Control.Monad.Writer
-import Control.Applicative
-import Control.Exception hiding (mask)
-import Control.Concurrent
-import Control.Concurrent.STM
--- import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 
-import Util
 import Lens
--- import Core
-import Types hiding (startup)
+import Types
 import Config (defaultConfig)
--- import Setup hiding (config)
--- import Window
-import Keyboard
 
+import Keyboard
 import Component
 
--- import Event
--- import Core
--- import Button
 
 {-
 * TODO:
@@ -86,27 +68,13 @@ startup (Just c) conf = do
     run setup = withComponents setup (setup ^. config . components) (loop setup)
     loop setup cs = waitForEvent c >>= flip (execComponents setup) cs >>= loop setup
 
-    -- startThreads :: Setup -> IO [ThreadId]
-    -- startThreads = flip startComponents (conf ^. components)
-
-
-        -- write = atomically . writeTChan (setup ^. eventQueue) . toMessage
-
     -- children :: Either SomeError QueryTreeReply -> [WindowId]
     -- children (Left _) = []
     -- children (Right reply) = children_QueryTreeReply reply
 
 
--- eventLoop :: Connection -> TChan SomeMessage -> IO ()
--- eventLoop c chan = forever $ waitForEvent c
---                              >>= atomically . writeTChan chan . toMessage
--- -- eventLoop c chan = forever $ waitForEvent c >>= \e -> whenJustM_ (fromEvent e)
--- --                              (atomically . writeTChan chan . toMessage)
-
-
 withSetup :: Connection
           -> Config
-          -- -> [TChan SomeMessage -> IO ()]
           -> (Setup -> IO a)
           -> IO a
 withSetup c conf f = do
@@ -116,19 +84,3 @@ withSetup c conf f = do
     modmap <- modifierMapping =<< getModifierMapping c
 
     f $ Setup conf c (getRoot c) kbdmap modmap
-
-    -- f (Setup conf c (getRoot c) kbdmap modmap chans)
-    --     `finally` (mapM killThread tids)
-
-
-    -- -- putStrLn $ "sources: " ++ show (length sources)
-    -- chans <- replicateM (length sources) newBroadcastTChanIO
-    -- -- putStrLn $ "chans: " ++ show (length chans)
-    -- tids <- mapM (uncurry runThread) (zip sources chans)
-
-    -- f (Setup conf c (getRoot c) kbdmap modmap chans)
-    --     `finally` (mapM killThread tids)
-
-    -- where
-    -- runThread :: (TChan SomeMessage -> IO ()) -> TChan SomeMessage -> IO ThreadId
-    -- runThread = (forkIO .)
