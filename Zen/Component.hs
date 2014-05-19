@@ -5,23 +5,13 @@
 
 module Component where
 
-import Data.Map (Map)
-import qualified Data.Map as M
 import Data.Typeable
--- import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Control.Arrow
--- import Control.Applicative ((<$>))
-import Control.Exception (bracket)
--- import Control.Concurrent
 import Control.Concurrent.STM
-import Graphics.XHB (SomeEvent, fromEvent)
 
 import Log
-import Lens
 import Lens.Family.Stock
-import Util
 import Types
 
 
