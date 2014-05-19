@@ -32,6 +32,11 @@ import Window
 -- import Keyboard
 
 
+instance Dispatcher SomeEvent where
+    dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
+    dispatch _ _                    = return ()
+
+
 {-
 class InputEventDispatcher pe re where
     dispatchPress   :: InputEventHandler pe re -> pe -> Z ()
