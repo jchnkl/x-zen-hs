@@ -22,7 +22,7 @@ import Log
 import Lens
 import Lens.Family.Stock
 import Util
-import Types hiding (runStack, dispatch)
+import Types
 
 
 getConfig :: Typeable a => [ComponentConfig] -> Maybe a
@@ -32,30 +32,14 @@ getConfig (ComponentConfig c:cs) = case cast c of
 getConfig _ = Nothing
 
 
-dispatchEvent :: Dispatcher a => Setup -> a -> Component -> IO Component
-dispatchEvent setup event (Component cdata runc u d hs) = do
-    ((_, logs), cdata') <- runc (runStack setup $ mapM_ (dispatch event) hs) cdata
-    -- printLog logs
-    return $ Component cdata' runc u d hs
+eventDispatcher :: Dispatcher a => Setup -> a -> Component -> IO Component
+eventDispatcher setup event (Component cdata runc su sd hs) =
+    run >>= _1 (printLog . snd) >>= returnComponent . snd
+    where run = runc (runStack setup $ mapM_ (dispatch event) hs) cdata
+          returnComponent d = return $ Component d runc su sd hs
 
 
 runStack :: Setup -> WriterT w (ReaderT Setup m) a -> m (a, w)
-runStack setup f = runReaderT (runWriterT f) setup
-
-
-eventDispatcher :: (Functor m, Monad m)
-                => [EventHandler (m ())]
-                -> SomeEvent
-                -> m ()
-eventDispatcher hs = forM_ hs . try
-    where
-    try :: (Functor m, Monad m) => SomeEvent -> EventHandler (m ()) -> m ()
-    try event (EventHandler h) = whenJustM_ (fromEvent event) h
-
-
--- runStack :: r -> WriterT w (ReaderT r m) a -> m (a, w)
--- runStack :: r -> WriterT w1 (WriterT w (ReaderT r m)) a -> m ((a, w1), w)
-runStack :: r -> WriterT w (ReaderT r m) a -> m (a, w)
 runStack setup f = runReaderT (runWriterT f) setup
 
 
