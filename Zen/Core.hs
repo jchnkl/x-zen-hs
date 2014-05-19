@@ -14,7 +14,6 @@ import Lens
 import Log
 import Queue
 import Window
-import Component
 
 
 type CoreState = StateT Core IO
@@ -22,22 +21,15 @@ coreComponent :: Component
 coreComponent = Component
     { componentData = Core Normal M.empty
     , runComponent = runCoreComponent
-    , startup = return . id
-    , cleanup = const $ return ()
-    -- , handler = [ SomeHandler handleCreateNotify
-    --             , SomeHandler handleDestroyNotify
-    --             ]
-    , handler = [ SomeHandler $ eventDispatcher [ EventHandler handleCreateNotify
-                                                , EventHandler handleDestroyNotify
-                                                ]
-                ]
-    -- , handleMessage = (\_ -> return ())
+    , onStartup = return . id
+    , onShutdown = const $ return ()
+    , genericHandler = [ EventHandler handleCreateNotify
+                       , EventHandler handleDestroyNotify
+                       ]
     }
 
 
-runCoreComponent :: CoreState a
-                 -> Core
-                 -> IO (a, Core)
+runCoreComponent :: CoreState a -> Core -> IO (a, Core)
 runCoreComponent = runStateT
 
 

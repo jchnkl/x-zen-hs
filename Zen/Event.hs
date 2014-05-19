@@ -88,14 +88,14 @@ baseComponent :: Component
 baseComponent = Component
     { componentData = BaseComponent
     , runComponent = runBaseComponent
-    , startup = return . id
-    , cleanup = const $ return ()
-    , handler =
-        [SomeHandler dispatch]
-        -- [ SomeHandler handleMapRequest
-        -- , SomeHandler handleConfigureRequest
-        -- , SomeHandler handleCirculateNotify
-        -- ]
+    , onStartup = return . id
+    , onShutdown = const $ return ()
+    , genericHandler =
+        -- [SomeHandler dispatch]
+        [ EventHandler handleMapRequest
+        , EventHandler handleConfigureRequest
+        , EventHandler handleCirculateNotify
+        ]
     -- , handleMessage = (\_ -> return ())
     }
 
@@ -104,20 +104,20 @@ runBaseComponent :: IO a -> BaseComponent -> IO (a, BaseComponent)
 runBaseComponent f b = (,b) <$> f
 
 
-dispatch :: SomeEvent -> StatelessZ ()
--- dispatch e = toLog "dispatch" >> mapM_ try defaultHandler
-dispatch e = mapM_ try defaultHandler
-    where
-    try :: EventHandler (StatelessZ ()) -> StatelessZ ()
-    try (EventHandler handler) = whenJustM_ (fromEvent e) handler
+-- dispatch :: SomeEvent -> StatelessZ ()
+-- -- dispatch e = toLog "dispatch" >> mapM_ try defaultHandler
+-- dispatch e = mapM_ try defaultHandler
+--     where
+--     try :: EventHandler (StatelessZ ()) -> StatelessZ ()
+--     try (EventHandler handler) = whenJustM_ (fromEvent e) handler
 
-    defaultHandler :: [EventHandler (StatelessZ ())]
-    defaultHandler =
-        -- Structure control events
-        [ EventHandler handleMapRequest
-        , EventHandler handleConfigureRequest
-        , EventHandler handleCirculateNotify
-        -- , EventHandler handleResizeRequest
+    -- defaultHandler :: [EventHandler (StatelessZ ())]
+    -- defaultHandler =
+    --     -- Structure control events
+    --     [ EventHandler handleMapRequest
+    --     , EventHandler handleConfigureRequest
+    --     , EventHandler handleCirculateNotify
+    --     -- , EventHandler handleResizeRequest
 
         -- -- Window state notification events
         -- , EventHandler handleCreateNotify
@@ -140,7 +140,7 @@ dispatch e = mapM_ try defaultHandler
         -- -- Keyboard events
         -- , EventHandler handleKeyPress
         -- , EventHandler handleKeyRelease
-        ]
+        -- ]
 
 
 copyValues :: ConfigureRequestEvent -> [ConfigWindow] -> [(ConfigWindow, Word32)]
