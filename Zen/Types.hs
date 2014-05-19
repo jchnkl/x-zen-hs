@@ -26,10 +26,13 @@ data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
     deriving Typeable
 
 
+class Dispatcher a where
+    dispatch :: forall m. (Monad m, Functor m) => a -> GenericHandler (m ()) -> m ()
+
+
 data GenericHandler b
     = forall a. Event a => EventHandler (a -> b)
     | forall a. Message a => MessageHandler (a -> b)
-
 
 
 data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
@@ -45,9 +48,6 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     , genericHandler :: [GenericHandler (Z m ())]
     }
 
-
-class Dispatcher a where
-    dispatch :: forall m. (Monad m, Functor m) => a -> GenericHandler (m ()) -> m ()
 
 
 -- instance Dispatcher SomeEvent where
@@ -213,7 +213,7 @@ data Setup = Setup
     -- , _messageQueue :: Channel
     -- , _eventSources :: [SomeChannel]
     -- , _eventChannels :: [EventSource TChan]
-    , _messageQueue :: [TChan SomeData]
+    -- , _messageQueue :: [TChan SomeData]
     }
     deriving Typeable
 
@@ -238,8 +238,8 @@ modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 -- eventQueue :: Functor f => LensLike' f Setup Channel
 -- eventQueue = lens _eventQueue (\d v -> d { _eventQueue = v })
 
-messageQueue :: Functor f => LensLike' f Setup [TChan SomeData]
-messageQueue = lens _messageQueue (\d v -> d { _messageQueue = v })
+-- messageQueue :: Functor f => LensLike' f Setup [TChan SomeData]
+-- messageQueue = lens _messageQueue (\d v -> d { _messageQueue = v })
 
 type LogWT = WriterT [String]
 
