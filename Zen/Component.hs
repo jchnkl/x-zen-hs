@@ -22,6 +22,10 @@ getConfig (ComponentConfig c:cs) = case cast c of
 getConfig _ = Nothing
 
 
+execComponents :: Dispatcher a => Setup -> a -> [Component] -> IO [Component]
+execComponents setup = mapM . eventDispatcher setup
+
+
 eventDispatcher :: Dispatcher a => Setup -> a -> Component -> IO Component
 eventDispatcher setup event (Component cdata runc su sd hs) =
     run >>= _1 (printLog . snd) >>= returnComponent . snd
