@@ -1,6 +1,7 @@
 module Pointer where
 
 import Control.Monad (void)
+import Control.Monad.State
 import Graphics.XHB
 import Graphics.X11.Xlib.Cursor (xC_fleur)
 
@@ -9,7 +10,7 @@ import Lens
 import Util
 import Event
 import Window
-import Cursor
+-- import Cursor
 import Types
 
 

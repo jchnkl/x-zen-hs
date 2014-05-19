@@ -1,18 +1,20 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# LANGUAGE TupleSections #-}
 
 -- import qualified Data.Map as M
 -- import qualified Data.Set as S
+import Control.Monad
 -- import Control.Monad.State
 -- import Control.Monad.Reader
 -- import Control.Monad.Writer
--- import Control.Applicative
+import Control.Applicative
 import Control.Exception hiding (mask)
 import Control.Concurrent
 import Control.Concurrent.STM
 -- import Data.Time (getZonedTime)
 import Graphics.XHB hiding (Setup)
 
--- import Util
+import Util
 import Lens
 -- import Core
 import Types hiding (startup)
@@ -72,32 +74,53 @@ startup (Just c) conf = do
     -- TODO: ungrab / regrab keys for MappingNotifyEvent
     -- grabKeys c config setup
 
-    withSetup c conf $ \setup -> do
-        tids <- startThreads setup
-        eventLoop setup `finally` mapM_ killThread tids
+    let sources = [eventLoop c]
+    withSetup c conf sources runComponents
+        -- return ()
+        -- tids <- startThreads setup
+        -- eventLoop setup `finally` mapM_ killThread tids
 
     where
-    startThreads :: Setup -> IO [ThreadId]
-    startThreads = flip startComponents (conf ^. components)
+    -- startThreads :: Setup -> IO [ThreadId]
+    -- startThreads = flip startComponents (conf ^. components)
 
-    eventLoop :: Setup -> IO ()
-    eventLoop setup = waitForEvent c >>= write >> eventLoop setup
-        where write = atomically . writeTChan (setup ^. eventQueue) . toElement
+
+        -- write = atomically . writeTChan (setup ^. eventQueue) . toMessage
 
     -- children :: Either SomeError QueryTreeReply -> [WindowId]
     -- children (Left _) = []
     -- children (Right reply) = children_QueryTreeReply reply
 
 
-withSetup :: Connection -> Config -> (Setup -> IO a) -> IO a
-withSetup c conf f = do
+eventLoop :: Connection -> TChan SomeMessage -> IO ()
+eventLoop c chan = forever $ waitForEvent c
+                             >>= atomically . writeTChan chan . toMessage
+-- eventLoop c chan = forever $ waitForEvent c >>= \e -> whenJustM_ (fromEvent e)
+--                              (atomically . writeTChan chan . toMessage)
+
+
+withSetup :: Connection
+          -> Config
+          -> [TChan SomeMessage -> IO ()]
+          -> (Setup -> IO a)
+          -> IO a
+withSetup c conf sources f = do
     let min_keycode = min_keycode_Setup $ connectionSetup c
         max_keycode = max_keycode_Setup (connectionSetup c) - min_keycode + 1
     kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
     modmap <- modifierMapping =<< getModifierMapping c
-    eventQ <- newBroadcastTChanIO
-    messageQ <- newBroadcastTChanIO
-    f $ Setup conf c (getRoot c) kbdmap modmap eventQ messageQ
+
+    -- putStrLn $ "sources: " ++ show (length sources)
+    chans <- replicateM (length sources) newBroadcastTChanIO
+    -- putStrLn $ "chans: " ++ show (length chans)
+    tids <- mapM (uncurry runThread) (zip sources chans)
+
+    f (Setup conf c (getRoot c) kbdmap modmap chans)
+        `finally` (mapM killThread tids)
+
+    where
+    runThread :: (TChan SomeMessage -> IO ()) -> TChan SomeMessage -> IO ThreadId
+    runThread = (forkIO .)
 
 
 {-
