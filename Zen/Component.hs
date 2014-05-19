@@ -8,7 +8,7 @@ module Component where
 import Data.Typeable
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Control.Concurrent.STM
+import Control.Exception (bracket)
 
 import Log
 import Lens.Family.Stock
@@ -34,144 +34,18 @@ runStack setup f = runReaderT (runWriterT f) setup
 
 
 withComponents :: Setup -> [Component] -> ([Component] -> IO ()) -> IO ()
-withComponents = undefined
-{-
-withComponent :: Setup -> Component -> (Component -> IO a) -> IO a
-withComponent setup c = bracket startup' cleanup'
-    where startup' = startupComponent setup c
-          cleanup' = cleanupComponent setup
-
-
-withComponents :: Setup -> [Component] -> ([Component] -> IO ()) -> IO ()
-withComponents setup cslst f = exec [] cslst
+withComponents setup cs f = bracket startup shutdown f
     where
-    exec cs' [] = f cs'
-    exec cs' (c : cs) = bracket (startup' c) cleanup' (flip exec cs . (: cs'))
+    startup = mapM (startupComponent setup) cs
+    shutdown = mapM_ (shutdownComponent setup)
 
-    startup' c = startupComponent setup c
-    cleanup' = cleanupComponent setup
-
--}
 
 startupComponent :: Setup -> Component -> IO Component
-startupComponent setup (Component cdata runc startupc c h) =
-    runStack setup (startupc cdata) >>= _2 printLog  >>= returnC . fst
-    where returnC d = return $ Component d runc startupc c h
-
-{-
+startupComponent setup (Component cdata runc startupc sd hs) =
+    runStack setup (startupc cdata) >>= _2 printLog  >>= returnComponent . fst
+    where returnComponent d = return $ Component d runc startupc sd hs
 
 
-cleanupComponent :: Setup -> Component -> IO Component
-cleanupComponent setup (Component cdata runc s cleanupc) = do
-    -- (_, logs) <- runStack setup (cleanupc cdata)
-    ((_, logs), _) <- runStack setup $ cleanupc cdata
-    printLog logs
-    return (Component cdata runc s cleanupc)
--}
-
-
-{-
--- startComponent :: Setup -> Component -> IO ThreadId
-startComponent :: Component -> Z IO ()
-startComponent component = do
-    
-
--- mapM (atomically . dupTChan) queues >>=
---     forkIO . void . withComponent setup component . runLoop
-
-    c <- newTMVarIO component
-
-    -- forM_ channels $ \channel -> do
-    --     mapM (flip withChannel channel) fooxfun
-    --     -- foo channel
-    --     -- case (foo channel undefined) of
-    --     --     Nothing -> return ()
-    --     --     Just chan -> atomically (readTChan chan)
-    --     return ()
-
-    --     atomically (readChannel channel) >>= flip whenJustM (dispatchOnComponent setup c)
-        -- readChannel setup (fromChannel channel) c
-
-    --     whenJustM (fromChannel channel) $ \chan -> (readQ chan >>= withElement c)
-        -- fmap (withElement c) (readQ (fromChannel channel) >>=) 
-        -- atomically (readQ $ fromChannel channel) >>= withElement c
-
-    return ()
--}
-
-
--- runConsumer :: [Consumer] -> Z IO [ThreadId]
--- runConsumer tids (Consumer c:cs) = do
---     tchan <- newBroadcastTChanIO
---     writer <- forkIO $ someProducer writeSome tchan
---     reader <- atomically (dupTChan tchan) >>= forkIO . someConsumer c
---
---     produce (writer : reader : tids) cs
---
--- produce tids _ = return tids
-
-
-    -- listen :: TChan a -> TMVar Component -> IO ()
-    -- channels :: [Channel]
-    -- channels = [setup ^. eventQueue, setup ^. messageQueue]
-
-    -- queues :: [TChan SomeElement]
-    -- queues = [setup ^. eventQueue, setup ^. messageQueue]
-
-    -- runLoop :: [TChan SomeElement] -> Component -> IO ()
-    -- runLoop chans c =
-    --     atomically (foldr1 orElse $ map readTChan chans)
-    --     >>= dispatch c
-    --     >>= runLoop chans
-
-    -- runLoop2 :: [TChan SomeElement] -> TMVar Component -> IO ()
-    -- runLoop2 chans cmv = do
-    --     mapM forkIO (listen cmv) chans
-    --     atomically (foldr1 orElse $ map readTChan chans)
-    --     >>= dispatch c
-    --     >>= runLoop chans
-
-    -- withElement :: ComponentDispatcher a => TMVar Component -> Maybe a -> IO ()
-    -- withElement cmv (Just e) = atomically (takeTMVar cmv)
-    --                     >>= dispatchWithComponent setup e
-    --                     >>= atomically . putTMVar cmv
-
-
-    -- -- foo :: 
-    -- foo = do
-    --     componentMVar <- newTMVarIO component
-
---     dispatch :: Component -> SomeElement -> IO Component
---     dispatch component'@(Component c runc i t hevent hmsg) e
---         | Just sm <- fromElement e :: Maybe SomeMessage = do
---             ((_, logs), c') <- runc (runStack setup $ hmsg sm) c
---             printLog logs
---             return (Component c' runc i t hevent hmsg)
---
---         | Just se <- fromElement e :: Maybe SomeEvent = do
---             ((_, logs), c') <- runc (runStack setup $ hevent se) c
---             printLog logs
---             return (Component c' runc i t hevent hmsg)
---
---         | otherwise = putStrLn "Nothing" >> return component'
-
-    -- dispatch c@Component { handleEvent = hevent, handleMessage = hmsg }
-    --     | Nothing = return c
-    --     | (Just x) = undefined -- c' runc (runStack undefined) c
-    --     | (Just SomeMessage) = undefined -- c' runc (runStack undefined) c
-
-    -- listenForEvent chan (Component c runc i t hevent hmsg) = do
-    --     ((_, logs), c') <- flip runc c . runStack setup . hevent
-    --                        =<< atomically (readTChan chan)
-    --     printLog logs
-    --     listenForEvent chan (Component c' runc i t hevent hmsg)
-
-    -- listenForMessage chan (Component c runc i t hevent hmsg) = do
-    --     ((_, logs), c') <- flip runc c . runStack setup . hmsg
-    --                        =<< atomically (readTChan chan)
-    --     printLog logs
-    --     listenForMessage chan (Component c' runc i t hevent hmsg)
-
-
-modifyComponent :: TMVar Component -> (Component -> IO Component) -> IO ()
-modifyComponent c f = atomically (takeTMVar c) >>= f >>= atomically . putTMVar c
+shutdownComponent :: Setup -> Component -> IO ()
+shutdownComponent setup (Component cdata _ _ shutdownc _) =
+    runStack setup (shutdownc cdata) >>= printLog . snd
