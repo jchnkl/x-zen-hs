@@ -26,17 +26,18 @@ data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
     deriving Typeable
 
 
-class Dispatcher a where
-    dispatch :: forall m. (Monad m, Functor m) => a -> GenericHandler (m ()) -> m ()
+class Consumer a where
+    consume :: forall m. (Monad m, Functor m) => a -> SomeConsumer (m ()) -> m ()
 
 
-class Dispatcher a => Source a where
+class Consumer a => Producer a where
     produce :: Setup -> IO a
 
-data SomeSource = forall a. Source a => SomeSource (Setup -> IO a)
+
+data SomeProducer = forall a. Producer a => SomeProducer (Setup -> IO a)
 
 
-data GenericHandler b
+data SomeConsumer b
     = forall a. Event a => EventHandler (a -> b)
     | forall a. Message a => MessageHandler (a -> b)
 
@@ -51,7 +52,7 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     -- | Function to run on shutdown
     , onShutdown :: d -> Z IO ()
     -- | Generic event handler
-    , genericHandler :: [GenericHandler (Z m ())]
+    , someConsumer :: [SomeConsumer (Z m ())]
     }
 
 

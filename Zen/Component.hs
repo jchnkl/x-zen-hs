@@ -26,7 +26,7 @@ getConfig _ = Nothing
 -- execComponents :: (MonadWriter [String] m, Dispatcher a) => Setup -> a -> [Component] -> ReaderT Setup m [Component]
 -- execComponents :: (MonadReader r m, MonadIO m, Functor m, Dispatcher a)
                -- => a -> [Component] -> ReaderT Setup m [Component]
-execComponents :: (Dispatcher a)
+execComponents :: (Consumer a)
                => [Component] -> a -> ReaderT Setup IO [Component]
 execComponents = flip (mapM . eventDispatcher)
 
@@ -58,12 +58,12 @@ runStack f = runWriterT . runReaderT f
 
 
 -- eventDispatcher :: (MonadReader r m, MonadIO m, Functor m, Dispatcher a)
-eventDispatcher :: (MonadIO m, Functor m, Dispatcher a)
+eventDispatcher :: (MonadIO m, Functor m, Consumer a)
                 => a -> Component -> SetupRT m Component
 eventDispatcher event (Component cdata runc su sd hs) = do
     run >>= _1 (io . printLog . snd) >>= returnComponent . snd
     where
-    run = ask >>= io . flip runc cdata . runStack (mapM (dispatch event) hs)
+    run = ask >>= io . flip runc cdata . runStack (mapM (consume event) hs)
     returnComponent d = return $ Component d runc su sd hs
 
 

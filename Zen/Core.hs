@@ -23,9 +23,9 @@ coreComponent = Component
     , runComponent = runCoreComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
-    , genericHandler = [ EventHandler handleCreateNotify
-                       , EventHandler handleDestroyNotify
-                       ]
+    , someConsumer = [ EventHandler handleCreateNotify
+                     , EventHandler handleDestroyNotify
+                     ]
     }
 
 
