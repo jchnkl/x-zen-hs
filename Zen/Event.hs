@@ -32,13 +32,13 @@ import Window
 -- import Keyboard
 
 
-instance Source SomeEvent where
+instance Producer SomeEvent where
     produce setup = waitForEvent (setup ^. connection)
 
 
-instance Dispatcher SomeEvent where
-    dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
-    dispatch _ _                    = return ()
+instance Consumer SomeEvent where
+    consume event (EventHandler f) = whenJustM_ (fromEvent event) f
+    consume _ _                    = return ()
 
 
 {-
@@ -99,7 +99,7 @@ baseComponent = Component
     , runComponent = runBaseComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
-    , genericHandler =
+    , someConsumer =
         -- [SomeHandler dispatch]
         [ EventHandler handleMapRequest
         , EventHandler handleConfigureRequest
