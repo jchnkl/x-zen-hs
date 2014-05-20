@@ -32,6 +32,10 @@ import Window
 -- import Keyboard
 
 
+instance Source SomeEvent where
+    produce setup = waitForEvent (setup ^. connection)
+
+
 instance Dispatcher SomeEvent where
     dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
     dispatch _ _                    = return ()
