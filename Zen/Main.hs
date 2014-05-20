@@ -3,6 +3,7 @@
 
 import Graphics.XHB hiding (Setup)
 
+import Util
 import Lens
 import Types
 import Config (defaultConfig)
@@ -65,17 +66,28 @@ startup (Just c) conf = do
         -- eventLoop setup `finally` mapM_ killThread tids
 
     where
-    run setup = withComponents setup (setup ^. config . components) (loop setup)
-    loop setup cs = waitForEvent c >>= flip (execComponents setup) cs >>= loop setup
+    -- run setup = withComponents setup (setup ^. config . components) (loop setup)
+    -- run :: ReaderT Setup IO ()
+    run :: ReaderT Setup IO ()
+    run = do
+        cs <- askL (config . components)
+        void $ withComponents loop cs
+
+    loop :: [Component] -> ReaderT Setup IO ()
+    loop cs = connection $-> io . waitForEvent >>= execComponents cs >>= loop
 
     -- children :: Either SomeError QueryTreeReply -> [WindowId]
     -- children (Left _) = []
     -- children (Right reply) = children_QueryTreeReply reply
 
 
-withSetup :: Connection
+-- runReaderT (f :: ReaderT Setup IO ()) setup
+withSetup :: -- MonadReader r m
+          -- => Connection
+             Connection
           -> Config
-          -> (Setup -> IO a)
+          -- -> (Setup -> IO a)
+          -> ReaderT Setup IO a
           -> IO a
 withSetup c conf f = do
     let min_keycode = min_keycode_Setup $ connectionSetup c
@@ -83,4 +95,15 @@ withSetup c conf f = do
     kbdmap <- keyboardMapping c =<< getKeyboardMapping c min_keycode max_keycode
     modmap <- modifierMapping =<< getModifierMapping c
 
-    f $ Setup conf c (getRoot c) kbdmap modmap
+    runReaderT f $ Setup conf c (getRoot c) kbdmap modmap
+
+
+someEventSource :: SomeSource -- IO SomeEvent
+someEventSource = SomeSource $ waitForEvent . (^. connection)
+
+
+-- runSources :: Setup -> [Component] -> [SomeSource] -> IO ()
+-- runSources _ _ [] = return ()
+-- runSources setup cs (SomeSource f:srcs) = do
+--     f setup >>= flip (execComponents) cs
+--     runSources setup cs srcs
