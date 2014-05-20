@@ -30,6 +30,12 @@ class Dispatcher a where
     dispatch :: forall m. (Monad m, Functor m) => a -> GenericHandler (m ()) -> m ()
 
 
+class Dispatcher a => Source a where
+    produce :: Setup -> IO a
+
+data SomeSource = forall a. Source a => SomeSource (Setup -> IO a)
+
+
 data GenericHandler b
     = forall a. Event a => EventHandler (a -> b)
     | forall a. Message a => MessageHandler (a -> b)
@@ -266,6 +272,6 @@ type LogWT = WriterT [String]
 type SetupRT = ReaderT Setup
 
 -- type Z m a = LogWT (HandlerWT (SetupRT m)) a
-type Z m a = LogWT (SetupRT m) a
+type Z m a = SetupRT (LogWT m) a
 
 type StatelessZ a = Z IO a
