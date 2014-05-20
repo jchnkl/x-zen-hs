@@ -8,7 +8,7 @@ module Component where
 import Data.Typeable
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Control.Exception (bracket)
+import Control.Monad.Catch (bracket)
 
 import Log
 import Lens.Family.Stock
