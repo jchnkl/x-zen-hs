@@ -21,7 +21,7 @@ import Data.Word
 -- import Control.Monad
 -- import Control.Monad.IO.Class
 import Control.Applicative
-import Graphics.XHB
+import Graphics.XHB hiding (Setup)
 -- import Graphics.X11.Types (xK_Num_Lock, xK_Caps_Lock)
 
 import Log
@@ -32,13 +32,17 @@ import Window
 -- import Keyboard
 
 
-instance Producer SomeEvent where
-    produce setup = waitForEvent (setup ^. connection)
+someEventSource :: Setup -> IO SomeEvent
+someEventSource setup = waitForEvent (setup ^. connection)
 
 
-instance Consumer SomeEvent where
-    consume event (EventHandler f) = whenJustM_ (fromEvent event) f
-    consume _ _                    = return ()
+instance Sink SomeEvent where
+    dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
+    dispatch _ _                    = return ()
+
+instance Sink SomeMessage where
+    dispatch event (MessageHandler f) = whenJustM_ (fromMessage event) f
+    dispatch _ _                      = return ()
 
 
 {-
@@ -99,13 +103,11 @@ baseComponent = Component
     , runComponent = runBaseComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
-    , someConsumer =
-        -- [SomeHandler dispatch]
+    , someSinks =
         [ EventHandler handleMapRequest
         , EventHandler handleConfigureRequest
         , EventHandler handleCirculateNotify
         ]
-    -- , handleMessage = (\_ -> return ())
     }
 
 

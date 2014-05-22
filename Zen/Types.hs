@@ -26,20 +26,22 @@ data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
     deriving Typeable
 
 
-class Consumer a where
-    consume :: forall m. (Monad m, Functor m) => a -> SomeConsumer (m ()) -> m ()
+class Sink a where
+    dispatch :: forall m. (Monad m, Functor m) => a -> SomeSink (m ()) -> m ()
 
 
-class Consumer a => Producer a where
-    produce :: Setup -> IO a
 
 
-data SomeProducer = forall a. Producer a => SomeProducer (Setup -> IO a)
 
 
-data SomeConsumer b
-    = forall a. Event a => EventHandler (a -> b)
-    | forall a. Message a => MessageHandler (a -> b)
+data SomeSource where
+    EventSource :: (Setup -> IO SomeEvent) -> SomeSource
+    MessageSource :: (Setup -> IO SomeMessage) -> SomeSource
+
+
+data SomeSink b where
+    EventHandler :: Event a => (a -> b) -> SomeSink b
+    MessageHandler :: Message a => (a -> b) -> SomeSink b
 
 
 data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
@@ -52,14 +54,11 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     -- | Function to run on shutdown
     , onShutdown :: d -> Z IO ()
     -- | Generic event handler
-    , someConsumer :: [SomeConsumer (Z m ())]
+    , someSinks :: [SomeSink (Z m ())]
     }
 
 
 
--- instance Dispatcher SomeEvent where
---     dispatch e (EventHandler f) = xwhenJustM_ (fromEvent e) f
---     dispatch e _                = return ()
 
 
 data Config = Config

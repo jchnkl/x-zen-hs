@@ -94,10 +94,10 @@ pointerComponent = Component
     , runComponent = runPointerComponent
     , onStartup = startupPointerComponent
     , onShutdown = shutdownPointerComponent
-    , someConsumer = [ EventHandler handleButtonPress
-                     , EventHandler handleMotionNotify
-                     , EventHandler handleCreateNotify
-                     ]
+    , someSinks = [ EventHandler handleButtonPress
+                  , EventHandler handleMotionNotify
+                  , EventHandler handleCreateNotify
+                  ]
     }
 
 

@@ -11,6 +11,7 @@ import Control.Monad.Writer
 import Control.Monad.Catch (bracket)
 
 import Log
+import Lens
 import Util
 import Lens.Family.Stock
 import Types
@@ -23,68 +24,38 @@ getConfig (ComponentConfig c:cs) = case cast c of
 getConfig _ = Nothing
 
 
--- execComponents :: (MonadWriter [String] m, Dispatcher a) => Setup -> a -> [Component] -> ReaderT Setup m [Component]
--- execComponents :: (MonadReader r m, MonadIO m, Functor m, Dispatcher a)
-               -- => a -> [Component] -> ReaderT Setup m [Component]
-execComponents :: (Consumer a)
-               => [Component] -> a -> ReaderT Setup IO [Component]
-execComponents = flip (mapM . eventDispatcher)
 
-
--- bar :: ReaderT Setup (WriterT [String] m) ()
--- bar = undefined
-
--- foo :: Monad m => ReaderT Setup m ()
--- foo = do
---     runStack $ ask >>= runReaderT bar
---     return ()
-
-
--- execStack :: Setup -> m a -> m a
--- execStack :: Monad m => SetupRT (LogWT m) () -> SetupRT m [String]
--- execStack :: (MonadReader Setup m) => ReaderT Setup (WriterT [String] m) a -> m [String]
--- execStack f = execWriterT $ ask >>= runReaderT f
-
--- execStack :: (MonadReader Setup m) => ReaderT Setup (WriterT [String] m) a -> m [String]
--- execStack :: MonadReader Setup m => SetupRT (LogWT m) a -> m [String]
--- execStack f = ask >>= execWriterT . runReaderT f
--- execStack :: (MonadReader a m, MonadIO m) => SetupRT (LogWT IO) b -> m b
-
--- runStack :: (MonadReader r m, MonadIO m) => ReaderT r (WriterT b IO) c -> m (c, b)
--- runStack f = ask >>= io . runWriterT . runReaderT f
 
 runStack :: ReaderT a (WriterT w m) b -> a -> m (b, w)
 runStack f = runWriterT . runReaderT f
 
 
--- eventDispatcher :: (MonadReader r m, MonadIO m, Functor m, Dispatcher a)
-eventDispatcher :: (MonadIO m, Functor m, Consumer a)
-                => a -> Component -> SetupRT m Component
-eventDispatcher event (Component cdata runc su sd hs) = do
+
+execComponent :: Sink a => Setup -> a -> Component -> IO Component
+execComponent setup event (Component cdata runc su sd hs) =
     run >>= _1 (io . printLog . snd) >>= returnComponent . snd
     where
-    run = ask >>= io . flip runc cdata . runStack (mapM (consume event) hs)
+    run = io $ flip runc cdata $ runStack (mapM (dispatch event) hs) setup
     returnComponent d = return $ Component d runc su sd hs
 
 
 
-withComponents :: ([Component] -> ReaderT Setup IO ())
-               -> [Component]
-               -> ReaderT Setup IO ()
-withComponents f cs = bracket startup shutdown f
+
+withComponents :: Setup -> ([Component] -> IO a) -> IO a
+withComponents setup = bracket startup shutdown
     where
-    startup = mapM startupComponent cs
-    shutdown = mapM_ shutdownComponent
+    startup = mapM (startupComponent setup) (setup ^. config . components)
+    shutdown = mapM_ (shutdownComponent setup)
 
 
-startupComponent :: Component -> ReaderT Setup IO Component
-startupComponent (Component cdata runc startupc sd hs) =
-    ask >>= io . runStack (startupc cdata)
-            >>= _2 (io . printLog)
-                >>= returnComponent . fst
+startupComponent :: Setup -> Component -> IO Component
+startupComponent setup (Component cdata runc startupc sd hs) =
+    io (runStack (startupc cdata) setup)
+        >>= _2 (io . printLog)
+            >>= returnComponent . fst
     where returnComponent d = return $ Component d runc startupc sd hs
 
 
-shutdownComponent :: Component -> ReaderT Setup IO ()
-shutdownComponent (Component cdata _ _ shutdownc _) =
-    ask >>= io . runStack (shutdownc cdata) >>= io . printLog . snd
+shutdownComponent :: Setup -> Component -> IO ()
+shutdownComponent setup (Component cdata _ _ shutdownc _) =
+    io (runStack (shutdownc cdata) setup) >>= io . printLog . snd
