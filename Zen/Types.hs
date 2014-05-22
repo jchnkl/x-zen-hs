@@ -1,7 +1,7 @@
 -- vim: set sw=4 sws=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, RankNTypes #-}
+{-# LANGUAGE DeriveDataTypeable, GADTs, RankNTypes #-}
 
 module Types
     ( module Types
@@ -28,15 +28,6 @@ data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
 
 class Sink a where
     dispatch :: forall m. (Monad m, Functor m) => a -> SomeSink (m ()) -> m ()
-
-
-
-
-
-
-data SomeSource where
-    EventSource :: (Setup -> IO SomeEvent) -> SomeSource
-    MessageSource :: (Setup -> IO SomeMessage) -> SomeSource
 
 
 data SomeSink b where
