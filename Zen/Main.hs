@@ -1,15 +1,8 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE LambdaCase #-}
--- {-# LANGUAGE RankNTypes, ImpredicativeTypes, ScopedTypeVariables,
---    -- ConstraintKinds,
---    MonoLocalBinds #-}
 
--- import Data.Maybe (fromMaybe)
--- import Data.Typeable
 import Control.Monad.Reader
--- import Control.Monad.State
 import Control.Arrow
--- import Control.Exception (finally)
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Applicative
@@ -93,9 +86,6 @@ startup (Just c) conf = do
         []   -> return False
         l:ls -> putTMVar tlock ls >> takeTMVar l >> return True
 
-    -- unlessM (L.null <$> atomically $ takeTMVar children) $ do
-    --         waitForChildren
-
     -- children :: Either SomeError QueryTreeReply -> [WindowId]
     -- children (Left _) = []
     -- children (Right reply) = children_QueryTreeReply reply
@@ -110,7 +100,6 @@ withSetup :: -- MonadReader r m
              Connection
           -> Config
           -> (Setup -> IO a)
-          -- -> ReaderT Setup IO a
           -> IO a
 withSetup c conf f = do
     let min_keycode = X.min_keycode_Setup $ X.connectionSetup c

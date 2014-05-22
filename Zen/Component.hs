@@ -24,16 +24,12 @@ getConfig (ComponentConfig c:cs) = case cast c of
 getConfig _ = Nothing
 
 
--- execComponents :: Sink a => [Component] -> a -> ReaderT Setup IO [Component]
--- execComponents = flip (mapM . flip eventDispatcher)
 
 
 runStack :: ReaderT a (WriterT w m) b -> a -> m (b, w)
 runStack f = runWriterT . runReaderT f
 
 
--- runStack_ :: Setup -> ReaderT a (WriterT w m) b -> a -> m (b, w)
--- runStack_ f = runWriterT . runReaderT f
 
 execComponent :: Sink a => Setup -> a -> Component -> IO Component
 execComponent setup event (Component cdata runc su sd hs) =
@@ -43,13 +39,6 @@ execComponent setup event (Component cdata runc su sd hs) =
     returnComponent d = return $ Component d runc su sd hs
 
 
--- eventDispatcher :: (MonadIO m, Functor m, Sink a)
---                 => Component -> a -> SetupRT m Component
--- eventDispatcher (Component cdata runc su sd hs) event =
---     run >>= _1 (io . printLog . snd) >>= returnComponent . snd
---     where
---     run = ask >>= io . flip runc cdata . runStack (mapM (dispatch event) hs)
---     returnComponent d = return $ Component d runc su sd hs
 
 
 withComponents :: Setup -> ([Component] -> IO a) -> IO a

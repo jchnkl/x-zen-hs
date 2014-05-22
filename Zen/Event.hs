@@ -19,7 +19,6 @@ import Data.Typeable
 -- import qualified Data.List as L
 import Data.Word
 -- import Control.Monad
--- import Control.Concurrent.STM
 -- import Control.Monad.IO.Class
 import Control.Applicative
 import Graphics.XHB hiding (Setup)
@@ -35,15 +34,6 @@ import Window
 
 someEventSource :: Setup -> IO SomeEvent
 someEventSource setup = waitForEvent (setup ^. connection)
-
-
--- instance Producer SomeEvent where
---     produce setup = waitForEvent (setup ^. connection)
-
-
--- instance Source SomeEvent where
---     generate setup (EventSource f) = f setup
---     -- generate _ _                   = return ()
 
 
 instance Sink SomeEvent where
