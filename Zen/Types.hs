@@ -1,7 +1,9 @@
 -- vim: set sw=4 sws=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, RankNTypes #-}
+{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, RankNTypes,
+    FlexibleContexts, GADTs
+    #-}
 
 module Types
     ( module Types
@@ -15,7 +17,7 @@ import Data.Map (Map)
 import Control.Monad.Reader
 import Control.Monad.Writer
 
-import Control.Concurrent.STM
+-- import Control.Concurrent.STM
 import Graphics.XHB hiding (Setup)
 
 import Lens
@@ -30,8 +32,14 @@ class Sink a where
     dispatch :: forall m. (Monad m, Functor m) => a -> SomeSink (m ()) -> m ()
 
 
+-- class Sink a => Source a where
+--     generate :: Setup -> SomeSource -> IO a
 
 
+-- class Sink a => Producer a where
+--     -- produce :: forall m. (Monad m) => Setup -> SomeSink (m ()) -> m ()
+--     produce :: Setup -> SomeProducer -> IO a
+--     -- produce setup (SomeProducer f) = f setup
 
 
 data SomeSource where
@@ -44,6 +52,7 @@ data SomeSink b where
     MessageHandler :: Message a => (a -> b) -> SomeSink b
 
 
+-- data Component = forall m d. (Monad m, MonadIO m, MonadReader Setup m, Functor m, Typeable d) => Component
 data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     { -- | Component data
       componentData :: d
@@ -59,6 +68,9 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
 
 
 
+-- instance Sink SomeEvent where
+--     dispatch e (EventHandler f) = xwhenJustM_ (fromEvent e) f
+--     dispatch e _                = return ()
 
 
 data Config = Config
@@ -250,15 +262,15 @@ modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 type LogWT = WriterT [String]
 
 -- data HandlerManageOps
---     = AttachHandler Int SomeHandler
+--     = AttachHandler Int SomeSink
 --     | DetachHandler Int
 
 -- type HandlerWT = WriterT [HandlerManageOps]
 
--- instance Hashable SomeHandler where
---     hashWithSalt salt (SomeHandler _ f) = hashWithSalt salt (typeOf f)
+-- instance Hashable SomeSink where
+--     hashWithSalt salt (SomeSink _ f) = hashWithSalt salt (typeOf f)
 
--- attachHandler :: Monad m => SomeHandler -> Z m Int
+-- attachHandler :: Monad m => SomeSink -> Z m Int
 -- attachHandler h = do
 --     lift $ tell [AttachHandler hashsum h]
 --     return hashsum
