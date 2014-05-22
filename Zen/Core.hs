@@ -51,13 +51,6 @@ manage window = whenM (isClient <$> attributes) $ do
     attributes = io . getReply =<<
         io . flip getWindowAttributes window <-$ connection
 
-    isClient :: Either SomeError GetWindowAttributesReply -> Bool
-    isClient (Right reply) = not $ isUnviewable reply
-    isClient _             = False
-
-    isUnviewable :: GetWindowAttributesReply -> Bool
-    isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
-
     configure' :: MonadIO m => Z m ()
     configure' = do
         let mask = CWEventMask
@@ -70,3 +63,11 @@ manage window = whenM (isClient <$> attributes) $ do
 
 unmanage :: WindowId -> Z CoreState ()
 unmanage w = queue %:= remove w
+
+
+
+isUnviewable :: GetWindowAttributesReply -> Bool
+isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
+
+isClient :: Either SomeError GetWindowAttributesReply -> Bool
+isClient = fromRight False . fmap (not . isUnviewable)

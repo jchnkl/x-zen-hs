@@ -58,9 +58,6 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     }
 
 
-
-
-
 data Config = Config
     { _modMask :: [ModMask]
     , _borderWidth :: Word

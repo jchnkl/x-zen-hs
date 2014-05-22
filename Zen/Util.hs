@@ -38,6 +38,10 @@ whenJustM (Just v) f = liftM Just (f v)
 whenJustM_ :: (Functor m, Monad m) => Maybe a -> (a -> m b) -> m ()
 whenJustM_ v = void . whenJustM v
 
+fromRight :: b -> Either a b -> b
+fromRight _ (Right v) = v
+fromRight v _         = v
+
 whenRight :: Either a b -> (b -> c) -> Maybe c
 whenRight (Left _)  _ = Nothing
 whenRight (Right v) f = Just (f v)
