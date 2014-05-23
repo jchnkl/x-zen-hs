@@ -12,7 +12,6 @@ import Control.Monad.Catch (bracket)
 
 import Log
 import Lens
-import Util
 import Lens.Family.Stock
 import Types
 
@@ -24,21 +23,16 @@ getConfig (ComponentConfig c:cs) = case cast c of
 getConfig _ = Nothing
 
 
-
-
 runStack :: ReaderT a (WriterT w m) b -> a -> m (b, w)
 runStack f = runWriterT . runReaderT f
 
 
-
 execComponent :: Sink a => Setup -> a -> Component -> IO Component
 execComponent setup event (Component cdata runc su sd hs) =
-    run >>= _1 (io . printLog . snd) >>= returnComponent . snd
+    run >>= _1 (printLog . snd) >>= returnComponent . snd
     where
-    run = io $ flip runc cdata $ runStack (mapM (dispatch event) hs) setup
+    run = flip runc cdata $ runStack (mapM (dispatch event) hs) setup
     returnComponent d = return $ Component d runc su sd hs
-
-
 
 
 withComponents :: Setup -> ([Component] -> IO a) -> IO a
@@ -50,12 +44,12 @@ withComponents setup = bracket startup shutdown
 
 startupComponent :: Setup -> Component -> IO Component
 startupComponent setup (Component cdata runc startupc sd hs) =
-    io (runStack (startupc cdata) setup)
-        >>= _2 (io . printLog)
+    runStack (startupc cdata) setup
+        >>= _2 printLog
             >>= returnComponent . fst
     where returnComponent d = return $ Component d runc startupc sd hs
 
 
 shutdownComponent :: Setup -> Component -> IO ()
 shutdownComponent setup (Component cdata _ _ shutdownc _) =
-    io (runStack (shutdownc cdata) setup) >>= io . printLog . snd
+    runStack (shutdownc cdata) setup >>= printLog . snd
