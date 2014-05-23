@@ -4,6 +4,7 @@
 module Util where
 
 import Control.Monad.Writer
+import Control.Concurrent.STM
 import Graphics.XHB
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
@@ -52,6 +53,20 @@ whenRightM (Right v) f = liftM Just (f v)
 
 whenRightM_ :: (Functor m, Monad m) => Either a b -> (b -> m c) -> m ()
 whenRightM_ v = void . whenRightM v
+
+withTMVar :: MonadIO m => TMVar a -> (a -> b) -> m b
+withTMVar var f = withTMVarM var (return . f)
+
+withTMVarM :: MonadIO m => TMVar a -> (a -> m b) -> m b
+withTMVarM var f = liftIO (atomically $ readTMVar var) >>= f
+
+modifyTMVar :: MonadIO m => TMVar a -> (a -> a) -> m ()
+modifyTMVar var f = modifyTMVarM var (return . f)
+
+modifyTMVarM :: MonadIO m => TMVar a -> (a -> m a) -> m ()
+modifyTMVarM var f = get >>= f >>= put
+    where get = liftIO . atomically $ takeTMVar var
+          put = liftIO . atomically . putTMVar var
 
 getReplies :: [Receipt a] -> IO (Either SomeError [a])
 getReplies = fmap replies . mapM getReply

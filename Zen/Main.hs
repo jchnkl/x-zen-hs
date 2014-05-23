@@ -15,6 +15,7 @@ import Lens.Family.Stock
 import Types
 import Config (defaultConfig)
 
+import Message
 import Keyboard
 import Component
 
@@ -50,6 +51,10 @@ main :: IO ()
 main = X.connect >>= flip startup defaultConfig
 
 
+eventSource :: Setup -> IO SomeEvent
+eventSource setup = X.waitForEvent (setup ^. connection)
+
+
 startup :: Maybe Connection -> Config -> IO ()
 startup Nothing _ = print "Got no connection!"
 startup (Just c) conf = do
@@ -77,21 +82,11 @@ startup (Just c) conf = do
 
         waitForChildren tlock
 
-    waitForChildren :: ThreadLock -> IO ()
-    waitForChildren tlock =
-        unlessM (atomically $ checkLocks tlock) $ waitForChildren tlock
 
-    checkLocks :: ThreadLock -> STM Bool
-    checkLocks tlock = takeTMVar tlock >>= \case
-        []   -> return False
-        l:ls -> putTMVar tlock ls >> takeTMVar l >> return True
 
     -- children :: Either SomeError QueryTreeReply -> [WindowId]
     -- children (Left _) = []
     -- children (Right reply) = children_QueryTreeReply reply
-
-
-type ThreadLock = TMVar [TMVar ()]
 
 
 -- runReaderT (f :: ReaderT Setup IO ()) setup
@@ -106,23 +101,8 @@ withSetup c conf f = do
         max_keycode = X.max_keycode_Setup (X.connectionSetup c) - min_keycode + 1
     kbdmap <- keyboardMapping c =<< X.getKeyboardMapping c min_keycode max_keycode
     modmap <- modifierMapping =<< X.getModifierMapping c
-
     f $ Setup conf c (X.getRoot c) kbdmap modmap
 
-
-eventSource :: Setup -> IO SomeEvent
-eventSource setup = X.waitForEvent (setup ^. connection)
-
-
-messageSource :: Setup -> IO SomeMessage
-messageSource = undefined
-
-
-fork :: ThreadLock -> IO () -> IO ThreadId
-fork tlock f = do
-    lock <- newEmptyTMVarIO
-    withTMVar tlock (lock :)
-    forkFinally f (const $ atomically $ putTMVar lock ())
 
 runSomeSource :: Sink a => ThreadLock -> Setup -> [TMVar Component] -> IO a -> IO [ThreadId]
 runSomeSource tlock setup cvars f =
@@ -130,7 +110,7 @@ runSomeSource tlock setup cvars f =
     where run = runSource tlock f &&& runSinks tlock setup cvars
 
 
-runSource :: TMVar [TMVar ()] -> IO a -> TChan a -> IO ThreadId
+runSource :: ThreadLock -> IO a -> TChan a -> IO ThreadId
 runSource tlock f chan =
     fork tlock . forever $ f >>= atomically . writeTChan chan
 
@@ -143,16 +123,25 @@ runSinks tlock setup cvars chan =
 
 runSink :: Sink a => Setup -> TMVar Component -> TChan a -> IO ()
 runSink setup cvar = forever . (exec =<<) . atomically . readTChan
-    where exec = withTMVarM cvar . execComponent setup
+    where exec = modifyTMVarM cvar . execComponent setup
 
 
-withTMVar :: MonadIO m => TMVar a -> (a -> a) -> m ()
-withTMVar var f = get >>= put . f
-    where get = liftIO . atomically $ takeTMVar var
-          put = liftIO . atomically . putTMVar var
+type ThreadLock = TMVar [TMVar ()]
 
 
-withTMVarM :: MonadIO m => TMVar a -> (a -> m a) -> m ()
-withTMVarM var f = get >>= f >>= put
-    where get = liftIO . atomically $ takeTMVar var
-          put = liftIO . atomically . putTMVar var
+fork :: ThreadLock -> IO () -> IO ThreadId
+fork tlock f = do
+    lock <- newEmptyTMVarIO
+    modifyTMVar tlock (lock :)
+    forkFinally f (const $ atomically $ putTMVar lock ())
+
+
+waitForChildren :: ThreadLock -> IO ()
+waitForChildren tlock =
+    unlessM (atomically $ checkLocks tlock) $ waitForChildren tlock
+
+
+checkLocks :: ThreadLock -> STM Bool
+checkLocks tlock = takeTMVar tlock >>= \case
+    []   -> return False
+    l:ls -> putTMVar tlock ls >> takeTMVar l >> return True
