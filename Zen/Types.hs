@@ -3,10 +3,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, RankNTypes #-}
 
-module Types
-    ( module Types
-    , module Message
-    ) where
+module Types where
 
 import Data.Word
 import Data.Typeable
@@ -15,11 +12,9 @@ import Data.Map (Map)
 import Control.Monad.Reader
 import Control.Monad.Writer
 
-import Control.Concurrent.STM
 import Graphics.XHB hiding (Setup)
 
 import Lens
-import Message
 
 
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
@@ -56,6 +51,16 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     -- | Generic event handler
     , someSinks :: [SomeSink (Z m ())]
     }
+
+
+class Typeable a => Message a where
+    toMessage :: a -> SomeMessage
+    toMessage = SomeMessage
+    fromMessage :: SomeMessage -> Maybe a
+    fromMessage (SomeMessage m) = cast m
+
+data SomeMessage = forall a. Message a => SomeMessage a
+    deriving Typeable
 
 
 data Config = Config
