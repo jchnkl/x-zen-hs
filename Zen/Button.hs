@@ -6,6 +6,7 @@
 
 module Button where
 
+import Data.Word
 import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -17,6 +18,7 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Arrow (second)
 import Control.Applicative ((<*>), (<$>))
+-- import Control.Concurrent (forkIO)
 import Graphics.XHB
 import Graphics.X11.Xlib.Font (Glyph)
 import Graphics.X11.Xlib.Cursor
@@ -26,6 +28,7 @@ import Util
 import Lens
 import Types
 import Window
+import Message
 import Keyboard
 import Component
 
@@ -64,7 +67,7 @@ data ButtonConfig = ButtonConfig
     }
     deriving (Eq, Show, Typeable)
 
-buttonActions :: Z PointerStack (Maybe ButtonMap)
+buttonActions :: (MonadIO m, Functor m) => Z m (Maybe ButtonMap)
 buttonActions = (_buttonActions <$>)
             <$> asksL (config . componentConfigs) getButtonConfig
 
@@ -109,9 +112,22 @@ runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
                         -> Z IO (PointerSetup, Maybe PointerMotion)
-startupPointerComponent (PointerSetup _ _, p) = connection $-> \c -> do
+startupPointerComponent (PointerSetup bm _, p) = connection $-> \c -> do
     toLog "Button startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
+    buttons <- fromMaybe M.empty <$> buttonActions
+    io $ putStrLn "GetClients start"
+    -- maybe [] unGetClientsReply <$> sendMessage GetClients
+    let w = fromXid $ toXid (0 :: Word32) :: WindowId
+    (sendMessage (IsClient w) :: Z IO (Maybe CoreMessageReply)) >>= io . putStrLn . show
+
+    mapM_ (grabButtons bm buttons)
+        =<< maybe [] getClientsReply <$> sendMessage GetClients
+
+    -- fromMaybe [] <$> (sendMessage GetClients >>= waitForMessageReply)
+    -- fromMaybe [] <$> (sendMessage GetClients)
+    --         >>= mapM_ (grabButtons bm buttons)
+    io $ putStrLn "GetClients done"
     return (PointerSetup buttonEventMask glyphs, p)
 
 
@@ -221,42 +237,49 @@ handleMotionNotify e = do
 handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify e = do
     toLog "Button CreateNotifyEvent"
-    grabButtons $ window_CreateNotifyEvent e
+    mask <- asksPS buttonMask
+    buttons <- fromMaybe M.empty <$> buttonActions
+    whenM isClient $ grabButtons mask buttons window
+    where
+    window = window_CreateNotifyEvent e
+    isClient = maybe False isClientReply <$> sendMessage (IsClient window)
 
 
-grabButtons :: WindowId -> Z PointerStack ()
-grabButtons window = connection $-> \c -> whenM (isClient window) $ do
+-- grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
+grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
+-- grabButtons window = connection $-> \c -> whenM (isClient window) $ do
+grabButtons eventmask actions window = connection $-> \c -> do
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
-    eventmask <- asksPS buttonMask
-    buttons <- (fromMaybe [] . fmap M.keys) <$> buttonActions
+    -- buttons <- (fromMaybe [] . fmap M.keys) <$> buttonActions
+    let buttons = M.keys actions
 
     forM_ buttons $ \(m, b) -> do
         let keys = zip (combinations (m ++ modmask ++ extraModifier kbdmap modmap)) (repeat b)
         mapM_ (grab c eventmask) keys
 
     where
-    grab c eventmask (mask, button) = do
-        io $ grabButton c $ MkGrabButton True window eventmask
+    grab c emask (mask, button) = do
+        io $ grabButton c $ MkGrabButton True window emask
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)
                             button mask
 
 
-isClient :: (Functor m, MonadIO m) => WindowId -> Z m Bool
-isClient window = check <$> attributes
-    where
-    attributes :: MonadIO m => Z m (Either SomeError GetWindowAttributesReply)
-    attributes = io . getReply =<<
-        io . flip getWindowAttributes window <-$ connection
-
-    check :: Either SomeError GetWindowAttributesReply -> Bool
-    check (Right reply) = not $ isUnviewable reply
-    check _             = False
-
-    isUnviewable :: GetWindowAttributesReply -> Bool
-    isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
+-- isClient :: (Functor m, MonadIO m) => WindowId -> Z m Bool
+-- isClient window = check <$> attributes
+--     where
+--     attributes :: MonadIO m => Z m (Either SomeError GetWindowAttributesReply)
+--     attributes = io . getReply =<<
+--         io . flip getWindowAttributes window <-$ connection
+--
+--     check :: Either SomeError GetWindowAttributesReply -> Bool
+--     check (Right reply) = not $ isUnviewable reply
+--     check _             = False
+--
+--     isUnviewable :: GetWindowAttributesReply -> Bool
+--     isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
 
 
 loadGlyphCursor :: Connection -> FONT -> Glyph -> IO CURSOR

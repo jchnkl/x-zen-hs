@@ -6,12 +6,12 @@ import Control.Arrow
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Applicative
+import Control.Exception (finally)
 import Graphics.XHB (Connection, SomeEvent, CW(..), EventMask(..))
 import qualified Graphics.XHB as X
 
 import Util
 import Lens
-import Lens.Family.Stock
 import Types
 import Config (defaultConfig)
 
@@ -20,30 +20,6 @@ import Keyboard
 import Component
 
 
-{-
-* TODO:
-    - Free Monads for Layout
-    - Split in proper modules
-      - Pointer -> grabButton, *Cursor, etc.
-      - Keyboard -> grabKeys, etc.
-        or generic X module?
-
-* IDEAS
- - Use Mod4 with lock after timeout
- - data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
-
- |-> Config | Normal | Manage
- |-> View:       Config determines State presentation
- |-> Controller: Config determines input interpretation
-       |-> modifies State
-       |-> modifies Config?
-
-Small Core which does
- * listen for events
-     |-> run through EventController, e.g. for MappingNotifyEvent, changing mode
- * run Controller with correct Mode Config -> State
- * run View with correct Mode Config & State
--}
 
 
 
@@ -72,16 +48,16 @@ startup (Just c) conf = do
 
     where
 
-    run :: Setup -> [Component] -> IO ()
-    run setup cs = do
+    run :: Setup -> [TMVar Component] -> IO ()
+    run setup cvars = do
         tlock <- newTMVarIO []
-        cvars <- mapM newTMVarIO cs
 
-        void $ runSomeSource tlock setup cvars (eventSource setup)
-        -- tids <- runSomeSource setup cvars (messageSource setup)
+        etids <- runSomeSource tlock setup cvars (eventSource setup)
+        mtids <- runSomeSource tlock setup cvars messageSource
 
-        waitForChildren tlock
+        putStrLn $ "running threads: " ++ show (etids ++ mtids)
 
+        waitForChildren tlock `finally` mapM_ killThread (etids ++ mtids)
 
 
     -- children :: Either SomeError QueryTreeReply -> [WindowId]
@@ -110,7 +86,7 @@ runSomeSource tlock setup cvars f =
     where run = runSinks tlock setup cvars &&& runSource tlock f
 
 
-runSource :: ThreadLock -> IO a -> TChan a -> IO ThreadId
+runSource :: Show a => ThreadLock -> IO a -> TChan a -> IO ThreadId
 runSource tlock f chan =
     fork tlock . forever $ f >>= atomically . writeTChan chan
 

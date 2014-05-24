@@ -66,4 +66,6 @@ defaultConfig = Config
 
 
     , _componentConfigs = [ComponentConfig buttonConfig]
+
+    -- , _someSources = [EventSource someEventSource]
     }

@@ -1,7 +1,13 @@
 -- vim: set sw=4 sws=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, GADTs, RankNTypes #-}
+{-# LANGUAGE DeriveDataTypeable
+           , FlexibleInstances
+           , GADTs
+           , MultiParamTypeClasses
+           , RankNTypes
+           , StandaloneDeriving
+           , TypeSynonymInstances #-}
 
 module Types where
 
@@ -11,26 +17,93 @@ import Data.Map (Map)
 
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Control.Concurrent.STM
 
 import Graphics.XHB hiding (Setup)
 
 import Lens
 
 
+class TypeConversion a b where
+    convert :: a -> b
+
+
+class (Show a, Typeable a) => Reply a where
+    toReply :: Maybe a -> SomeReply
+    toReply Nothing = NoReply
+    toReply (Just v) = SomeReply v
+
+    fromReply :: SomeReply -> Maybe a
+    fromReply NoReply = Nothing
+    fromReply (SomeReply v) = cast v
+
+
+class (Show a, Typeable a) => Message a where
+    toMessage :: a -> SomeMessage
+    toMessage = SomeMessage
+
+    fromMessage :: SomeMessage -> Maybe a
+    fromMessage (SomeMessage m) = cast m
+
+
+data SomeReply where
+    NoReply :: SomeReply
+    SomeReply :: (Show a, Reply a) => a -> SomeReply
+    deriving Typeable
+
+deriving instance Show SomeReply
+
+data SomeMessage where
+    SomeMessage :: (Show a, Message a) => a -> SomeMessage
+    deriving Typeable
+
+deriving instance Show SomeMessage
+
+data MessageCom where
+    MessageCom :: TMVar SomeReply -> SomeMessage -> MessageCom
+    deriving Typeable
+
+
+instance Sink MessageCom where
+    dispatch com (MessageHandler f) = f com
+    dispatch _ _                    = return ()
+
+instance Show MessageCom where
+    show (MessageCom _ v) = "MessageCom " ++ show v
+
+instance Show SomeEvent where
+    show _ = "SomeEvent"
+
+data CoreMessage where
+    IsClient :: WindowId -> CoreMessage
+    GetClients :: CoreMessage
+    deriving (Show, Typeable)
+
+instance Message CoreMessage
+
+
+data CoreMessageReply where
+    IsClientReply :: { isClientReply :: Bool } -> CoreMessageReply
+    GetClientsReply :: { getClientsReply :: [WindowId] } -> CoreMessageReply
+    deriving (Show, Typeable)
+
+instance Reply CoreMessageReply
+
+
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
     deriving Typeable
 
 
-class Sink a where
-    dispatch :: forall m. (Monad m, Functor m) => a -> SomeSink (m ()) -> m ()
+class Show a => Sink a where
+    dispatch :: forall m. (MonadIO m, Functor m) => a -> SomeSink (m ()) -> m ()
 
 
 data SomeSink b where
     EventHandler :: Event a => (a -> b) -> SomeSink b
-    MessageHandler :: Message a => (a -> b) -> SomeSink b
+    MessageHandler :: (MessageCom -> b) -> SomeSink b
 
 
-data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
+data Component = forall m d. (MonadIO m, Functor m, Typeable d) => Component
     { -- | Component data
       componentData :: d
       -- | Evaluation function
@@ -44,14 +117,17 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     }
 
 
-class Typeable a => Message a where
-    toMessage :: a -> SomeMessage
-    toMessage = SomeMessage
-    fromMessage :: SomeMessage -> Maybe a
-    fromMessage (SomeMessage m) = cast m
 
-data SomeMessage = forall a. Message a => SomeMessage a
-    deriving Typeable
+-- deriving instance Typeable SomeEvent
+
+-- class Typeable a => Message a where
+--     toMessage :: a -> SomeMessage
+--     toMessage = SomeMessage
+--     fromMessage :: SomeMessage -> Maybe a
+--     fromMessage (SomeMessage m) = cast m
+
+-- data SomeMessage = forall a. Message a => SomeMessage a
+--     deriving Typeable
 
 
 data Config = Config
@@ -62,6 +138,7 @@ data Config = Config
     , _selectionBorderColor :: Word
     , _components :: [Component]
     , _componentConfigs :: [ComponentConfig]
+    -- , _someSources :: [SomeSource]
     }
     deriving (Typeable)
 
@@ -85,6 +162,9 @@ components = lens _components (\d v -> d { _components = v })
 
 componentConfigs :: Functor f => LensLike' f Config [ComponentConfig]
 componentConfigs = lens _componentConfigs (\d v -> d { _componentConfigs = v })
+
+-- someSources :: Functor f => LensLike' f Config [SomeSource]
+-- someSources = lens _someSources (\d v -> d { _someSources = v })
 
 
 type WindowId = WINDOW
@@ -143,7 +223,7 @@ nullGeometry = Geometry nullPosition nullDimension
 data Client = Client
     { _xid :: WindowId
     , _geometry :: Geometry
-    , _pointer :: Position
+    -- , _pointer :: Position
     }
     deriving (Eq, Show, Typeable)
 
@@ -153,8 +233,8 @@ xid = lens _xid (\d v -> d { _xid = v })
 geometry :: Functor f => LensLike' f Client Geometry
 geometry = lens _geometry (\d v -> d { _geometry = v })
 
-pointer :: Functor f => LensLike' f Client Position
-pointer = lens _pointer (\d v -> d { _pointer = v })
+-- pointer :: Functor f => LensLike' f Client Position
+-- pointer = lens _pointer (\d v -> d { _pointer = v })
 
 
 type Queue = Map WindowId Client

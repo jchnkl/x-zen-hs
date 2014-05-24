@@ -13,28 +13,36 @@ import Types
 fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
 
+
 io :: MonadIO m => IO a -> m a
 io = liftIO
+
 
 safeHead :: [a] -> Maybe a
 safeHead [] = Nothing
 safeHead (a:_) = Just a
 
+
 convertXid :: (XidLike a, XidLike b) => a -> b
 convertXid = fromXid . toXid
+
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM mb f = mb >>= flip when f
 
+
 unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM mb f = mb >>= flip unless f
+
 
 whenJust :: Maybe a -> (a -> b) -> (Maybe b)
 whenJust v f = fmap f v
 
+
 whenJustM :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
 whenJustM Nothing _ = return Nothing
 whenJustM (Just v) f = liftM Just (f v)
+
 
 whenJustM_ :: (Functor m, Monad m) => Maybe a -> (a -> m b) -> m ()
 whenJustM_ v = void . whenJustM v
@@ -43,38 +51,51 @@ fromRight :: b -> Either a b -> b
 fromRight _ (Right v) = v
 fromRight v _         = v
 
+
 whenRight :: Either a b -> (b -> c) -> Maybe c
 whenRight (Left _)  _ = Nothing
 whenRight (Right v) f = Just (f v)
+
 
 whenRightM :: Monad m => Either a b -> (b -> m c) -> m (Maybe c)
 whenRightM (Left _)  _ = return Nothing
 whenRightM (Right v) f = liftM Just (f v)
 
+
 whenRightM_ :: (Functor m, Monad m) => Either a b -> (b -> m c) -> m ()
 whenRightM_ v = void . whenRightM v
+
 
 withTMVar :: MonadIO m => TMVar a -> (a -> b) -> m b
 withTMVar var f = withTMVarM var (return . f)
 
+
 withTMVarM :: MonadIO m => TMVar a -> (a -> m b) -> m b
 withTMVarM var f = liftIO (atomically $ readTMVar var) >>= f
 
+
 modifyTMVar :: MonadIO m => TMVar a -> (a -> a) -> m ()
 modifyTMVar var f = modifyTMVarM var (return . f)
+
 
 modifyTMVarM :: MonadIO m => TMVar a -> (a -> m a) -> m ()
 modifyTMVarM var f = get >>= f >>= put
     where get = liftIO . atomically $ takeTMVar var
           put = liftIO . atomically . putTMVar var
 
+
+reply :: (MonadIO m, Functor m) => Receipt a -> Z m (Either SomeError a)
+reply = io . getReply
+
+
 getReplies :: [Receipt a] -> IO (Either SomeError [a])
 getReplies = fmap replies . mapM getReply
     where
     replies :: [Either SomeError a] -> Either SomeError [a]
-    replies (Right reply : receipts) = replies receipts >>= Right . (reply :)
+    replies (Right r : receipts) = replies receipts >>= Right . (r :)
     replies (Left e : _) = Left e
     replies _ = Right []
+
 
 partition :: Int -> [a] -> [[a]]
 partition _ [] = []

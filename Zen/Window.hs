@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Window where
 
@@ -9,7 +10,15 @@ import Graphics.XHB
 
 import Lens
 import Util
-import Types
+import Types hiding (geometry)
+
+
+instance TypeConversion GetGeometryReply Geometry where
+    convert r = Geometry (Position x' y') (Dimension w' h')
+        where x' = fi $ x_GetGeometryReply r
+              y' = fi $ y_GetGeometryReply r
+              w' = fi $ width_GetGeometryReply r
+              h' = fi $ height_GetGeometryReply r
 
 
 setBorderColor :: MonadIO m => WindowId -> Word -> Z m ()
@@ -49,3 +58,11 @@ lower = flip configure [(ConfigWindowStackMode, toValue StackModeBelow)]
 
 configure :: MonadIO m => WindowId -> [(ConfigWindow, Word32)] -> Z m ()
 configure w vs = connection $-> \c -> io $ configureWindow c w $ toValueParam vs
+
+
+attributes :: (MonadIO m, Functor m) => WindowId -> Z m (Receipt GetWindowAttributesReply)
+attributes window = connection $-> io . flip getWindowAttributes window
+
+
+geometry :: (MonadIO m, Functor m) => WindowId -> Z m (Receipt GetGeometryReply)
+geometry window = connection $-> io . flip getGeometry (convertXid window)

@@ -40,10 +40,6 @@ instance Sink SomeEvent where
     dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
     dispatch _ _                    = return ()
 
-instance Sink SomeMessage where
-    dispatch event (MessageHandler f) = whenJustM_ (fromMessage event) f
-    dispatch _ _                      = return ()
-
 
 {-
 class InputEventDispatcher pe re where
@@ -102,6 +98,7 @@ baseComponent = Component
     { componentData = BaseComponent
     , runComponent = runBaseComponent
     , onStartup = return . id
+    -- , onStartup = \d -> io (putStrLn "baseStartup") >> return d
     , onShutdown = const $ return ()
     , someSinks =
         [ EventHandler handleMapRequest
