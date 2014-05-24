@@ -106,8 +106,8 @@ withSetup c conf f = do
 
 runSomeSource :: Sink a => ThreadLock -> Setup -> [TMVar Component] -> IO a -> IO [ThreadId]
 runSomeSource tlock setup cvars f =
-    uncurry (:) <$> (run <$> newBroadcastTChanIO >>= _1 id >>= _2 id)
-    where run = runSource tlock f &&& runSinks tlock setup cvars
+    uncurry (flip (:)) <$> (run <$> newBroadcastTChanIO >>= _1 id >>= _2 id)
+    where run = runSinks tlock setup cvars &&& runSource tlock f
 
 
 runSource :: ThreadLock -> IO a -> TChan a -> IO ThreadId
