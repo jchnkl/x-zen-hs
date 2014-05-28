@@ -330,6 +330,9 @@ moveResist (Lock ppos lock_x lock_y) e = do
     root_y = root_y_MotionNotifyEvent e
     window = event_MotionNotifyEvent e
 
+    px = fi root_x - ppos ^. x
+    py = fi root_y - ppos ^. y
+
     updateXY :: Int -> Int -> Client -> Client
     updateXY x' y' = (geometry . position . x .~ x')
                    . (geometry . position . y .~ y')
@@ -339,18 +342,14 @@ moveResist (Lock ppos lock_x lock_y) e = do
         let distance = 30
         bw <- askL $ config . borderWidth
 
-        let new_px = fi root_x - ppos ^. x
-            new_py = fi root_y - ppos ^. y
+        let closest_borders = closestBordersDirection
+                                  (map (applyBorderWidth $ fi bw)
+                                       (closestBorders clients cclient))
+                                  (directions (cclient ^. geometry . position)
+                                              (Position px py))
 
-            dirs = directions (cclient ^. geometry . position)
-                                   (Position new_px new_py)
-
-            cbs = map (applyBorderWidth $ fi bw) (closestBorders clients cclient)
-            cbsid = closestBordersDirection cbs dirs
-
-
-            cx = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
-            cy = fromMaybe new_py (snd cbsid >>= resist cclient distance new_py)
+            cx = fromMaybe px (fst closest_borders >>= resist cclient distance px)
+            cy = fromMaybe py (snd closest_borders >>= resist cclient distance py)
 
 
         void (sendMessage
