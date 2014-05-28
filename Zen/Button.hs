@@ -356,11 +356,6 @@ moveResist (Lock ppos lock_x lock_y) e = do
             cx' = fromMaybe new_px (fst cbsid >>= check new_px)
             cy' = fromMaybe new_py (snd cbsid >>= check new_py)
 
-            update  Nothing   Nothing  = id
-            update (Just x')  Nothing  = geometry . position . x .~ x'
-            update  Nothing  (Just y') = geometry . position . y .~ y'
-            update (Just x') (Just y') = (geometry . position . x .~ x')
-                                       . (geometry . position . y .~ y')
 
             config_x = [(ConfigWindowX, fi cx')]
             config_y = [(ConfigWindowY, fi cy')]
@@ -373,8 +368,10 @@ moveResist (Lock ppos lock_x lock_y) e = do
         toLog $ "cx': " ++ show cx' ++ "; cy': " ++ show cy'
         toLog $ "config_x ++ config_y: " ++ show (config_x ++ config_y)
 
+        let update x' y' = (geometry . position . x .~ x')
+                         . (geometry . position . y .~ y')
         void (sendMessage
-              (UpdateClient window $ update (Just cx') (Just cy'))
+              (UpdateClient window $ update cx' cy')
                 :: Z PointerStack (Maybe CoreMessageReply))
 
 
