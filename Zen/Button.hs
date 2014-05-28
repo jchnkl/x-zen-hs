@@ -64,7 +64,7 @@ data ButtonConfig = ButtonConfig
     }
     deriving (Eq, Show, Typeable)
 
-buttonActions :: Z PointerStack (Maybe ButtonMap)
+buttonActions :: (MonadIO m, Functor m) => Z m (Maybe ButtonMap)
 buttonActions = (_buttonActions <$>)
             <$> asksL (config . componentConfigs) getButtonConfig
 
