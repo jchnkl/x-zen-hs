@@ -186,23 +186,6 @@ doMove e = do
     event_y = fi $ event_y_ButtonPressEvent e
 
 
-{-
-
- algorithm for border resistance:
-
- find closest border within distance and direction
-
- if border of cclient for this direction == closest border in direction
-    then
-        keep cclient axis for border fixed
-        lock axis
-    else
-        if move direction on axis is opposite
-            then
-                delete axis lock
-                move on axis
--}
-
 clientBorder :: Client -> Edge -> Int
 clientBorder client = \case
     North -> cy
