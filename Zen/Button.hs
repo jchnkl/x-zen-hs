@@ -277,8 +277,8 @@ closestBordersDirection es (e1, e2) = (e1 >>= try es, e2 >>= try es)
                          | otherwise = try ebs e
 
 
-direction :: Position -> Position -> (Maybe Edge, Maybe Edge)
-direction from to = (x_direction delta_x, y_direction delta_y)
+directions :: Position -> Position -> (Maybe Edge, Maybe Edge)
+directions from to = (x_direction delta_x, y_direction delta_y)
     where
     delta_x = from ^. x - to ^. x
     delta_y = from ^. y - to ^. y
@@ -342,11 +342,11 @@ moveResist (Lock ppos lock_x lock_y) e = do
         let new_px = fi root_x - ppos ^. x
             new_py = fi root_y - ppos ^. y
 
-            directions = direction (cclient ^. geometry . position)
+            dirs = directions (cclient ^. geometry . position)
                                    (Position new_px new_py)
 
             cbs = map (applyBorderWidth $ fi bw) (closestBorders clients cclient)
-            cbsid = closestBordersDirection cbs directions
+            cbsid = closestBordersDirection cbs dirs
 
 
             cx = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
