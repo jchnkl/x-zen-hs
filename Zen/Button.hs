@@ -292,7 +292,11 @@ direction from to = (x_direction delta_x, y_direction delta_y)
         | otherwise = Nothing
 
 
-resist :: Client -> Int -> Int -> (Edge, Int) -> Maybe Int
+resist :: Client -- ^ Client about to be moved or constrained to border
+       -> Int -- ^ Distance for resistance
+       -> Int -- ^ Desired new position
+       -> (Edge, Int) -- ^ Closest edge in direction of new position
+       -> Maybe Int
 resist client distance b' (e, b) =
     if (b == clientBorder client e)
         then if pred
