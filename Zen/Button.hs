@@ -323,6 +323,7 @@ moveResist (Lock ppos lock_x lock_y) e = do
                    . (geometry . position . y .~ y')
 
     move cclient clients = do
+        -- TODO
         -- distance <- asks (resistDistance)
         let distance = 30
         bw <- askL $ config . borderWidth
