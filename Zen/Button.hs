@@ -339,29 +339,25 @@ moveResist (Lock ppos lock_x lock_y) e = do
         let distance = 30
         bw <- askL $ config . borderWidth
 
-        let new_position = Position (fi root_x - ppos ^. x)
-                                    (fi root_y - ppos ^. y)
-            directions = direction (cclient ^. geometry . position) new_position
+        let new_px = fi root_x - ppos ^. x
+            new_py = fi root_y - ppos ^. y
 
-            new_px = (new_position ^. x)
-            new_py = (new_position ^. y)
-
-
-        let 
+            directions = direction (cclient ^. geometry . position)
+                                   (Position new_px new_py)
 
             cbs = map (applyBorderWidth $ fi bw) (closestBorders clients cclient)
             cbsid = closestBordersInDirection cbs directions
 
 
-            cx' = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
-            cy' = fromMaybe new_py (snd cbsid >>= resist cclient distance new_py)
+            cx = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
+            cy = fromMaybe new_py (snd cbsid >>= resist cclient distance new_py)
 
 
         void (sendMessage
-              (UpdateClient window $ updateXY cx' cy')
+              (UpdateClient window $ updateXY cx cy)
                 :: Z PointerStack (Maybe CoreMessageReply))
 
-        W.configure window $ [(ConfigWindowX, fi cx'), (ConfigWindowY, fi cy')]
+        W.configure window $ [(ConfigWindowX, fi cx), (ConfigWindowY, fi cy)]
 
 
 
