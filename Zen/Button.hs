@@ -109,9 +109,12 @@ runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
                         -> Z IO (PointerSetup, Maybe PointerMotion)
-startupPointerComponent (PointerSetup _ _, p) = connection $-> \c -> do
+startupPointerComponent (PointerSetup bm _, p) = connection $-> \c -> do
     toLog "Button startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
+    buttons <- fromMaybe M.empty <$> buttonActions
+    mapM_ (grabButtons bm buttons)
+        =<< maybe [] (map (^. xid) . getClientsReply) <$> sendMessage GetClients
     return (PointerSetup buttonEventMask glyphs, p)
 
 
