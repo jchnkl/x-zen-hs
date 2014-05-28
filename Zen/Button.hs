@@ -297,12 +297,9 @@ resist :: Client -- ^ Client about to be moved or constrained to border
        -> Int -- ^ Desired new position
        -> (Edge, Int) -- ^ Closest edge in direction of new position
        -> Maybe Int
-resist client distance b' (e, b) =
-    if (b == clientBorder client e)
-        then if pred
-            then Just border
-            else Nothing
-        else Nothing
+resist client distance b' (e, b)
+    | b == clientBorder client e && pred = Just border
+    | otherwise = Nothing
 
     where
     pred | e == North || e == West = b - b' < distance
