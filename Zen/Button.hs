@@ -333,22 +333,16 @@ moveResist (Lock ppos lock_x lock_y) e = do
                                     (fi root_y - ppos ^. y)
             directions = direction (cclient ^. geometry . position) new_position
 
-            border e = (e,) . (+ 2 * fi border_width) <$> closestBorder clients cclient e
-
             new_px = (new_position ^. x)
             new_py = (new_position ^. y)
 
 
-        let closestX = (fst directions >>= border)
-            closestY = (snd directions >>= border)
-
-            matchX (e, _) = fromMaybe False $ fmap (== e) $ fst directions
-            matchY (e, _) = fromMaybe False $ fmap (== e) $ snd directions
+        let 
 
             applyBorderWidth (e, b)
                 | e == North || e == West = (e, b + 2 * fi border_width)
                 | otherwise               = (e, b - 2 * fi border_width)
-            -- cbs = map (second (2 * fi border_width +)) (closestBorders clients cclient)
+
             cbs = map applyBorderWidth (closestBorders clients cclient)
             cbsid = closestBordersInDirection cbs directions
 
