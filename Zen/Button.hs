@@ -83,10 +83,6 @@ data PointerSetup = PointerSetup
 
 data PointerMotion = M Position
                    | R (Maybe Edge, Maybe Edge) Position Geometry
-                   | MR Position (Maybe (Edge, Int)) (Maybe (Edge, Int))
-                   -- | LockBorder (Maybe Int, Maybe Int)
-                   -- | Lock Position (Maybe Int) (Maybe Int)
-                   | Lock Position (Maybe (Edge, Int)) (Maybe (Edge, Int))
     deriving (Show, Typeable)
 
 type PointerStack = ReaderT PointerSetup (StateT (Maybe PointerMotion) IO)
@@ -168,8 +164,7 @@ doLower = W.lower . event_ButtonPressEvent
 doMoveResist :: ButtonPressEvent -> Z PointerStack ()
 doMoveResist e = do
     doRaise e
-    -- put . Just $ MR (Position event_x event_y) Nothing Nothing
-    put . Just $ Lock (Position event_x event_y) Nothing Nothing
+    put . Just $ M (Position event_x event_y)
     flip whenJustM_ changeCursor =<< asksPS (M.lookup xC_fleur . glyphMap)
     where
     event_x = fi $ event_x_ButtonPressEvent e
@@ -306,7 +301,7 @@ resist client distance b' (e, b)
 
 
 moveResist :: PointerMotion -> MotionNotifyEvent -> Z PointerStack ()
-moveResist (Lock ppos lock_x lock_y) e = do
+moveResist (M ppos) e = do
     clients <- maybe [] getClientsReply <$> sendMessage GetClients
     whenJustM_ (L.find (\c -> c ^. xid == window) clients) $ flip move clients
 
@@ -374,7 +369,7 @@ handleMotionNotify e = get >>= handle
     where
     handle :: Maybe PointerMotion -> Z PointerStack ()
     handle Nothing              = return ()
-    handle (Just mr@(Lock _ _ _))       = moveResist mr e
+    handle (Just (M p))         = moveResist (M p) e
     -- handle (Just (M p))         = W.configure window
     --     $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
     handle (Just (R edges p g)) = W.configure window
