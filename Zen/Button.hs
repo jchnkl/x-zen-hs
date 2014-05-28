@@ -226,13 +226,15 @@ oppositeEdge = \case
 closestBorder :: [Client] -> Client -> Edge -> Maybe Int
 closestBorder clients client edge = borders
     where
-    result lst = if L.null lst then Nothing else Just $ minmax lst
-
     borders = result
             $ filter borderp
             $ map (flip clientBorder $ oppositeEdge edge)
             $ filter clientp
             $ clients
+
+    result lst
+        | L.null lst = Nothing
+        | otherwise  = Just $ minmax lst
 
     borderp border
         | edge == North || edge == West = border < cb
