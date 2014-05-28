@@ -317,7 +317,6 @@ resist client distance b' (e, b)
 moveResist :: PointerMotion -> MotionNotifyEvent -> Z PointerStack ()
 moveResist (Lock ppos lock_x lock_y) e = do
     clients <- maybe [] getClientsReply <$> sendMessage GetClients
-    toLog $ "clients: " ++ show clients
     whenJustM_ (L.find (\c -> c ^. xid == window) clients) $ flip move clients
 
     where
@@ -340,9 +339,6 @@ moveResist (Lock ppos lock_x lock_y) e = do
             new_py = (new_position ^. y)
 
 
-        toLog $ "directions: " ++ show directions
-        toLog $ "new_px, new_py: " ++ show new_px ++ ", " ++ show new_py
-
         let closestX = (fst directions >>= border)
             closestY = (snd directions >>= border)
 
@@ -360,13 +356,6 @@ moveResist (Lock ppos lock_x lock_y) e = do
             cx' = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
             cy' = fromMaybe new_py (snd cbsid >>= resist cclient distance new_py)
 
-
-        toLog $ "FFF: " ++ show ( map (clientBorder cclient) [North, South, East, West])
-
-        toLog $ "cclient: " ++ show cclient
-        toLog $ "cbs: " ++ show cbs
-        toLog $ "cbsid: " ++ show cbsid
-        toLog $ "cx': " ++ show cx' ++ "; cy': " ++ show cy'
 
         let update x' y' = (geometry . position . x .~ x')
                          . (geometry . position . y .~ y')
