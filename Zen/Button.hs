@@ -203,14 +203,6 @@ doMove e = do
                 move on axis
 -}
 
-data Axis = X | Y deriving (Show, Typeable)
-
-edgeToAxis :: Edge -> Axis
-edgeToAxis edge
-    | edge == North || edge == South = Y
-    | edge == East  || edge == West  = X
-
-
 clientBorder :: Client -> Edge -> Int
 clientBorder client = \case
     North -> cy
@@ -285,42 +277,6 @@ closestBordersInDirection es (e1, e2) = (e1 >>= try es, e2 >>= try es)
                          | otherwise = try ebs e
 
 
-bordersToList :: (Maybe (Edge, Int), Maybe (Edge, Int))
-              -> [(Edge, Int)]
-bordersToList (e1, e2) = maybe [] (:[]) e1 ++ maybe [] (:[]) e2
-
-
-isResist' :: Int -> Int -> (Edge, Int) -> Bool
-isResist' d b = pred
-    where pred (edge, b') | edge == North || edge == West = b <= b' && b' - b < d
-                          | edge == South || edge == East = b >= b' && b - b' < d
-
-
-isResist :: Int -> Int -> Maybe (Edge, Int) -> Maybe (Edge, Int)
-isResist d b = (match =<<)
-    where match eb = if pred eb then Just eb else Nothing
-          pred (edge, b') | edge == North || edge == West = b <= b' && b' - b < d
-                          | edge == South || edge == East = b >= b' && b - b' < d
-
-
-resistLock :: Maybe (Edge, Int) -> Maybe (Edge, Int) -> Maybe (Edge, Int)
-resistLock Nothing Nothing = Nothing
-resistLock eb      Nothing = eb
-resistLock Nothing eb      = eb
-resistLock (Just (e, b)) (Just (e', _)) | e == e'   = Just (e, b)
-                                        | otherwise = Nothing
-
-lockX p x = modify updateX
-    where
-    updateX Nothing             = Just $ Lock p x Nothing
-    updateX (Just (Lock p _ y)) = Just $ Lock p x y
-
-lockY p y = modify updateY
-    where
-    updateY Nothing             = Just $ Lock p Nothing y
-    updateY (Just (Lock p x _)) = Just $ Lock p x y
-
-
 direction :: Position -> Position -> (Maybe Edge, Maybe Edge)
 direction from to = (x_direction delta_x, y_direction delta_y)
     where
@@ -334,39 +290,6 @@ direction from to = (x_direction delta_x, y_direction delta_y)
         | delta > 0 = Just North
         | delta < 0 = Just South
         | otherwise = Nothing
-
-
-resistX' :: Maybe (Edge, Int) -> Maybe (Edge, Int) -> Maybe (Edge, Int)
-resistX' Nothing ei = ei
-resistX' ei Nothing = ei
-resistX' (Just ei) (Just ei') = Just $ resistY ei ei'
-
-resistY' :: Maybe (Edge, Int) -> Maybe (Edge, Int) -> Maybe (Edge, Int)
-resistY' Nothing _  = Nothing
-resistY' ei Nothing = ei
-resistY' (Just (e, i)) (Just (e', i'))
-    | e == e' = Just (e, i)
-    | otherwise = Nothing
-
-resist d p (North, v) = if p < v && v - p < d then Just (North,v) else Nothing
-resist d p (South, v) = if p > v && p - v < d then Just (South,v) else Nothing
-resist d p (East,  v) = if p > v && p - v < d then Just (East, v) else Nothing
-resist d p (West,  v) = if p < v && v - p < d then Just (West, v) else Nothing
-
-resistY :: (Edge, Int) -> (Edge, Int) -> (Edge, Int)
-resistY (North, b) (South, _) = (North, b)
-resistY (South, b) (North, _) = (South, b)
-resistY ei _ = ei
-
-resistX :: (Edge, Int) -> (Edge, Int) -> (Edge, Int)
-resistX (East, b) (East, _) = (East, b)
-resistX (East, _) (West, b') = (West, b')
-resistX ei _ = ei
-
-checkBoundary :: (Int -> Bool) -> Int -> Maybe Int
-checkBoundary p i
-    | p i       = Just i
-    | otherwise = Nothing
 
 
 moveResist :: PointerMotion -> MotionNotifyEvent -> Z PointerStack ()
@@ -401,12 +324,6 @@ moveResist (Lock ppos lock_x lock_y) e = do
         let closestX = (fst directions >>= border)
             closestY = (snd directions >>= border)
 
-            isResistX' = isResist' distance new_px
-            isResistY' = isResist' distance new_py
-
-            resistLockX = resistLock (fmap (,new_px) $ fst directions) lock_x
-            resistLockY = resistLock (fmap (,new_py) $ fst directions) lock_y
-
             matchX (e, _) = fromMaybe False $ fmap (== e) $ fst directions
             matchY (e, _) = fromMaybe False $ fmap (== e) $ snd directions
 
@@ -416,8 +333,6 @@ moveResist (Lock ppos lock_x lock_y) e = do
             -- cbs = map (second (2 * fi border_width +)) (closestBorders clients cclient)
             cbs = map applyBorderWidth (closestBorders clients cclient)
             cbsid = closestBordersInDirection cbs directions
-            cbsid' = first (isResist distance new_px)
-                   $ second (isResist distance new_py) cbsid
 
 
             check b' (e, b) =
