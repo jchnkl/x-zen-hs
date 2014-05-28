@@ -292,6 +292,12 @@ direction from to = (x_direction delta_x, y_direction delta_y)
         | otherwise = Nothing
 
 
+applyBorderWidth :: Int -> (Edge, Int) -> (Edge, Int)
+applyBorderWidth bw (e, b)
+    | e == North || e == West = (e, b + 2 * fi bw)
+    | otherwise               = (e, b - 2 * fi bw)
+
+
 resist :: Client -- ^ Client about to be moved or constrained to border
        -> Int -- ^ Distance for resistance
        -> Int -- ^ Desired new position
@@ -327,7 +333,7 @@ moveResist (Lock ppos lock_x lock_y) e = do
     move cclient clients = do
         -- distance <- asks (resistDistance)
         let distance = 30
-        border_width <- askL $ config . borderWidth
+        bw <- askL $ config . borderWidth
 
         let new_position = Position (fi root_x - ppos ^. x)
                                     (fi root_y - ppos ^. y)
@@ -339,11 +345,7 @@ moveResist (Lock ppos lock_x lock_y) e = do
 
         let 
 
-            applyBorderWidth (e, b)
-                | e == North || e == West = (e, b + 2 * fi border_width)
-                | otherwise               = (e, b - 2 * fi border_width)
-
-            cbs = map applyBorderWidth (closestBorders clients cclient)
+            cbs = map (applyBorderWidth $ fi bw) (closestBorders clients cclient)
             cbsid = closestBordersInDirection cbs directions
 
 
