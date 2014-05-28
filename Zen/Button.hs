@@ -181,6 +181,29 @@ doMove e = do
     event_y = fi $ event_y_ButtonPressEvent e
 
 
+moveMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
+moveMotionNotify e = get >>= \case
+    Just (M ppos) -> do
+        let cx = fi root_x - ppos ^. x
+            cy = fi root_y - ppos ^. y
+
+        void (sendMessage (UpdateClient window $ updateXY cx cy)
+                :: Z PointerStack (Maybe CoreMessageReply))
+
+        W.configure window $ [(ConfigWindowX, fi cx), (ConfigWindowY, fi cy)]
+
+    otherwise -> return ()
+
+    where
+    root_x = root_x_MotionNotifyEvent e
+    root_y = root_y_MotionNotifyEvent e
+    window = event_MotionNotifyEvent e
+
+    updateXY :: Int -> Int -> Client -> Client
+    updateXY x' y' = (geometry . position . x .~ x')
+                   . (geometry . position . y .~ y')
+
+
 clientBorder :: Client -> Edge -> Int
 clientBorder client = \case
     North -> cy
