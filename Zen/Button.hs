@@ -227,21 +227,19 @@ handleCreateNotify e = do
     grabButtons $ window_CreateNotifyEvent e
 
 
-grabButtons :: WindowId -> Z PointerStack ()
-grabButtons window = connection $-> \c -> whenM (isClient window) $ do
+grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
+grabButtons eventmask actions window = connection $-> \c -> do
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
-    eventmask <- asksPS buttonMask
-    buttons <- (fromMaybe [] . fmap M.keys) <$> buttonActions
 
-    forM_ buttons $ \(m, b) -> do
+    forM_ (M.keys actions) $ \(m, b) -> do
         let keys = zip (combinations (m ++ modmask ++ extraModifier kbdmap modmap)) (repeat b)
         mapM_ (grab c eventmask) keys
 
     where
-    grab c eventmask (mask, button) = do
-        io $ grabButton c $ MkGrabButton True window eventmask
+    grab c emask (mask, button) = do
+        io $ grabButton c $ MkGrabButton True window emask
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)
                             button mask
