@@ -247,6 +247,10 @@ closestBorder clients client edge = borders
                 north client >= north client' && north client <= south client'
              || south client <= south client' && south client >= north client'
 
+    minmax
+        | edge == North || edge == West = maximum
+        | edge == South || edge == East = minimum
+
     north   = cy
     south c = cy c + fi (ch c)
     east  c = cx c + fi (cw c)
@@ -256,10 +260,6 @@ closestBorder clients client edge = borders
     cy c = c ^. geometry . position . y
     cw c = c ^. geometry . dimension . width
     ch c = c ^. geometry . dimension . height
-
-    minmax
-        | edge == North || edge == West = maximum
-        | edge == South || edge == East = minimum
 
 
 closestBorders :: [Client] -> Client -> [(Edge, Int)]
