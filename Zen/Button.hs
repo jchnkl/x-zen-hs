@@ -267,10 +267,10 @@ closestBorders cs c = catMaybes $ map cb [North, South, East, West]
     where cb e = fmap (e,) (closestBorder cs c e)
 
 
-closestBordersInDirection :: [(Edge, Int)]
-                          -> (Maybe Edge, Maybe Edge)
-                          -> (Maybe (Edge, Int), Maybe (Edge, Int))
-closestBordersInDirection es (e1, e2) = (e1 >>= try es, e2 >>= try es)
+closestBordersDirection :: [(Edge, Int)]
+                        -> (Maybe Edge, Maybe Edge)
+                        -> (Maybe (Edge, Int), Maybe (Edge, Int))
+closestBordersDirection es (e1, e2) = (e1 >>= try es, e2 >>= try es)
     where
     try []             _ = Nothing
     try ((e', b'):ebs) e | e == e' = Just (e, b')
@@ -346,7 +346,7 @@ moveResist (Lock ppos lock_x lock_y) e = do
                                    (Position new_px new_py)
 
             cbs = map (applyBorderWidth $ fi bw) (closestBorders clients cclient)
-            cbsid = closestBordersInDirection cbs directions
+            cbsid = closestBordersDirection cbs directions
 
 
             cx = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
