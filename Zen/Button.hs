@@ -357,16 +357,12 @@ moveResist (Lock ppos lock_x lock_y) e = do
             cy' = fromMaybe new_py (snd cbsid >>= check new_py)
 
 
-            config_x = [(ConfigWindowX, fi cx')]
-            config_y = [(ConfigWindowY, fi cy')]
-
         toLog $ "FFF: " ++ show ( map (clientBorder cclient) [North, South, East, West])
 
         toLog $ "cclient: " ++ show cclient
         toLog $ "cbs: " ++ show cbs
         toLog $ "cbsid: " ++ show cbsid
         toLog $ "cx': " ++ show cx' ++ "; cy': " ++ show cy'
-        toLog $ "config_x ++ config_y: " ++ show (config_x ++ config_y)
 
         let update x' y' = (geometry . position . x .~ x')
                          . (geometry . position . y .~ y')
@@ -374,8 +370,7 @@ moveResist (Lock ppos lock_x lock_y) e = do
               (UpdateClient window $ update cx' cy')
                 :: Z PointerStack (Maybe CoreMessageReply))
 
-
-        W.configure window $ config_x ++ config_y
+        W.configure window $ [(ConfigWindowX, fi cx'), (ConfigWindowY, fi cy')]
 
 
 
