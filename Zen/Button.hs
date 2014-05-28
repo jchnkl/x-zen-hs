@@ -187,9 +187,7 @@ moveMotionNotify e = get >>= \case
         let cx = fi root_x - ppos ^. x
             cy = fi root_y - ppos ^. y
 
-        void (sendMessage (UpdateClient window $ updateXY cx cy)
-                :: Z PointerStack (Maybe CoreMessageReply))
-
+        sendMessage_ (UpdateClient window $ updateXY cx cy)
         W.configure window $ [(ConfigWindowX, fi cx), (ConfigWindowY, fi cy)]
 
     otherwise -> return ()
@@ -356,10 +354,7 @@ moveResist (M ppos) e = do
             cy = fromMaybe py (snd closest_borders >>= resist cclient distance py)
 
 
-        void (sendMessage
-              (UpdateClient window $ updateXY cx cy)
-                :: Z PointerStack (Maybe CoreMessageReply))
-
+        sendMessage_ (UpdateClient window $ updateXY cx cy)
         W.configure window $ [(ConfigWindowX, fi cx), (ConfigWindowY, fi cy)]
 
 
