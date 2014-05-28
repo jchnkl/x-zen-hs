@@ -292,6 +292,27 @@ direction from to = (x_direction delta_x, y_direction delta_y)
         | otherwise = Nothing
 
 
+resist :: Client -> Int -> Int -> (Edge, Int) -> Maybe Int
+resist client distance b' (e, b) =
+    if (b == clientBorder client e)
+        then if pred
+            then Just border
+            else Nothing
+        else Nothing
+
+    where
+    pred | e == North || e == West = b - b' < distance
+         | e == South = b' - (b - client_height) < distance
+         | e == East  = b' - (b - client_width ) < distance
+
+    border | e == North || e == West = b
+           | e == South              = b - client_height
+           | e == East               = b - client_width
+
+    client_width  = fi $ client ^. geometry . dimension . width
+    client_height = fi $ client ^. geometry . dimension . height
+
+
 moveResist :: PointerMotion -> MotionNotifyEvent -> Z PointerStack ()
 moveResist (Lock ppos lock_x lock_y) e = do
     clients <- maybe [] getClientsReply <$> sendMessage GetClients
@@ -335,26 +356,8 @@ moveResist (Lock ppos lock_x lock_y) e = do
             cbsid = closestBordersInDirection cbs directions
 
 
-            check b' (e, b) =
-                if (b == clientBorder cclient e)
-                    then if pred
-                        then Just border
-                        else Nothing
-                    else Nothing
-
-                where pred | e == North || e == West = b - b' < distance
-                           | e == South = b' - (b - client_height) < distance
-                           | e == East  = b' - (b - client_width ) < distance
-
-                      border | e == North || e == West = b
-                             | e == South              = b - client_height
-                             | e == East               = b - client_width
-
-                      client_width  = fi $ cclient ^. geometry . dimension . width
-                      client_height = fi $ cclient ^. geometry . dimension . height
-
-            cx' = fromMaybe new_px (fst cbsid >>= check new_px)
-            cy' = fromMaybe new_py (snd cbsid >>= check new_py)
+            cx' = fromMaybe new_px (fst cbsid >>= resist cclient distance new_px)
+            cy' = fromMaybe new_py (snd cbsid >>= resist cclient distance new_py)
 
 
         toLog $ "FFF: " ++ show ( map (clientBorder cclient) [North, South, East, West])
