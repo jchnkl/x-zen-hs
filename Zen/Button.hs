@@ -224,7 +224,12 @@ handleMotionNotify e = do
 handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify e = do
     toLog "Button CreateNotifyEvent"
-    grabButtons $ window_CreateNotifyEvent e
+    mask <- asksPS buttonMask
+    buttons <- fromMaybe M.empty <$> buttonActions
+    whenM isClient $ grabButtons mask buttons window
+    where
+    window = window_CreateNotifyEvent e
+    isClient = maybe False isClientReply <$> sendMessage (IsClient window)
 
 
 grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
@@ -243,21 +248,6 @@ grabButtons eventmask actions window = connection $-> \c -> do
                             GrabModeAsync GrabModeAsync
                             (convertXid xidNone) (convertXid xidNone)
                             button mask
-
-
-isClient :: (Functor m, MonadIO m) => WindowId -> Z m Bool
-isClient window = check <$> attributes
-    where
-    attributes :: MonadIO m => Z m (Either SomeError GetWindowAttributesReply)
-    attributes = io . getReply =<<
-        io . flip getWindowAttributes window <-$ connection
-
-    check :: Either SomeError GetWindowAttributesReply -> Bool
-    check (Right reply) = not $ isUnviewable reply
-    check _             = False
-
-    isUnviewable :: GetWindowAttributesReply -> Bool
-    isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
 
 
 loadGlyphCursor :: Connection -> FONT -> Glyph -> IO CURSOR
