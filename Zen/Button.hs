@@ -293,8 +293,8 @@ directions from to = (x_direction delta_x, y_direction delta_y)
         | otherwise = Nothing
 
 
-applyBorderWidth :: Int -> (Edge, Int) -> (Edge, Int)
-applyBorderWidth bw (e, b)
+cropBorder :: Int -> (Edge, Int) -> (Edge, Int)
+cropBorder bw (e, b)
     | e == North || e == West = (e, b + 2 * fi bw)
     | otherwise               = (e, b - 2 * fi bw)
 
@@ -345,7 +345,7 @@ moveResist (M ppos) e = do
         bw <- askL $ config . borderWidth
 
         let closest_borders = closestBordersDirection
-                                  (map (applyBorderWidth $ fi bw)
+                                  (map (cropBorder $ fi bw)
                                        (closestBorders clients cclient))
                                   (directions (cclient ^. geometry . position)
                                               (Position px py))
@@ -353,11 +353,8 @@ moveResist (M ppos) e = do
             cx = fromMaybe px (fst closest_borders >>= resist cclient distance px)
             cy = fromMaybe py (snd closest_borders >>= resist cclient distance py)
 
-
         sendMessage_ (UpdateClient window $ updateXY cx cy)
         W.configure window $ [(ConfigWindowX, fi cx), (ConfigWindowY, fi cy)]
-
-
 
 
 doResize :: ButtonPressEvent -> Z PointerStack ()
