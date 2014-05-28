@@ -31,7 +31,7 @@ execComponent :: Sink a => Setup -> a -> Component -> IO Component
 execComponent setup event (Component cdata runc su sd hs) =
     run >>= _1 (printLog . snd) >>= returnComponent . snd
     where
-    run = flip runc cdata $ runStack (mapM (dispatch event) hs) setup
+    run = flip runc cdata $ runStack (mapM (dispatch event) (hs cdata)) setup
     returnComponent d = return $ Component d runc su sd hs
 
 

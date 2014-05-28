@@ -103,7 +103,7 @@ baseComponent = Component
     , runComponent = runBaseComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
-    , someSinks =
+    , someSinks = const $
         [ EventHandler handleMapRequest
         , EventHandler handleConfigureRequest
         , EventHandler handleCirculateNotify

@@ -49,7 +49,7 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     -- | Function to run on shutdown
     , onShutdown :: d -> Z IO ()
     -- | Generic event handler
-    , someSinks :: [SomeSink (Z m ())]
+    , someSinks :: d -> [SomeSink (Z m ())]
     }
 
 

@@ -23,9 +23,10 @@ coreComponent = Component
     , runComponent = runCoreComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
-    , someSinks = [ EventHandler handleCreateNotify
-                  , EventHandler handleDestroyNotify
-                  ]
+    , someSinks = const $ [ EventHandler handleCreateNotify
+                          , EventHandler handleDestroyNotify
+                          , MessageHandler handleCoreMessages
+                          ]
     }
 
 

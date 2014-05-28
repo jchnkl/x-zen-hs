@@ -97,10 +97,10 @@ pointerComponent = Component
     , runComponent = runPointerComponent
     , onStartup = startupPointerComponent
     , onShutdown = shutdownPointerComponent
-    , someSinks = [ EventHandler handleButtonPress
-                  , EventHandler handleMotionNotify
-                  , EventHandler handleCreateNotify
-                  ]
+    , someSinks = const $ [ EventHandler handleButtonPress
+                          , EventHandler handleMotionNotify
+                          , EventHandler handleCreateNotify
+                          ]
     }
 
 
