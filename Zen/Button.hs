@@ -302,16 +302,16 @@ resist client distance b' (e, b)
     | otherwise = Nothing
 
     where
+    cw = fi $ client ^. geometry . dimension . width
+    ch = fi $ client ^. geometry . dimension . height
+
     pred | e == North || e == West = b - b' < distance
-         | e == South = b' - (b - client_height) < distance
-         | e == East  = b' - (b - client_width ) < distance
+         | e == South              = b' - (b - ch) < distance
+         | e == East               = b' - (b - cw) < distance
 
     border | e == North || e == West = b
-           | e == South              = b - client_height
-           | e == East               = b - client_width
-
-    client_width  = fi $ client ^. geometry . dimension . width
-    client_height = fi $ client ^. geometry . dimension . height
+           | e == South              = b - ch
+           | e == East               = b - cw
 
 
 moveResist :: PointerMotion -> MotionNotifyEvent -> Z PointerStack ()
