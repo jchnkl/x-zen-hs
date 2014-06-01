@@ -3,7 +3,7 @@
              LambdaCase,
              TupleSections #-}
 
-module SnapResist where
+module SnapResist (moveSnapResist) where
 
 import Data.Word
 import Data.Maybe (isJust, fromJust, catMaybes, fromMaybe)
@@ -50,17 +50,22 @@ import Component
 
 -- data Delta a = Delta a
 
-class Delta a where
+type Delta = Int
+type Border = Int
+type Distance = Int
+-- type BorderWidth = Int
+
+class DeltaClass a where
     delta :: a -> a -> a
 
-instance Delta Position where
+instance DeltaClass Position where
     delta p1 p2 = abs (p2 - p1)
 
 
 
 
 moveSnapResist e epos rpos client clients = do
-    bwidth <- asksL (config . borderWidth) (2 *)
+    -- bwidth <- asksL (config . borderWidth) (2 *)
     -- proximity <- askL snapProximity
     let proximity = (50 :: Distance)
     -- snap_mod <- askL snapMod
@@ -69,7 +74,7 @@ moveSnapResist e epos rpos client clients = do
     let snap_borders = join (***) (>>= do_snap_user snap_mod)
                      $ snapBorders proximity cgeometries cgeometry rel_pos
 
-        resist_borders = join (***) (fmap $ adjust_border_width bwidth)
+        resist_borders = join (***) (fmap adjust_border)
                        $ resistBorders cgeometry cgeometries
 
     -- let bx = fst snap_borders <|> fst resist_borders >>= checkpos >>= 
@@ -117,25 +122,24 @@ moveSnapResist e epos rpos client clients = do
     move_directions = directions rel_pos
 
     do_snap_user k b = if k `elem` state_MotionNotifyEvent e then Just b else Nothing
-    do_snap_proximity d p b = if d > p then Just b else Nothing
+    -- do_snap_proximity d p b = if d > p then Just b else Nothing
 
-    adjust_border_width bwidth (d, b) = (d, correction d cgeometry b)
-
-    -- resist_borders = resistBorders cgeometry cgeometries
-    -- snap_borders = snapBorders dist cgeometries cgeometry rel_pos
+    adjust_border (d, b) = (d, adjustBorder d cgeometry b)
 
     -- mx = checkpos (fst move_directions)
     -- my = checkpos (snd move_directions)
 
+    checkpos :: Maybe Direction -> Maybe Border -> Maybe (Direction, Border) -> Maybe Border
     checkpos _    def Nothing   = def
     checkpos mdir _   (Just db) = checkdir db mdir
 
-    checkdir (d, b) Nothing    = Just b
+    checkdir :: (Direction, Border) -> Maybe Direction -> Maybe Border
+    checkdir (_, b) Nothing    = Just b
     checkdir (d, b) (Just dir) = if d == dir then Just b else Nothing
 
-    checkdelta def p delta b = if delta > p then def else b
+    checkdelta :: Border -> Distance -> Delta -> Border -> Border
+    checkdelta def p d b = if d > p then def else b
 
-    -- checkpos mdir (d, b) = checkdir (d, b) mdir
 
     -- checkdir :: (Direction, Border) -> Direction -> Maybe Border
     -- checkdir (d, b) dir = if d == dir then Just b else Nothing
@@ -179,7 +183,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
     let dirs = directions rel_pos
     toLog $ ("directions: " ++) . show $ dirs
 
-    let applyCorrection (d, b) = (d, correction d cgeometry b)
+    let applyCorrection (d, b) = (d, adjustBorder d cgeometry b)
     let snapped_borders = first (fmap applyCorrection)
                         $ second (fmap applyCorrection)
                         $ snapBorders cgeometry cgeometries
@@ -320,10 +324,6 @@ directions p = (x_edge, y_edge)
         | otherwise    = Nothing
 
 
-type Border = Int
-type Distance = Int
-type BorderWidth = Int
-
 snapBorders :: 
            Distance
         -> [Geometry]
@@ -356,7 +356,7 @@ resistBorders g = result . concatMap (compareBorders g)
 
 
 compareBorders :: Geometry -> Geometry -> [(Direction, Border)]
-compareBorders g1 g2 = catMaybes $ map (cmp g1 g2)
+compareBorders g' g'' = catMaybes $ map (cmp g' g'')
     [ (North, (north, south))
     , (South, (south, north))
     , (East,  (east, west))
@@ -377,7 +377,7 @@ closestBorder :: Distance
                -> [Geometry]
                -> Geometry
                -> Maybe Border
-closestBorder distance direction geometries g = (correction direction g) <$>
+closestBorder distance direction geometries g = (adjustBorder direction g) <$>
     ( closest direction
     . filter (within distance direction $ border direction g)
     . borders (opposite direction)
@@ -385,11 +385,12 @@ closestBorder distance direction geometries g = (correction direction g) <$>
     $ g `L.delete` geometries)
 
 
-correction :: Direction -> Geometry -> Border -> Border
-correction d g b
+adjustBorder :: Direction -> Geometry -> Border -> Border
+adjustBorder d g b
     | d == North || d == West = b
     | d == South              = b - fi (g ^. dimension . height)
     | d == East               = b - fi (g ^. dimension . width)
+    | otherwise               = error "adjustBorder :: Direction -> Geometry -> Border -> Border"
 
 
 borders :: Direction -> [Geometry] -> [Border]
@@ -413,7 +414,7 @@ within distance e ab ob
 
 
 closest :: Direction -> [Border] -> Maybe Border
-closest e [] = Nothing
+closest _ [] = Nothing
 closest e bs
     | e == North || e == West = Just $ maximum bs
     | e == South || e == East = Just $ minimum bs
@@ -426,6 +427,7 @@ border e g
     | e == South = south g
     | e == East  = east g
     | e == West  = west g
+    | otherwise  = error "border :: Direction -> Geometry -> Int"
 
 
 north, south, east, west :: Geometry -> Int
