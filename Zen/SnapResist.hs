@@ -307,66 +307,6 @@ opposite = \case
     West  -> East
 
 
-{-
-closestBorder :: [Client] -> Client -> Direction -> Maybe Int
-closestBorder clients client edge = borders
-    where
-    borders = result
-            $ filter borderp
-            $ map (flip clientBorder $ opposite edge)
-            $ filter clientp
-            $ clients
-
-    result lst
-        | L.null lst = Nothing
-        | otherwise  = Just $ minmax lst
-
-    borderp border
-        | edge == North || edge == West = border < cb
-        | edge == South || edge == East = border > cb
-        | otherwise                     = False
-        where cb = clientBorder client edge
-
-    clientp client'
-        | edge == North || edge == South =
-                west client >= west client' && west client <= east client'
-             || east client <= east client' && east client >= west client'
-        | otherwise =
-                north client >= north client' && north client <= south client'
-             || south client <= south client' && south client >= north client'
-
-    minmax
-        | edge == North || edge == West = maximum
-        | edge == South || edge == East = minimum
-        | otherwise                     = head
-
-    north   = cy
-    south c = cy c + fi (ch c)
-    east  c = cx c + fi (cw c)
-    west    = cx
-
-    cx c = c ^. geometry . position . x
-    cy c = c ^. geometry . position . y
-    cw c = c ^. geometry . dimension . width
-    ch c = c ^. geometry . dimension . height
-
-
-closestBorders :: [Client] -> Client -> [(Direction, Int)]
-closestBorders cs c = catMaybes $ map cb [North, South, East, West]
-    where cb e = fmap (e,) (closestBorder cs c e)
-
-
-closestBordersDirection :: [(Direction, Int)]
-                        -> (Maybe Direction, Maybe Direction)
-                        -> (Maybe (Direction, Int), Maybe (Direction, Int))
-closestBordersDirection es (e1, e2) = (e1 >>= try es, e2 >>= try es)
-    where
-    try []             _ = Nothing
-    try ((e', b'):ebs) e | e == e' = Just (e, b')
-                         | otherwise = try ebs e
--}
-
-
 directions :: Position -> (Maybe Direction, Maybe Direction)
 directions p = (x_edge, y_edge)
     where
@@ -378,209 +318,6 @@ directions p = (x_edge, y_edge)
         | (p ^. y) < 0 = Just North
         | (p ^. y) > 0 = Just South
         | otherwise    = Nothing
-
-
-{-
-directions :: Position -> Position -> (Maybe Direction, Maybe Direction)
-directions from to = (x_direction delta_x, y_direction delta_y)
-    where
-    delta_x = from ^. x - to ^. x
-    delta_y = from ^. y - to ^. y
-    x_direction delta
-        | delta < 0 = Just East
-        | delta > 0 = Just West
-        | otherwise = Nothing
-    y_direction delta
-        | delta > 0 = Just North
-        | delta < 0 = Just South
-        | otherwise = Nothing
--}
-
-
-{-
-cropBorder :: (Integral a, Num a) => a -> (Direction, Int) -> (Direction, Int)
-cropBorder bw (e, b)
-    | e == North || e == West = (e, b + 2 * fi bw)
-    | otherwise               = (e, b - 2 * fi bw)
--}
-
-
-{-
-resist :: Client -- ^ Client to be moved or resized
-       -> Int -- ^ Distance for resistance
-       -> Int -- ^ Desired new position
-       -> (Direction, Int) -- ^ Closest edge in direction of new position
-       -> Maybe Int -- ^ Maybe a border for resistance
-resist client distance b' (e, b)
-    | b == clientBorder client e && pred = Just border
-    | otherwise = Nothing
-
-    where
-    cw = fi $ client ^. geometry . dimension . width
-    ch = fi $ client ^. geometry . dimension . height
-
-    pred | e == North || e == West = b - b' < distance
-         | e == South              = b' - (b - ch) < distance
-         | e == East               = b' - (b - cw) < distance
-         | otherwise               = False
-
-    border | e == North || e == West = b
-           | e == South              = b - ch
-           | e == East               = b - cw
-           | otherwise               = b
--}
-
-
-{-
-doResist' :: WindowId -> Position -> Z PointerStack Position
-doResist' window pos = do
-    let distance = 50
-    bwidth <- askL $ config . borderWidth
-    clients <- maybe [] (M.elems . getQueueReply) <$> sendMessage GetQueue
-
-    mclient <- ((getClientReply =<<) <$> sendMessage (GetClient window))
-    whenJustM_ mclient $ \client -> do
-        let dirs = directions (client ^. geometry . position) pos
-        toLog $ "doResist' dirs: " ++ show dirs
-        let closest_borders = map (cropBorder bwidth) $ closestBorders clients client
-        toLog $ "doResist' closest_borders: " ++ show closest_borders
-        let closest_borders_dir = closestBordersDirection closest_borders dirs
-        toLog $ "doResist' closest_borders_dir: " ++ show closest_borders_dir
-
-    getResistance clients bwidth distance <$> sendMessage (GetClient window)
-    where
-    getResistance cs bw d = fromMaybe pos
-                          . (fmap $ \client -> doResist cs client (fi bw) d pos)
-                          . (getClientReply =<<)
--}
-
-
-{-
-doResist :: [Client] -- ^ All clients which are candidates for resistance
-         -> Client -- ^ The client to be moved
-         -> Int -- ^ Border width
-         -> Int -- ^ Resistance distance
-         -> Position -- ^ New position for client
-         -> Position -- ^ Either a position with resistance or just the new position
-doResist clients client bw distance pos = final_position closest_borders_dir
-    where
-    dirs = directions (client ^. geometry . position) pos
-    closest_borders = map (cropBorder bw) $ closestBorders clients client
-    closest_borders_dir = closestBordersDirection closest_borders dirs
-    px = pos ^. x
-    py = pos ^. y
-    final_position (ex, ey) = Position
-        (fromMaybe px $ ex >>= resist client distance px)
-        (fromMaybe py $ ey >>= resist client distance py)
--}
-
-
-{-
-snap :: -- Client -- ^ Client to be moved or resized
-        Int -- ^ Distance for snapping
-     -> Int -- ^ Desired new position
-     -> (Direction, Int) -- ^ Closest edge in direction of new position
-     -> Maybe Int -- ^ Maybe a border to snap on
-snap distance b' (e, b)
-    | pred = Just b -- border
-    | otherwise = Nothing
-
-    where
-    -- cw = fi $ client ^. geometry . dimension . width
-    -- ch = fi $ client ^. geometry . dimension . height
-
-    pred | e == North || e == West = -- let d = b - b' in d < distance
-                                     -- let d = b' -b in d > 0 && d < distance
-                                     b' - b < distance && b' - b > 0
-         | e == South || e == East = b - b' < distance && b - b' > 0
-         -- | e == East               = b' - (b - cw) < distance
-         | otherwise               = False
-
-    -- border | e == North || e == West = b
-    --        | e == South              = b - ch
-    --        | e == East               = b - cw
-    --        | otherwise               = b
--}
-
-
-{-
-doSnap' :: WindowId -> Position -> Z PointerStack Position
-doSnap' window pos = do
-    let distance = 50
-    bwidth <- askL $ config . borderWidth
-    clients <- maybe [] (M.elems . getQueueReply) <$> sendMessage GetQueue
-    getSnap clients bwidth distance <$> sendMessage (GetClient window)
-    where
-    getSnap cs bw d = fromMaybe pos
-                    . (fmap $ \client -> doSnap cs client (fi bw) d pos)
-                    . (getClientReply =<<)
--}
-
-
-{-
- snap algorithm:
-
- find closests borders in moving direction
-
- when closest border for a direction is within snap distance, move window there
-
- -}
-
-
-{-
-doSnap :: [Client] -- ^ All clients which are candidates for snapping
-       -> Client -- ^ The client to be moved
-       -> Int -- ^ Border width
-       -> Int -- ^ Snap distance
-       -> Position -- ^ New position for client
-       -> Position -- ^ Either a position with resistance or just the new position
-doSnap clients client bw distance pos = final_position' closest_borders_dir
--- doSnap clients client bw distance pos = final_position closest_borders
-    where
-    dirs = directions (client ^. geometry . position) pos
-    closest_borders = map (cropBorder bw) $ closestBorders clients client
-    closest_borders_dir = closestBordersDirection closest_borders dirs
-    px = pos ^. x
-    py = pos ^. y
-
-    safeHead p []    = p
-    safeHead _ (p:_) = p
-
-    cw = fi $ client ^. geometry . dimension . width
-    ch = fi $ client ^. geometry . dimension . height
-
-    border :: (Direction, Int) -> Int
-    border (e, _)
-        | e == North || e == West = px
-        | e == South              = px + ch
-        | e == East               = px + cw
-
-    final_position' :: (Maybe (Direction, Int), Maybe (Direction, Int)) -> Position
-    final_position' (ex, ey) = Position
-       (fromMaybe px $ ex >>= (\eb -> snap distance (border eb) eb))
-       (fromMaybe py $ ey >>= (\eb -> snap distance (border eb) eb))
-
-    -- final_position :: [(Direction, Int)] -> Position
-    -- final_position es = Position (safeHead px . fst $ candidates es)
-    --                              (safeHead py . snd $ candidates es)
-
-    -- candidates :: [(Direction, Int)] -> ([Int], [Int])
-    -- candidates es = (positions ([], []) es)
-
-
-    -- positions :: ([Maybe Int], [Maybe Int]) -> [(Direction, Int)] -> ([Int], [Int])
-    -- positions (xs, ys) [] = (L.sort $ catMaybes xs, L.sort $ catMaybes ys)
-    -- positions (xs, ys) ((e, b):es)
-    --     | e == North || e == South =
-    --         positions (xs, snap client distance py (e, b) : ys) es
-    --     | otherwise =
-    --         positions (snap client distance px (e, b) : xs, ys) es
-
-
-    -- Position
-    --     (fromMaybe px $ ex >>= snap client distance px)
-    --     (fromMaybe py $ ey >>= snap client distance py)
--}
 
 
 type Border = Int
@@ -596,7 +333,6 @@ snapBorders ::
 -- doSnap2 bw d gs ag p = closest_borders $ directions (ag ^. position) p
 snapBorders distance geometries g p = closest_borders $ directions p
     where
-    -- closest_border = closestBorder' d gs ag
     closest_border edge = closestBorder'' distance edge geometries g
     closest_borders (ex, ey) = (ex >>= closest_border, ey >>= closest_border)
 
@@ -690,31 +426,12 @@ closestBorder'' :: Distance
                -> [Geometry]
                -> Geometry
                -> Maybe Border
--- closestBorders'' distance edge geometries g = nearest edge
---                            $ catMaybes
---                            $ filter distance_pred
---                            $ map (candidates edge g)
---                            $ filter (hasOverlap edge g)
---                            $ gs
-
 closestBorder'' distance direction geometries g = (correction direction g) <$>
     ( closest direction
     . filter (within distance direction $ border direction g)
     . borders (opposite direction)
     . filter (hasOverlap direction g)
     $ g `L.delete` geometries)
-
-    -- where distance_pred = fromMaybe False . fmap (within d edge $ border edge g)
-
-
--- closestBorder' :: Distance -> Direction -> [Geometry] -> Geometry -> Maybe Border
--- closestBorder' d gs g edge = nearest edge
---                            $ catMaybes
---                            $ filter distance_pred
---                            $ map (candidates edge g)
---                            $ filter (hasOverlap edge g)
---                            $ gs
---     where distance_pred = fromMaybe False . fmap (within d edge $ border edge g)
 
 
 correction :: Direction -> Geometry -> Border -> Border
@@ -727,15 +444,6 @@ correction d g b
 borders :: Direction -> [Geometry] -> [Border]
 borders _     [] = []
 borders e (g:gs) = border e g : borders e gs
-
-
--- candidates :: Direction -> Geometry -> Geometry -> Maybe Border
--- candidates e ag og
---     | e == North && south og < north ag = Just $ south og
---     | e == South && north og > south ag = Just $ north og
---     | e == West  &&  east og < west ag  = Just $ east og
---     | e == East  &&  west og > east ag  = Just $ west og
---     | otherwise                         = Nothing
 
 
 hasOverlap :: Direction -> Geometry -> Geometry -> Bool
@@ -774,41 +482,3 @@ north g = g ^. position . y
 south g = g ^. position . y + fi (g ^. dimension . height)
 east  g = g ^. position . x + fi (g ^. dimension . width)
 west  g = g ^. position . x
-
-
-{-
-moveResist :: PointerMotion -> MotionNotifyEvent -> Z PointerStack ()
-moveResist (M ppos) e = do
-    clients <- maybe [] getClientsReply <$> sendMessage GetClients
-    whenJustM_ (L.find (\c -> c ^. xid == window) clients) $ flip move clients
-
-    where
-    root_x = root_x_MotionNotifyEvent e
-    root_y = root_y_MotionNotifyEvent e
-    window = event_MotionNotifyEvent e
-
-    px = fi root_x - ppos ^. x
-    py = fi root_y - ppos ^. y
-
-    updateXY :: Int -> Int -> Client -> Client
-    updateXY x' y' = (geometry . position . x .~ x')
-                   . (geometry . position . y .~ y')
-
-    move cclient clients = do
-        -- TODO
-        -- distance <- asks (resistDistance)
-        let distance = 30
-        bw <- askL $ config . borderWidth
-
-        let closest_borders = closestBordersDirection
-                                  (map (cropBorder $ fi bw)
-                                       (closestBorders clients cclient))
-                                  (directions (cclient ^. geometry . position)
-                                              (Position px py))
-
-            cx = fromMaybe px (fst closest_borders >>= resist cclient distance px)
-            cy = fromMaybe py (snd closest_borders >>= resist cclient distance py)
-
-        sendMessage_ (UpdateClient window $ updateXY cx cy)
-        W.configure window $ [(ConfigWindowX, fi cx), (ConfigWindowY, fi cy)]
--}
