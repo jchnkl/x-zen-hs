@@ -48,8 +48,118 @@ import Component
 --                    . (geometry . dimension . height +~ 2 * bw)
 
 
-data M = M Position Position
+-- data Delta a = Delta a
 
+class Delta a where
+    delta :: a -> a -> a
+
+instance Delta Position where
+    delta p1 p2 = abs (p2 - p1)
+
+
+
+
+moveSnapResist e epos rpos client clients = do
+    bwidth <- asksL (config . borderWidth) (2 *)
+    -- proximity <- askL snapProximity
+    let proximity = (50 :: Distance)
+    -- snap_mod <- askL snapMod
+    let snap_mod = KeyButMaskShift
+
+    let snap_borders = join (***) (>>= do_snap_user snap_mod)
+                     $ snapBorders proximity cgeometries cgeometry rel_pos
+
+        resist_borders = join (***) (fmap $ adjust_border_width bwidth)
+                       $ resistBorders cgeometry cgeometries
+
+    -- let bx = fst snap_borders <|> fst resist_borders >>= checkpos >>= 
+    --     by = snd snap_borders <|> snd resist_borders
+
+    let ax = abs_pos ^. x
+        ay = abs_pos ^. y
+
+        -- px = fromMaybe ax $ mx (fst snap_borders >>= do_snap_proximity (edelta ^. x) proximity)
+        --                        (fst resist_borders)
+
+        -- py = fromMaybe ay $ my (snd snap_borders >>= do_snap_proximity (edelta ^. y) proximity)
+        --                        (snd resist_borders)
+
+
+
+    let mx = checkpos (fst move_directions) (fst snap_borders) (fst resist_borders)
+    let my = checkpos (snd move_directions) (snd snap_borders) (snd resist_borders)
+
+    let px = fromMaybe ax $ fmap (checkdelta ax proximity (edelta ^. x)) mx
+    let py = fromMaybe ay $ fmap (checkdelta ay proximity (edelta ^. y)) my
+
+    sendMessage_ $ ModifyClient window $ changePosition
+                 $ Position px py
+
+    W.configure window [(ConfigWindowX, fi px), (ConfigWindowY, fi py)]
+
+    where
+    window = event_MotionNotifyEvent e
+    root_x = root_x_MotionNotifyEvent e
+    root_y = root_y_MotionNotifyEvent e
+    event_x = event_x_MotionNotifyEvent e
+    event_y = event_y_MotionNotifyEvent e
+
+    cgeometry = client ^. geometry
+    cgeometries = cgeometry `L.delete` map (^. geometry) clients
+
+    abs_pos = Position (fi root_x) (fi root_y) - epos
+    rel_pos = Position (fi root_x) (fi root_y) - rpos
+
+    -- let delta = abs $ epos - Position (fi $ event_x) (fi $ event_y)
+    -- rdelta = delta rpos $ Position root_x root_y
+    edelta = delta epos $ Position (fi event_x) (fi event_y)
+
+    move_directions = directions rel_pos
+
+    do_snap_user k b = if k `elem` state_MotionNotifyEvent e then Just b else Nothing
+    do_snap_proximity d p b = if d > p then Just b else Nothing
+
+    adjust_border_width bwidth (d, b) = (d, correction d cgeometry b)
+
+    -- resist_borders = resistBorders cgeometry cgeometries
+    -- snap_borders = snapBorders dist cgeometries cgeometry rel_pos
+
+    -- mx = checkpos (fst move_directions)
+    -- my = checkpos (snd move_directions)
+
+    checkpos _    def Nothing   = def
+    checkpos mdir _   (Just db) = checkdir db mdir
+
+    checkdir (d, b) Nothing    = Just b
+    checkdir (d, b) (Just dir) = if d == dir then Just b else Nothing
+
+    checkdelta def p delta b = if delta > p then def else b
+
+    -- checkpos mdir (d, b) = checkdir (d, b) mdir
+
+    -- checkdir :: (Direction, Border) -> Direction -> Maybe Border
+    -- checkdir (d, b) dir = if d == dir then Just b else Nothing
+
+    -- let mx = case fst snapped_borders of
+    --         Just (d, b) -> case fst dirs of
+    --             Just xdir -> if d == xdir then Just b else Nothing
+    --             _ -> Just b
+    --         -- _ -> Nothing
+    --         _ -> msx
+
+    -- let my = case snd snapped_borders of
+    --         Just (d, b) -> case snd dirs of
+    --             Just ydir -> if d == ydir then Just b else Nothing
+    --             _ -> Just b
+    --         _ -> msy
+    --         -- _ -> Nothing
+
+
+
+    changePosition :: Position -> Client -> Client
+    changePosition p = geometry . position .~ p
+
+{-
 doMoveMotionNotify e (M epos rpos) clients client = do
 
     -- let npos = Position (fi root_x - ppos ^. x) (fi root_y - ppos ^. y)
@@ -66,8 +176,8 @@ doMoveMotionNotify e (M epos rpos) clients client = do
     toLog . ("client: " ++) $ show client
     toLog . ("doSnap2: " ++) . show $ doSnap2 bw dist cgeometries cgeometry rel_pos
 
-    let dirs = directionsFromRelative rel_pos
-    toLog $ ("directionsFromRelative: " ++) . show $ dirs
+    let dirs = directions rel_pos
+    toLog $ ("directions: " ++) . show $ dirs
 
     let applyCorrection (d, b) = (d, correction d cgeometry b)
     let snapped_borders = first (fmap applyCorrection)
@@ -187,6 +297,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
     --     -- toLog $ "warp to " ++ show p
     --     connection $-> \c -> io $ warpPointer c
     --         $ MkWarpPointer w (getRoot c) 0 0 0 0 (fi x') (fi y')
+-}
 
 opposite :: Direction -> Direction
 opposite = \case
@@ -256,8 +367,8 @@ closestBordersDirection es (e1, e2) = (e1 >>= try es, e2 >>= try es)
 -}
 
 
-directionsFromRelative :: Position -> (Maybe Direction, Maybe Direction)
-directionsFromRelative p = (x_edge, y_edge)
+directions :: Position -> (Maybe Direction, Maybe Direction)
+directions p = (x_edge, y_edge)
     where
     x_edge
         | (p ^. x) > 0 = Just East
@@ -476,14 +587,14 @@ type Border = Int
 type Distance = Int
 type BorderWidth = Int
 
-doSnap2 :: BorderWidth
-        -> Distance
+snapBorders :: 
+           Distance
         -> [Geometry]
         -> Geometry
         -> Position
         -> (Maybe Border, Maybe Border)
 -- doSnap2 bw d gs ag p = closest_borders $ directions (ag ^. position) p
-doSnap2 bw distance geometries g p = closest_borders $ directionsFromRelative p
+snapBorders distance geometries g p = closest_borders $ directions p
     where
     -- closest_border = closestBorder' d gs ag
     closest_border edge = closestBorder'' distance edge geometries g
@@ -502,10 +613,10 @@ doSnap2 bw distance geometries g p = closest_borders $ directionsFromRelative p
 --     find _ _             = Nothing
 
 
-snapBorders :: Geometry
+resistBorders :: Geometry
             -> [Geometry]
             -> (Maybe (Direction, Border), Maybe (Direction, Border))
-snapBorders g = result . concatMap (compareBorders g)
+resistBorders g = result . concatMap (compareBorders g)
     where
     result :: [(Direction, Border)]
            -> (Maybe (Direction, Border), Maybe (Direction, Border))
@@ -565,11 +676,11 @@ compareBorders g1 g2 = catMaybes $ map (cmp g1 g2)
 --     }
 --     deriving Typeable
 
-class Delta a where
-    delta :: a -> a -> a
+-- class Delta a where
+--     delta :: a -> a -> a
 
-instance Delta Position where
-    delta (Position x1 y1) (Position x2 y2) = Position (x1 - x2) (y1 - y2)
+-- instance Delta Position where
+--     delta (Position x1 y1) (Position x2 y2) = Position (x1 - x2) (y1 - y2)
 
 -- data Delta = Delta Int Int
 --     deriving Typeable
