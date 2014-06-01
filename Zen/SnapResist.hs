@@ -333,7 +333,7 @@ snapBorders ::
 -- doSnap2 bw d gs ag p = closest_borders $ directions (ag ^. position) p
 snapBorders distance geometries g p = closest_borders $ directions p
     where
-    closest_border edge = closestBorder'' distance edge geometries g
+    closest_border edge = closestBorder distance edge geometries g
     closest_borders (ex, ey) = (ex >>= closest_border, ey >>= closest_border)
 
 
@@ -421,12 +421,12 @@ compareBorders g1 g2 = catMaybes $ map (cmp g1 g2)
 -- data Delta = Delta Int Int
 --     deriving Typeable
 
-closestBorder'' :: Distance
+closestBorder :: Distance
                -> Direction
                -> [Geometry]
                -> Geometry
                -> Maybe Border
-closestBorder'' distance direction geometries g = (correction direction g) <$>
+closestBorder distance direction geometries g = (correction direction g) <$>
     ( closest direction
     . filter (within distance direction $ border direction g)
     . borders (opposite direction)
