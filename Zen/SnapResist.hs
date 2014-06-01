@@ -330,23 +330,10 @@ snapBorders ::
         -> Geometry
         -> Position
         -> (Maybe Border, Maybe Border)
--- doSnap2 bw d gs ag p = closest_borders $ directions (ag ^. position) p
 snapBorders distance geometries g p = closest_borders $ directions p
     where
     closest_border edge = closestBorder distance edge geometries g
     closest_borders (ex, ey) = (ex >>= closest_border, ey >>= closest_border)
-
-
--- findSnappedBorder :: [Geometry]
---                   -> Geometry
---                   -> (Maybe Direction, Maybe Direction)
---                   -> (Maybe Border, Maybe Border)
--- findSnappedBorder gs g (mdx, mdy) = (mdx >>= find borders, mdy >>= find borders)
---     where
---     borders = concatMap (compareBorders g) gs
---     find :: [(Direction, Border)] -> Direction -> Maybe Border
---     find ((d,b):dbs) dir = if d == dir then Just b else find dbs dir
---     find _ _             = Nothing
 
 
 resistBorders :: Geometry
@@ -367,10 +354,6 @@ resistBorders g = result . concatMap (compareBorders g)
                                 , if d == North || d == South then Just (d, b) else mb2
                                 )
 
-    -- isOverlapping :: Geometry -> Geometry -> Bool
-    -- isOverlapping g1 g2 = foldr1 (||) $ map (\d -> hasOverlap d g1 g2)
-    --                                         [North, South, East, West]
-
 
 compareBorders :: Geometry -> Geometry -> [(Direction, Border)]
 compareBorders g1 g2 = catMaybes $ map (cmp g1 g2)
@@ -388,38 +371,6 @@ compareBorders g1 g2 = catMaybes $ map (cmp g1 g2)
         | f1 g1 == f2 g2 && hasOverlap d g1 g2 = Just (d, f1 g1)
         | otherwise                            = Nothing
 
-    -- compare b' b
-    --     | b' == b   = Just b
-    --     | otherwise = Nothing
-
-
-    -- mpos :: (Maybe Border, Maybe Border) -> Maybe Position
-    -- mpos (Nothing, Nothing) = Nothing
-    -- mpos (Just x', Nothing) = Just $ Position       x'  (p ^. y)
-    -- mpos (Nothing, Just y') = Just $ Position (p ^. x)        y'
-    -- mpos (Just x', Just y') = Just $ Position       x'        y'
-
--- directions :: Position -> Position -> (Maybe Direction, Maybe Direction)
-
-    -- og ^= other geometry; ag ^= active geometry
-
--- data Axis = X | Y
---     deriving Typeable
-
--- data Border = Border
---     { axis :: Axis
---     , position :: Int
---     }
---     deriving Typeable
-
--- class Delta a where
---     delta :: a -> a -> a
-
--- instance Delta Position where
---     delta (Position x1 y1) (Position x2 y2) = Position (x1 - x2) (y1 - y2)
-
--- data Delta = Delta Int Int
---     deriving Typeable
 
 closestBorder :: Distance
                -> Direction
