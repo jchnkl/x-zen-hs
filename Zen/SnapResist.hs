@@ -33,18 +33,9 @@ import Keyboard (getCleanMask, extraModifier)
 import Component
 
 
-type Delta = Int
 type Border = Int
 type Distance = Int
 -- type BorderWidth = Int
-
-class DeltaClass a where
-    delta :: a -> a -> a
-
-instance DeltaClass Position where
-    delta p1 p2 = abs (p2 - p1)
-
-
 
 
 moveSnapResist e epos rpos client clients = do
@@ -54,12 +45,6 @@ moveSnapResist e epos rpos client clients = do
     -- snap_mod <- askL snapMod
     let snap_mod = KeyButMaskShift
 
-    let erx = e_rel_pos ^. x
-    let ery = e_rel_pos ^. y
-    let rrx = r_rel_pos ^. x
-    let rry = r_rel_pos ^. y
-
-    let cpos = cgeometry ^. position
     let npos = cgeometry ^. position + r_rel_pos
         ax = npos ^. x
         ay = npos ^. y
@@ -67,12 +52,7 @@ moveSnapResist e epos rpos client clients = do
     let ax' = abs_pos ^. x
         ay' = abs_pos ^. y
 
-    let adjacent_borders = adjacentBorders cgeometry cgeometries
-    let resist_position = checkPosition cgeometry (Position ax' ay') adjacent_borders
-
-
     let nearest_borders = closestBorders cgeometry $ catMaybes $ nearestBorders proximity cgeometry cgeometries
-
 
     let nx (mx,_) = mx
     let ny (_,my) = my
@@ -157,20 +137,6 @@ moveSnapResist e epos rpos client clients = do
     move_directions = directions r_rel_pos
 
     keypress k = k `elem` state_MotionNotifyEvent e
-    do_snap_user k b = if keypress k then Just b else Nothing
-
-    adjust_border (d, b) = (d, adjustBorder d cgeometry b)
-
-    checkpos :: Maybe Direction -> Maybe Border -> Maybe (Direction, Border) -> Maybe Border
-    checkpos _    def Nothing   = def
-    checkpos mdir _   (Just db) = checkdir db mdir
-
-    checkdir :: (Direction, Border) -> Maybe Direction -> Maybe Border
-    checkdir (_, b) Nothing    = Just b
-    checkdir (d, b) (Just dir) = if d == dir then Just b else Nothing
-
-    checkdelta :: Distance -> Delta -> Border -> Maybe Border
-    checkdelta p d b = if abs d > p then Nothing else Just b
 
     changePosition :: Position -> Client -> Client
     changePosition p = geometry . position .~ p
@@ -195,99 +161,6 @@ directions p = (x_edge, y_edge)
         | (p ^. y) < 0 = Just North
         | (p ^. y) > 0 = Just South
         | otherwise    = Nothing
-
-
-resistBorders''' :: Geometry
-                 -> (Maybe Direction, Maybe Direction)
-                 -> [(Direction, Border)]
-                 -> (Maybe Border, Maybe Border)
-resistBorders''' g (dx, dy) dbl = (findBorderX dbl dx, findBorderY dbl dy)
-    where
-    check (d,b) f = if border d g == b then Just b else f
-
-
-    findBorderY ((d,b):dbs) (Just dir)
-        | d == dir = check (d,b) $ findBorderY dbs $ Just dir
-        | otherwise = findBorderY dbs $ Just dir
-    findBorderY ((d,b):dbs) Nothing
-        | d == North || d == South = check (d,b) $ findBorderY dbs Nothing
-        | otherwise = findBorderY dbs Nothing
-    findBorderY _ _ = Nothing
-
-
-    findBorderX ((d,b):dbs) (Just dir)
-        | d == dir = check (d,b) $ findBorderX dbs $ Just dir -- if border d g == b then Just b else findBorder dbs dir
-        | otherwise = findBorderX dbs $ Just dir
-    findBorderX ((d,b):dbs) Nothing
-        | d == East || d == West = check (d,b) $ findBorderX dbs Nothing
-        | otherwise = findBorderX dbs Nothing
-    findBorderX _ _ = Nothing
-
-
-resistBorders'' :: (Maybe Direction, Maybe Direction)
-                -> [(Direction, Border)]
-                -> (Maybe Border, Maybe Border)
-resistBorders'' (dx, dy) dbl = (dx >>= findBorder dbl, dy >>= findBorder dbl)
-    where
-    findBorder ((d,b):dbs) dir = if d == dir then Just b else findBorder dbs dir
-    findBorder _           _   = Nothing
-
-
-unstick :: Distance -> Delta -> Int -> Int
-unstick proximity delta b = if abs delta < proximity then b else b + delta
-
-checkPosition :: Geometry
-              -> Position
-              -> [(Direction, Border)]
-              -> (Maybe Int, Maybe Int)
-checkPosition g (Position npx npy) dbs = (xs, ys)
-    where
-    xs = fmap pos . listToMaybe . filter (pred (East , West )) $ dbs
-    ys = fmap pos . listToMaybe . filter (pred (North, South)) $ dbs
-
-    pred (d1,d2) (d,b) = (d == d1 || d == d2) && check (d,b)
-
-    pos (d, b) | d == South || d == East = border (opposite d) g
-               | otherwise = b
-
-    check (d,b)
-        | d == North = npy < b
-        | d == South = npy > b
-        | d == East  = npx > b
-        | d == West  = npx < b
-
-
-makePosition :: Geometry -> [(Direction, Border)] -> (Maybe Int, Maybe Int)
-makePosition g dbs = (listToMaybe xs, listToMaybe ys)
-    where xs = map pos $ filter (\(d,_) -> d == East  || d == West ) dbs
-          ys = map pos $ filter (\(d,_) -> d == North || d == South) dbs
-          pos (d, b) | d == South || d == East = border (opposite d) g
-                     | otherwise = b
-
-
-adjacentBorders :: Geometry
-              -> [Geometry]
-              -> [(Direction, Border)]
-adjacentBorders g = concatMap (compareBorders g)
-
-
-resistBorders :: Geometry
-              -> [Geometry]
-              -> (Maybe (Direction, Border), Maybe (Direction, Border))
-resistBorders g = result . concatMap (compareBorders g)
-    where
-    result :: [(Direction, Border)]
-           -> (Maybe (Direction, Border), Maybe (Direction, Border))
-    result (db1:db2:_) = mktuple db1 $ mktuple db2 (Nothing, Nothing)
-    result (db:_)      = mktuple db (Nothing, Nothing)
-    result _           = (Nothing, Nothing)
-
-    mktuple :: (Direction, Border)
-            -> (Maybe (Direction, Border), Maybe (Direction, Border))
-            -> (Maybe (Direction, Border), Maybe (Direction, Border))
-    mktuple (d, b) (mb1, mb2) = ( if d == East  || d == West  then Just (d, b) else mb1
-                                , if d == North || d == South then Just (d, b) else mb2
-                                )
 
 
 finishBorder :: Geometry -> (Direction, Border) -> Border
@@ -389,24 +262,12 @@ adjustBorder d g b
     | otherwise               = error "adjustBorder :: Direction -> Geometry -> Border -> Border"
 
 
-borders :: Direction -> [Geometry] -> [Border]
-borders _     [] = []
-borders e (g:gs) = border e g : borders e gs
-
-
 hasOverlap :: Direction -> Geometry -> Geometry -> Bool
 hasOverlap e ag og
     | e == North || e == South = (west ag >= west og && west ag <= east og)
                               || (east ag <= east og && east ag >= west og)
     | otherwise =                (north ag >= north og && north ag <= south og)
                               || (south ag <= south og && south ag >= north og)
-
-
-within :: Distance -> Direction -> Border -> Border -> Bool
-within distance e ab ob
-    | e == North || e == West = ab - ob >= 0 && ab - ob < distance
-    | e == South || e == East = ob - ab >= 0 && ob - ab < distance
-    | otherwise  = False
 
 
 border :: Direction -> Geometry -> Int
