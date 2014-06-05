@@ -242,27 +242,6 @@ closestBorders g dbs = (mx, my)
         | otherwise                                                             = GT
 
 
-compareBorders :: Geometry -> Geometry -> [(Direction, Border)]
-compareBorders g' g'' = catMaybes $ map (cmp g' g'')
-    [ (North, (north, south))
-    , (South, (south, north))
-    , (East,  (east, west))
-    , (West,  (west, east))
-    ]
-    where
-    fuzz = 10
-    cmp :: Geometry
-        -> Geometry
-        -> (Direction, (Geometry -> Border, Geometry -> Border))
-        -> Maybe (Direction, Border)
-    cmp g1 g2 (d, (f1, f2))
-        -- ???
-        -- | f1 g1 == f2 g2 && hasOverlap d g1 g2 = Just (d, f1 g1)
-        | f1 g1 == f2 g2 = Just (d, f1 g1)
-        -- | f2 g2 < (f1 g1 + fuzz) && f2 g2 > (f1 g1 - fuzz) = Just (d, f2 g2)
-        | otherwise                            = Nothing
-
-
 adjustBorder :: Direction -> Geometry -> Border -> Border
 adjustBorder d g b
     | d == North || d == West = b
