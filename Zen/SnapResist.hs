@@ -59,7 +59,8 @@ moveSnapResist e epos rpos client clients = do
     let ax' = abs_pos ^. x
         ay' = abs_pos ^. y
 
-    let nearest_borders = closestBorders cgeometry $ catMaybes $ nearestBorders cgeometry cgeometries
+    let nearest_borders = closestBorders cgeometry
+                        $ nearestBorders cgeometry cgeometries
 
     let nx (mx,_) = mx
     let ny (_,my) = my
@@ -208,8 +209,8 @@ useBorder proximity cgeometry b' (d,b)
           be = b - fi (cgeometry ^. dimension . width)
 
 
-nearestBorders :: Geometry -> [Geometry] -> [Maybe (Edge, Int)]
-nearestBorders g gs = [nb, sb, eb, wb]
+nearestBorders :: Geometry -> [Geometry] -> [(Direction, Border)]
+nearestBorders g gs = catMaybes [nb, sb, eb, wb]
     where
     nb = fmap (North,) $ listTo maximum $ map (south) $ filter north_pred gs
     sb = fmap (South,) $ listTo minimum $ map (north) $ filter south_pred gs
