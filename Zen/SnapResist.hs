@@ -38,6 +38,13 @@ type Distance = Int
 -- type BorderWidth = Int
 
 
+moveSnapResist :: MonadIO m
+               => MotionNotifyEvent
+               -> Position
+               -> Position
+               -> Client
+               -> [Client]
+               -> Z m ()
 moveSnapResist e epos rpos client clients = do
     -- bwidth <- asksL (config . borderWidth) (2 *)
     -- proximity <- askL snapProximity
@@ -201,7 +208,8 @@ useBorder proximity cgeometry b' (d,b)
           be = b - fi (cgeometry ^. dimension . width)
 
 
-nearestBorders distance g gs = [nb, sb, eb, wb]
+nearestBorders :: Geometry -> [Geometry] -> [Maybe (Direction, Border)]
+nearestBorders g gs = [nb, sb, eb, wb]
     where
     nb = fmap (North,) $ listTo maximum $ map (south) $ filter north_pred gs
     sb = fmap (South,) $ listTo minimum $ map (north) $ filter south_pred gs
