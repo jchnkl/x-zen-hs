@@ -59,7 +59,7 @@ moveSnapResist e epos rpos client clients = do
     let ax' = abs_pos ^. x
         ay' = abs_pos ^. y
 
-    let nearest_borders = closestBorders cgeometry $ catMaybes $ nearestBorders proximity cgeometry cgeometries
+    let nearest_borders = closestBorders cgeometry $ catMaybes $ nearestBorders cgeometry cgeometries
 
     let nx (mx,_) = mx
     let ny (_,my) = my
@@ -190,7 +190,7 @@ snapBorder :: Geometry
            -> (Direction, Border)
            -> Maybe (Direction, Border)
 snapBorder _ Nothing    _     = Nothing
-snapBorder g (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
+snapBorder _ (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
 
 
 useBorder :: Distance
@@ -208,7 +208,7 @@ useBorder proximity cgeometry b' (d,b)
           be = b - fi (cgeometry ^. dimension . width)
 
 
-nearestBorders :: Geometry -> [Geometry] -> [Maybe (Direction, Border)]
+nearestBorders :: Geometry -> [Geometry] -> [Maybe (Edge, Int)]
 nearestBorders g gs = [nb, sb, eb, wb]
     where
     nb = fmap (North,) $ listTo maximum $ map (south) $ filter north_pred gs
@@ -216,7 +216,7 @@ nearestBorders g gs = [nb, sb, eb, wb]
     eb = fmap (East,)  $ listTo minimum $ map (west ) $ filter east_pred  gs
     wb = fmap (West,)  $ listTo maximum $ map (east ) $ filter west_pred  gs
 
-    listTo f [] = Nothing
+    listTo _ [] = Nothing
     listTo f ls = Just $ f ls
 
     north_pred g' = north g >= south g' && hasOverlap North g g'
@@ -233,8 +233,8 @@ closestBorders g dbs = (mx, my)
     mx = listToMaybe . L.sortBy cmp . filter xs $ dbs
     my = listToMaybe . L.sortBy cmp . filter ys $ dbs
 
-    xs (d,b) = d == East  || d == West
-    ys (d,b) = d == North || d == South
+    xs (d,_) = d == East  || d == West
+    ys (d,_) = d == North || d == South
 
     cmp (d1,b1) (d2,b2)
         | abs (b1 - border (opposite d1) g) < abs (b2 - border (opposite d2) g) = LT
