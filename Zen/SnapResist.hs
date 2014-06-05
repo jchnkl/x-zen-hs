@@ -60,7 +60,7 @@ moveSnapResist e epos rpos client clients = do
         ay' = abs_pos ^. y
 
     let nearest_borders = closestBorders cgeometry
-                        $ nearestBorders cgeometry cgeometries
+                        $ adjacentBorders cgeometry cgeometries
 
     let nx (mx,_) = mx
     let ny (_,my) = my
@@ -119,7 +119,7 @@ moveSnapResist e epos rpos client clients = do
     toLog $ "ax': " ++ show ax' ++ ", ay': " ++ show ay'
     toLog $ "px : " ++ show px  ++ ", py : " ++ show py
 
-    toLog $ ("nearestBorders: " ++) . show $ nearest_borders
+    toLog $ ("adjacentBorders: " ++) . show $ nearest_borders
 
     sendMessage_ $ ModifyClient window $ changePosition
                  $ Position px py
@@ -209,8 +209,8 @@ useBorder proximity cgeometry b' (d,b)
           be = b - fi (cgeometry ^. dimension . width)
 
 
-nearestBorders :: Geometry -> [Geometry] -> [(Direction, Border)]
-nearestBorders g gs = catMaybes [nb, sb, eb, wb]
+adjacentBorders :: Geometry -> [Geometry] -> [(Direction, Border)]
+adjacentBorders g gs = catMaybes [nb, sb, eb, wb]
     where
     nb = fmap (North,) . listTo maximum . map (border South) . filter north_pred $ gs
     sb = fmap (South,) . listTo minimum . map (border North) . filter south_pred $ gs
