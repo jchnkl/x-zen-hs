@@ -212,18 +212,18 @@ useBorder proximity cgeometry b' (d,b)
 nearestBorders :: Geometry -> [Geometry] -> [(Direction, Border)]
 nearestBorders g gs = catMaybes [nb, sb, eb, wb]
     where
-    nb = fmap (North,) $ listTo maximum $ map (border South) $ filter north_pred gs
-    sb = fmap (South,) $ listTo minimum $ map (border North) $ filter south_pred gs
-    eb = fmap (East,)  $ listTo minimum $ map (border West ) $ filter east_pred  gs
-    wb = fmap (West,)  $ listTo maximum $ map (border East ) $ filter west_pred  gs
-
-    listTo _ [] = Nothing
-    listTo f ls = Just $ f ls
+    nb = fmap (North,) . listTo maximum . map (border South) . filter north_pred $ gs
+    sb = fmap (South,) . listTo minimum . map (border North) . filter south_pred $ gs
+    eb = fmap (East,)  . listTo minimum . map (border West ) . filter east_pred  $ gs
+    wb = fmap (West,)  . listTo maximum . map (border East ) . filter west_pred  $ gs
 
     north_pred g' = north g >= south g' && hasOverlap North g g'
     south_pred g' = south g <= north g' && hasOverlap South g g'
     east_pred  g' = east  g <= west  g' && hasOverlap East  g g'
     west_pred  g' = west  g >= east  g' && hasOverlap West  g g'
+
+    listTo _ [] = Nothing
+    listTo f ls = Just $ f ls
 
 
 closestBorders :: Geometry
