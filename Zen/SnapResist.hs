@@ -6,7 +6,7 @@
 module SnapResist (moveSnapResist) where
 
 import Data.Word
-import Data.Maybe (isJust, fromJust, catMaybes, fromMaybe)
+import Data.Maybe (listToMaybe, isJust, fromJust, catMaybes, fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
@@ -16,7 +16,7 @@ import Control.Exception (bracket)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Arrow ((***), first, second)
-import Control.Applicative ((<*>), (<$>))
+import Control.Applicative ((<*>), (<$>), (<|>))
 -- import Control.Concurrent (forkIO)
 import Graphics.XHB
 import Graphics.X11.Xlib.Font (Glyph)
@@ -67,35 +67,217 @@ instance DeltaClass Position where
 moveSnapResist e epos rpos client clients = do
     -- bwidth <- asksL (config . borderWidth) (2 *)
     -- proximity <- askL snapProximity
-    let proximity = (50 :: Distance)
+    let proximity = (100 :: Distance)
     -- snap_mod <- askL snapMod
     let snap_mod = KeyButMaskShift
 
-    let snap_borders = join (***) (>>= do_snap_user snap_mod)
-                     $ snapBorders proximity cgeometries cgeometry rel_pos
+    -- let snap_borders = join (***) (>>= do_snap_user snap_mod)
+    --                  $ snapBorders proximity cgeometries cgeometry r_rel_pos
 
-        resist_borders = join (***) (fmap adjust_border)
-                       $ resistBorders cgeometry cgeometries
+        -- resist_borders = join (***) (fmap adjust_border)
+        --                $ resistBorders cgeometry cgeometries
 
     -- let bx = fst snap_borders <|> fst resist_borders >>= checkpos >>= 
     --     by = snd snap_borders <|> snd resist_borders
 
-    let ax = abs_pos ^. x
-        ay = abs_pos ^. y
-
-        -- px = fromMaybe ax $ mx (fst snap_borders >>= do_snap_proximity (edelta ^. x) proximity)
-        --                        (fst resist_borders)
-
-        -- py = fromMaybe ay $ my (snd snap_borders >>= do_snap_proximity (edelta ^. y) proximity)
-        --                        (snd resist_borders)
+    let erx = e_rel_pos ^. x
+    let ery = e_rel_pos ^. y
+    let rrx = r_rel_pos ^. x
+    let rry = r_rel_pos ^. y
 
 
+    let cpos = cgeometry ^. position
+    let npos = cgeometry ^. position + r_rel_pos
+        ax = npos ^. x
+        ay = npos ^. y
 
-    let mx = checkpos (fst move_directions) (fst snap_borders) (fst resist_borders)
-    let my = checkpos (snd move_directions) (snd snap_borders) (snd resist_borders)
+    let ax' = abs_pos ^. x
+        ay' = abs_pos ^. y
 
-    let px = fromMaybe ax $ fmap (checkdelta ax proximity (edelta ^. x)) mx
-    let py = fromMaybe ay $ fmap (checkdelta ay proximity (edelta ^. y)) my
+    -- let mx = checkpos (fst move_directions) (fst snap_borders) (fst resist_borders)
+    -- let my = checkpos (snd move_directions) (snd snap_borders) (snd resist_borders)
+
+    -- let snap_position = Position (fromMaybe ax $ fst snap_borders)
+    --                              (fromMaybe ay $ snd snap_borders)
+
+    -- let resist_position = checkPosition cgeometry abs_pos
+
+    let adjacent_borders = adjacentBorders cgeometry cgeometries
+    -- let resist_position = checkPosition cgeometry snap_position adjacent_borders
+    -- let resist_position = checkPosition cgeometry (Position ax' ay') proximity (erx, ery) adjacent_borders
+    let resist_position = checkPosition cgeometry (Position ax' ay') adjacent_borders
+    -- let resist_position = checkPosition cgeometry snap_position adjacent_borders
+
+    -- let merger f s r = if isJust (f s) then f s else f r
+
+    -- let mx = merger fst snap_borders resist_position
+    -- let my = merger snd snap_borders resist_position
+
+    -- let mx = (fst snap_borders) <|> (fst resist_position)
+    -- let my = (snd snap_borders) <|> (snd resist_position)
+
+    -- let mx = fst resist_position
+    -- let my = snd resist_position
+
+    -- let sx = fst snap_borders
+    -- let sy = snd snap_borders
+
+    -- let x_pred (d,_) = d == East  || d == West
+    -- let y_pred (d,_) = d == North || d == South
+
+    {-
+    let sxs = filter x_pred adjacent_borders
+    let sys = filter y_pred adjacent_borders
+
+    let checkborder Nothing    (d,b) = Just (d,b)
+        checkborder (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
+
+    let sx = fmap snd $ listToMaybe $ if keypress snap_mod
+        then sxs
+        else catMaybes $ map (checkborder $ fst move_directions) sxs
+
+    let sy = fmap snd $ listToMaybe $ if keypress snap_mod
+        then sys
+        else catMaybes $ map (checkborder $ snd move_directions) sys
+    -}
+
+
+    -- let sy = if keypress snap_mod
+    --     then listToMaybe $ map snd $ filter y_pred adjacent_borders
+    --     else Nothing
+
+
+    -- let stick_x = fmap (unstick proximity erx) $ fst resist_position -- >>= stick proximity erx
+    -- let stick_y = fmap (unstick proximity ery) $ snd resist_position -- >>= stick proximity ery
+
+    -- let stick_x = fmap snd . listToMaybe . filter x_pred . catMaybes
+    --             . stick adjacent_borders erx $ ax' -- (cpos ^. x)
+    -- let stick_y = fmap snd . listToMaybe . filter y_pred . catMaybes
+    --             . stick adjacent_borders ery $ ay' -- (cpos ^. y)
+
+    -- let px = fromMaybe ax $  stick_x
+    -- let py = fromMaybe ay $  stick_y
+
+    -- let px = fromMaybe ax $ (fst snap_borders <|> stick_x)
+    -- let py = fromMaybe ay $ (snd snap_borders <|> stick_y)
+    -- let px = fromMaybe ax $ (sx <|> mx) >>= checkdelta proximity (e_rel_pos ^. x)
+    -- let py = fromMaybe ay $ (sy <|> my) >>= checkdelta proximity (e_rel_pos ^. y)
+
+    -- let px = fromMaybe ax xxx
+    -- let py = fromMaybe ay yyy
+
+    let nearest_borders = closestBorders cgeometry $ catMaybes $ nearestBorders proximity cgeometry cgeometries
+
+
+    let nx (mx,_) = mx
+    let ny (_,my) = my
+    let nxlst (mx,_) = catMaybes [mx]
+    let nylst (_,my) = catMaybes [my]
+
+    -- let nx (_,_,e,w) = closest cgeometry e w
+    -- let ny (n,s,_,_) = closest cgeometry n s
+    -- let nxlst (_,_,e,w) = catMaybes [nx nearest_borders]
+    -- let nylst (n,s,_,_) = catMaybes [ny nearest_borders]
+
+            -- | d == East  && b  - b'  > 0 && b - b'  < proximity = Just b
+
+            -- | (abs (b' - b) > 0 && abs (b' - b) < proximity) = Just b
+            -- | b == b' = Just b
+
+    -- let sx = if keypress snap_mod
+    --     then snapBorder (fst move_directions) cgeometry (nxlst nearest_borders)
+
+    let nxlst' = nxlst nearest_borders
+    let snap_border_x = nx nearest_borders >>= snapBorder cgeometry (fst move_directions) -- nxlst'
+    let sticky_x = nx nearest_borders >>= stickyBorder cgeometry
+    let stick_x = fmap (finishBorder cgeometry)
+                       (snap_border_x <|> sticky_x
+                          >>= unstickBorder cgeometry proximity ax')
+
+    let nylst' = nylst nearest_borders
+    let snap_border_y = ny nearest_borders >>= snapBorder cgeometry (snd move_directions) -- nylst'
+    let sticky_y = ny nearest_borders >>= stickyBorder cgeometry
+    let stick_y = fmap (finishBorder cgeometry)
+                       (snap_border_y <|> sticky_y
+                          >>= unstickBorder cgeometry proximity ay')
+
+    let resist_x = nx nearest_borders >>= useBorder proximity cgeometry ax'
+    let resist_y = ny nearest_borders >>= useBorder proximity cgeometry ay'
+
+    toLog $ ("border East cgeometry: " ++) . show $ border East cgeometry
+    toLog $ ("border South cgeometry: " ++) . show $ border South cgeometry
+    toLog $ ("nxlst': " ++) . show $ nxlst'
+    toLog $ ("nylst': " ++) . show $ nylst'
+    toLog $ ("snap_border_x: " ++) . show $ snap_border_x
+    toLog $ ("snap_border_y: " ++) . show $ snap_border_y
+    toLog $ ("sticky_x: " ++) . show $ sticky_x
+    toLog $ ("stick_x: " ++) . show $ stick_x
+    toLog $ ("sticky_y: " ++) . show $ sticky_y
+    toLog $ ("stick_y: " ++) . show $ stick_y
+
+    toLog $ ("resist_x: " ++) . show $ resist_x
+    toLog $ ("resist_y: " ++) . show $ resist_y
+
+    let px = fromMaybe ax' $ if keypress snap_mod
+        then stick_x
+        else resist_x
+
+    let py = fromMaybe ay' $ if keypress snap_mod
+        then stick_y
+        else resist_y
+
+
+    -- let px = fromMaybe ax' $ (nx nearest_borders)
+    --                          >>= useBorder proximity cgeometry ax'
+    -- let py = fromMaybe ay' $ (ny nearest_borders)
+    --                          >>= useBorder proximity cgeometry ay'
+
+    -- toLog $ ("snapBorder x: " ++) . show $ snapBorder (if keypress snap_mod then fst move_directions else Nothing)
+    --                                                   cgeometry
+    --                                                   (nxlst nearest_borders)
+    -- toLog $ ("snapBorder y: " ++) . show $ snapBorder (if keypress snap_mod then snd move_directions else Nothing)
+    --                                                   cgeometry
+    --                                                   (nylst nearest_borders)
+
+    -- let px' = if keypress snap_mod
+    --     then case fst move_directions of
+    --             Just dir -> Just $ nx nearest_borders
+    --             _ -> Nothing
+    --     else Nothing
+
+
+    -- toLog $ "xxx: " ++ show xxx
+    -- toLog $ "yyy: " ++ show yyy
+    -- toLog $ ("adjacentBorders: " ++) . show $ adjacentBorders cgeometry cgeometries
+    -- toLog $ ("makePosition: " ++) . show $ makePosition cgeometry $ adjacentBorders cgeometry cgeometries
+
+    toLog $ ("move_directions: " ++) . show $ move_directions
+    toLog $ ("cgeometry: " ++) . show $ cgeometry
+    -- toLog $ ("npos: " ++) . show $ npos
+    -- toLog $ ("cpos: " ++) . show $ cpos
+    -- toLog $ ("cpos - root_pos: " ++) . show $ cpos - root_pos
+    -- toLog $ ("cpos - event_pos: " ++) . show $ cpos - event_pos
+    -- toLog $ ("abs_pos: " ++) . show $ abs_pos
+    toLog $ ("rpos: " ++) . show $ rpos
+    toLog $ ("epos: " ++) . show $ epos
+    toLog $ ("root_pos: " ++) . show $ root_pos
+    toLog $ ("event_pos: " ++) . show $ event_pos
+    toLog $ ("r_rel_pos: " ++) . show $ r_rel_pos
+    toLog $ ("e_rel_pos: " ++) . show $ e_rel_pos
+    -- toLog $ ("snap_borders: " ++) . show $ snap_borders
+    -- toLog $ ("resist_position: " ++) . show $ resist_position
+    -- toLog $ ("adjacent_borders: " ++) . show $ adjacent_borders
+    toLog $ "ax : " ++ show ax  ++ ", ay : " ++ show ay
+    toLog $ "ax': " ++ show ax' ++ ", ay': " ++ show ay'
+    toLog $ "px : " ++ show px  ++ ", py : " ++ show py
+
+    -- toLog $ ("stick x: " ++) . show $ stick_x
+    -- toLog $ ("stick y: " ++) . show $ stick_y
+
+    toLog $ ("nearestBorders: " ++) . show $ nearest_borders
+
+    -- toLog $ "resistBorders: " ++ show resist_borders
+    -- toLog $ "yyy: " ++ show yyy
 
     sendMessage_ $ ModifyClient window $ changePosition
                  $ Position px py
@@ -112,22 +294,41 @@ moveSnapResist e epos rpos client clients = do
     cgeometry = client ^. geometry
     cgeometries = cgeometry `L.delete` map (^. geometry) clients
 
+    root_pos = Position (fi root_x) (fi root_y)
+    event_pos = Position (fi event_x) (fi event_y)
     abs_pos = Position (fi root_x) (fi root_y) - epos
-    rel_pos = Position (fi root_x) (fi root_y) - rpos
+    r_rel_pos = Position (fi root_x) (fi root_y) - rpos
+    e_rel_pos = Position (fi event_x) (fi event_y) - epos
 
     -- let delta = abs $ epos - Position (fi $ event_x) (fi $ event_y)
     -- rdelta = delta rpos $ Position root_x root_y
-    edelta = delta epos $ Position (fi event_x) (fi event_y)
+    -- edelta = delta epos $ Position (fi event_x) (fi event_y)
 
-    move_directions = directions rel_pos
+    move_directions = directions r_rel_pos
 
-    do_snap_user k b = if k `elem` state_MotionNotifyEvent e then Just b else Nothing
+    keypress k = k `elem` state_MotionNotifyEvent e
+    do_snap_user k b = if keypress k then Just b else Nothing
     -- do_snap_proximity d p b = if d > p then Just b else Nothing
 
     adjust_border (d, b) = (d, adjustBorder d cgeometry b)
 
     -- mx = checkpos (fst move_directions)
     -- my = checkpos (snd move_directions)
+
+    -- proximity = 50
+    -- snap_borders = snapBorders' cgeometry cgeometries proximity move_directions
+    -- adjacent_borders = adjacentBorders cgeometry cgeometries
+
+    -- resist_borders = resistBorders'' move_directions $ adjacent_borders
+    -- resist_borders = resistBorders''' cgeometry move_directions $ adjacent_borders
+
+    -- xxx = fst resist_borders >>= checkdelta' proximity (edelta ^. x)
+    -- yyy = snd resist_borders >>= checkdelta' proximity (edelta ^. y)
+
+    -- xxx = fst resist_borders >>= checkdelta' proximity (edelta ^. x)
+    -- yyy = snd resist_borders >>= checkdelta' proximity (edelta ^. y)
+    -- xxx = fst snap_borders <|> fst resist_borders >>= checkdelta' proximity (edelta ^. x)
+    -- yyy = snd snap_borders <|> snd resist_borders >>= checkdelta' proximity (edelta ^. y)
 
     checkpos :: Maybe Direction -> Maybe Border -> Maybe (Direction, Border) -> Maybe Border
     checkpos _    def Nothing   = def
@@ -137,8 +338,32 @@ moveSnapResist e epos rpos client clients = do
     checkdir (_, b) Nothing    = Just b
     checkdir (d, b) (Just dir) = if d == dir then Just b else Nothing
 
-    checkdelta :: Border -> Distance -> Delta -> Border -> Border
-    checkdelta def p d b = if d > p then def else b
+    -- checkdelta :: Border -> Distance -> Delta -> Border -> Border
+    -- checkdelta def p d b = if d > p then def else b
+
+    checkdelta :: Distance -> Delta -> Border -> Maybe Border
+    checkdelta p d b = if abs d > p then Nothing else Just b
+
+    -- checkdelta p d b
+    --     | abs d > p = Just (b + d)
+    --     | abs d > 0 = Just b
+    --     | otherwise = Just b
+
+        -- if abs d > 0 then Just (b + d) else Just b
+
+    -- delta = (0, 101); prox = 100
+    -- when 101 > 100
+    -- checkdelta :: Distance
+    --            -> (Delta, Delta)
+    --            -> (Maybe Border, Maybe Border)
+    --            -> (Maybe Border, Maybe Border)
+    -- checkdelta p d b = if d > p then Nothing else Just b
+
+
+    -- checkdelta def p d b = if d > p then def else if d == p then b - p else b
+
+    -- checkdelta' :: Distance -> Delta -> Border -> Maybe Border
+    -- checkdelta' p d b = if p > d then Just b else Nothing
 
 
     -- checkdir :: (Direction, Border) -> Direction -> Maybe Border
@@ -168,7 +393,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
 
     -- let npos = Position (fi root_x - ppos ^. x) (fi root_y - ppos ^. y)
     let abs_pos = Position (fi root_x) (fi root_y) - epos
-    let rel_pos = Position (fi root_x) (fi root_y) - rpos
+    let r_rel_pos = Position (fi root_x) (fi root_y) - rpos
 
     let bw = 6
         dist = 50
@@ -178,9 +403,9 @@ doMoveMotionNotify e (M epos rpos) clients client = do
         cgeometries = cgeometry `L.delete` map (^. geometry) clients
 
     toLog . ("client: " ++) $ show client
-    toLog . ("doSnap2: " ++) . show $ doSnap2 bw dist cgeometries cgeometry rel_pos
+    toLog . ("doSnap2: " ++) . show $ doSnap2 bw dist cgeometries cgeometry r_rel_pos
 
-    let dirs = directions rel_pos
+    let dirs = directions r_rel_pos
     toLog $ ("directions: " ++) . show $ dirs
 
     let applyCorrection (d, b) = (d, adjustBorder d cgeometry b)
@@ -192,7 +417,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
 
     let check_snap b = if want_snap then Just b else Nothing
     let snap_pos = join (***) (>>= check_snap)
-                 $ doSnap2 bw dist cgeometries cgeometry rel_pos
+                 $ doSnap2 bw dist cgeometries cgeometry r_rel_pos
 
         -- do_snap (x, y) = (x >>= check_snap, y >>= check_snap)
 
@@ -251,7 +476,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
     toLog $ ("root_x: " ++) . show $ root_x
     toLog $ ("root_y: " ++) . show $ root_y
     toLog $ ("abs_pos: " ++) . show $ abs_pos
-    toLog $ ("rel_pos: " ++) . show $ rel_pos
+    toLog $ ("r_rel_pos: " ++) . show $ r_rel_pos
     toLog $ ("snap_pos: " ++) . show $ snap_pos
     toLog $ ("delta: " ++) . show $ delta
 
@@ -324,21 +549,179 @@ directions p = (x_edge, y_edge)
         | otherwise    = Nothing
 
 
-snapBorders :: 
-           Distance
-        -> [Geometry]
-        -> Geometry
-        -> Position
-        -> (Maybe Border, Maybe Border)
-snapBorders distance geometries g p = closest_borders $ directions p
+-- snapBorders' :: Geometry
+--             -> [Geometry]
+--             -> Distance
+--             -> (Maybe Direction, Maybe Direction)
+--             -> (Maybe Border, Maybe Border)
+-- snapBorders' cg cgs distance = closest_borders
+--     where
+--     closest_border edge = closestBorder distance edge cgs cg
+--     closest_borders (ex, ey) = (ex >>= closest_border, ey >>= closest_border)
+
+-- snapBorders :: 
+--            Distance
+--         -> [Geometry]
+--         -> Geometry
+--         -> Position
+--         -> (Maybe Border, Maybe Border)
+-- snapBorders distance geometries g p = closest_borders $ directions p
+--     where
+--     closest_border edge = closestBorder distance edge geometries g
+--     closest_borders (ex, ey) = (ex >>= closest_border, ey >>= closest_border)
+
+
+{-
+resistBorders' :: Geometry
+               -> [Geometry]
+               -> (Maybe Direction, Maybe Direction)
+               -> (Maybe Border, Maybe Border)
+resistBorders' g = undefined
+-}
+
+
+resistBorders''' :: Geometry
+                 -> (Maybe Direction, Maybe Direction)
+                 -> [(Direction, Border)]
+                 -> (Maybe Border, Maybe Border)
+resistBorders''' g (dx, dy) dbl = (findBorderX dbl dx, findBorderY dbl dy)
     where
-    closest_border edge = closestBorder distance edge geometries g
-    closest_borders (ex, ey) = (ex >>= closest_border, ey >>= closest_border)
+    -- findBorderX ((d,b):dbs) dir
+    --     -- | d == dir && (d == East || d == West) = if border d g == b then Just b else findBorderX dbs
+    --     | d == dir = if border d g == b then Just b else findBorderX dbs dir
+    --     | otherwise = findBorderX dbs dir
+    -- findBorderX _           _ = Nothing
+
+    -- findBorderY ((d,b):dbs) dir
+    --     -- | d == North || d == South = if border d g == b then Just b else findBorderY dbs
+    --     | d == dir = if border d g == b then Just b else findBorderY dbs dir
+    --     | otherwise = findBorderY dbs dir
+    -- findBorderY _           _ = Nothing
+
+    check (d,b) f = if border d g == b then Just b else f
+
+    -- findBorder ((d,b):dbs) dir
+    --     | d == dir = check (d,b) $ findBorder dbs dir
+    --     | otherwise = findBorder dbs dir
+    -- findBorder _ _ = Nothing
+
+
+    findBorderY ((d,b):dbs) (Just dir)
+        | d == dir = check (d,b) $ findBorderY dbs $ Just dir
+        | otherwise = findBorderY dbs $ Just dir
+    findBorderY ((d,b):dbs) Nothing
+        | d == North || d == South = check (d,b) $ findBorderY dbs Nothing
+        | otherwise = findBorderY dbs Nothing
+    findBorderY _ _ = Nothing
+
+
+    findBorderX ((d,b):dbs) (Just dir)
+        | d == dir = check (d,b) $ findBorderX dbs $ Just dir -- if border d g == b then Just b else findBorder dbs dir
+        | otherwise = findBorderX dbs $ Just dir
+    findBorderX ((d,b):dbs) Nothing
+        | d == East || d == West = check (d,b) $ findBorderX dbs Nothing
+        | otherwise = findBorderX dbs Nothing
+    findBorderX _ _ = Nothing
+
+
+        -- = if  == dir then Just b else findBorder dbs dir
+
+
+resistBorders'' :: (Maybe Direction, Maybe Direction)
+                -> [(Direction, Border)]
+                -> (Maybe Border, Maybe Border)
+resistBorders'' (dx, dy) dbl = (dx >>= findBorder dbl, dy >>= findBorder dbl)
+    where
+    findBorder ((d,b):dbs) dir = if d == dir then Just b else findBorder dbs dir
+    findBorder _           _   = Nothing
+
+
+{-
+makePosition' :: Geometry
+              -> (Maybe Direction, Maybe Direction)
+              -> [(Direction, Border)]
+              -> (Maybe Int, Maybe Int)
+makePosition' g (dx, dy) dbs = (fmap pos mxpos, fmap pos mypos)
+    where
+    mxpos = join . listToMaybe . map (checkdir dx) . filter xpred $ dbs
+    mypos = join . listToMaybe . map (checkdir dy) . filter ypred $ dbs
+
+    xpred (d,_) = d == East  || d == West
+    ypred (d,_) = d == North || d == South
+
+    checkdir Nothing    (d,b) = Just (d,b)
+    checkdir (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
+
+    pos (d, b) | d == South || d == East = border (opposite d) g
+               | otherwise = b
+-}
+
+
+unstick :: Distance -> Delta -> Int -> Int
+unstick proximity delta b = if abs delta < proximity then b else b + delta
+
+checkPosition :: Geometry
+              -> Position
+              -> [(Direction, Border)]
+              -> (Maybe Int, Maybe Int)
+checkPosition g (Position npx npy) dbs = (xs, ys)
+    where
+    xs = fmap pos . listToMaybe . filter (pred (East , West )) $ dbs
+    ys = fmap pos . listToMaybe . filter (pred (North, South)) $ dbs
+
+    pred (d1,d2) (d,b) = (d == d1 || d == d2) && check (d,b)
+
+    pos (d, b) | d == South || d == East = border (opposite d) g
+               | otherwise = b
+
+    check (d,b)
+        | d == North = npy < b
+        | d == South = npy > b
+        | d == East  = npx > b
+        | d == West  = npx < b
+
+
+{-
+checkPosition :: Geometry
+              -> Position
+              -> [(Direction, Border)]
+              -> (Maybe Int, Maybe Int)
+checkPosition g (Position npx npy) dbs = (xs, ys)
+    where
+    xs = fmap pos . listToMaybe . filter xpred $ dbs
+    ys = fmap pos . listToMaybe . filter ypred $ dbs
+
+    xpred (d,b) = (d == East  || d == West ) && check (d,b)
+    ypred (d,b) = (d == North || d == South) && check (d,b)
+
+    pos (d, b) | d == South || d == East = border (opposite d) g
+               | otherwise = b
+
+    check (d,b)
+        | d == North = npy < b
+        | d == South = npy > b
+        | d == East  = npx > b
+        | d == West  = npx < b
+-}
+
+
+makePosition :: Geometry -> [(Direction, Border)] -> (Maybe Int, Maybe Int)
+makePosition g dbs = (listToMaybe xs, listToMaybe ys)
+    where xs = map pos $ filter (\(d,_) -> d == East  || d == West ) dbs
+          ys = map pos $ filter (\(d,_) -> d == North || d == South) dbs
+          pos (d, b) | d == South || d == East = border (opposite d) g
+                     | otherwise = b
+
+
+adjacentBorders :: Geometry
+              -> [Geometry]
+              -> [(Direction, Border)]
+adjacentBorders g = concatMap (compareBorders g)
 
 
 resistBorders :: Geometry
-            -> [Geometry]
-            -> (Maybe (Direction, Border), Maybe (Direction, Border))
+              -> [Geometry]
+              -> (Maybe (Direction, Border), Maybe (Direction, Border))
 resistBorders g = result . concatMap (compareBorders g)
     where
     result :: [(Direction, Border)]
@@ -355,6 +738,109 @@ resistBorders g = result . concatMap (compareBorders g)
                                 )
 
 
+finishBorder :: Geometry -> (Direction, Border) -> Border
+finishBorder g (d,b) = adjustBorder d g b
+
+-- unstickBorder :: Geometry -> Distance -> Border -> Border -> Maybe Border
+unstickBorder :: Geometry -> Distance -> Border -> (Direction, Border) -> Maybe (Direction, Border)
+unstickBorder g p b' (d,b) -- = if abs (b' - b) < p then Just b else Nothing
+    | (d == North || d == West) && abs (b' - b) < p                                  = Just (d,b)
+    |  d == South               && abs (b' - (b - fi (g ^. dimension . height))) < p = Just (d,b)
+    |  d == East                && abs (b' - (b - fi (g ^. dimension . width))) < p  = Just (d,b)
+    | otherwise                                                = Nothing
+    -- | d == South && abs (b' - (b - border d g)) < p = Just (d,b)
+    -- b - border g 
+
+    -- | d == South && b' - bs < p = Just bs
+    -- | d == East  && b' - be < p = Just be
+    -- | otherwise                                        = Nothing
+    -- where bs = b - fi (g ^. dimension . height)
+    --       be = b - fi (g ^. dimension . width)
+
+
+
+stickyBorder :: Geometry -> (Direction, Border) -> Maybe (Direction, Border)
+stickyBorder g (d,b) = if border d g == b then Just (d,b) else Nothing
+    -- where isSticky (d,b) = border d g == b
+
+
+snapBorder :: Geometry
+           -> Maybe Direction
+           -> (Direction, Border)
+           -> Maybe (Direction, Border)
+snapBorder _ Nothing    _     = Nothing
+snapBorder g (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
+
+
+useBorder :: Distance
+          -> Geometry
+          -> Border
+          -> (Direction, Border)
+          -> Maybe Border
+useBorder proximity cgeometry b' (d,b)
+    | d == North && b  - b' > 0 && b  - b' < proximity = Just b
+    | d == West  && b  - b' > 0 && b  - b' < proximity = Just b
+    | d == South && b' - bs > 0 && b' - bs < proximity = Just bs
+    | d == East  && b' - be > 0 && b' - be < proximity = Just be
+    | otherwise                                        = Nothing
+    where bs = b - fi (cgeometry ^. dimension . height)
+          be = b - fi (cgeometry ^. dimension . width)
+
+
+-- nearestBorders :: Distance -> Geometry -> [Geometry]
+--                -> ( Maybe (Direction, Border), Maybe (Direction, Border)
+--                   , Maybe (Direction, Border), Maybe (Direction, Border))
+-- nearestBorders distance g gs = (nb, sb, eb, wb)
+nearestBorders distance g gs = [nb, sb, eb, wb]
+    where
+    nb = fmap (North,) $ listTo maximum $ map (south) $ filter north_pred gs
+    sb = fmap (South,) $ listTo minimum $ map (north) $ filter south_pred gs
+    eb = fmap (East,)  $ listTo minimum $ map (west ) $ filter east_pred  gs
+    wb = fmap (West,)  $ listTo maximum $ map (east ) $ filter west_pred  gs
+
+    listTo f [] = Nothing
+    listTo f ls = Just $ f ls
+
+    north_pred g' = north g >= south g' && hasOverlap North g g'
+    south_pred g' = south g <= north g' && hasOverlap South g g'
+    east_pred  g' = east  g <= west  g' && hasOverlap East  g g'
+    west_pred  g' = west  g >= east  g' && hasOverlap West  g g'
+
+
+-- closest :: Geometry
+--         -> Maybe (Direction, Border)
+--         -> Maybe (Direction, Border)
+--         -> Maybe (Direction, Border)
+-- closest _ Nothing    Nothing   = Nothing
+-- closest _ (Just db)  Nothing   = (Just db)
+-- closest _ Nothing    (Just db) = (Just db)
+-- closest g (Just (d1,b1)) (Just (d2,b2))
+--     | d1 == North = Just $ if b1 - s < n - b2 then (d2,b2) else (d1,b1)
+--     | d1 == East  = Just $ if w - b1 < b2 - e then (d2,b2) else (d1,b1)
+--     | otherwise = error "closest :: Geometry -> Maybe (Direction, Border) -> Maybe (Direction, Border) -> Maybe (Direction, Border)"
+--     where
+--     n = north g
+--     s = south g
+--     e = east g
+--     w = west g
+
+
+closestBorders :: Geometry
+               -> [(Direction, Border)]
+               -> (Maybe (Direction, Border), Maybe (Direction, Border))
+closestBorders g dbs = (mx, my)
+    where
+    mx = listToMaybe . L.sortBy cmp . filter xs $ dbs
+    my = listToMaybe . L.sortBy cmp . filter ys $ dbs
+
+    xs (d,b) = d == East  || d == West
+    ys (d,b) = d == North || d == South
+
+    cmp (d1,b1) (d2,b2)
+        | abs (b1 - border (opposite d1) g) < abs (b2 - border (opposite d2) g) = LT
+        | otherwise                                                             = GT
+
+
 compareBorders :: Geometry -> Geometry -> [(Direction, Border)]
 compareBorders g' g'' = catMaybes $ map (cmp g' g'')
     [ (North, (north, south))
@@ -363,26 +849,30 @@ compareBorders g' g'' = catMaybes $ map (cmp g' g'')
     , (West,  (west, east))
     ]
     where
+    fuzz = 10
     cmp :: Geometry
         -> Geometry
         -> (Direction, (Geometry -> Border, Geometry -> Border))
         -> Maybe (Direction, Border)
     cmp g1 g2 (d, (f1, f2))
-        | f1 g1 == f2 g2 && hasOverlap d g1 g2 = Just (d, f1 g1)
+        -- ???
+        -- | f1 g1 == f2 g2 && hasOverlap d g1 g2 = Just (d, f1 g1)
+        | f1 g1 == f2 g2 = Just (d, f1 g1)
+        -- | f2 g2 < (f1 g1 + fuzz) && f2 g2 > (f1 g1 - fuzz) = Just (d, f2 g2)
         | otherwise                            = Nothing
 
 
-closestBorder :: Distance
-               -> Direction
-               -> [Geometry]
-               -> Geometry
-               -> Maybe Border
-closestBorder distance direction geometries g = (adjustBorder direction g) <$>
-    ( closest direction
-    . filter (within distance direction $ border direction g)
-    . borders (opposite direction)
-    . filter (hasOverlap direction g)
-    $ g `L.delete` geometries)
+-- closestBorder :: Distance
+--                -> Direction
+--                -> [Geometry]
+--                -> Geometry
+--                -> Maybe Border
+-- closestBorder distance direction geometries g = (adjustBorder direction g) <$>
+--     ( closest direction
+--     . filter (within distance direction $ border direction g)
+--     . borders (opposite direction)
+--     . filter (hasOverlap direction g)
+--     $ g `L.delete` geometries)
 
 
 adjustBorder :: Direction -> Geometry -> Border -> Border
@@ -413,12 +903,12 @@ within distance e ab ob
     | otherwise  = False
 
 
-closest :: Direction -> [Border] -> Maybe Border
-closest _ [] = Nothing
-closest e bs
-    | e == North || e == West = Just $ maximum bs
-    | e == South || e == East = Just $ minimum bs
-    | otherwise               = Nothing
+-- closest :: Direction -> [Border] -> Maybe Border
+-- closest _ [] = Nothing
+-- closest e bs
+--     | e == North || e == West = Just $ maximum bs
+--     | e == South || e == East = Just $ minimum bs
+--     | otherwise               = Nothing
 
 
 border :: Direction -> Geometry -> Int
