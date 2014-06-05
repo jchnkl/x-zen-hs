@@ -111,10 +111,7 @@ moveSnapResist e epos rpos client clients = do
     toLog $ ("cgeometry: " ++) . show $ cgeometry
     toLog $ ("rpos: " ++) . show $ rpos
     toLog $ ("epos: " ++) . show $ epos
-    toLog $ ("root_pos: " ++) . show $ root_pos
-    toLog $ ("event_pos: " ++) . show $ event_pos
     toLog $ ("r_rel_pos: " ++) . show $ r_rel_pos
-    toLog $ ("e_rel_pos: " ++) . show $ e_rel_pos
     toLog $ "ax : " ++ show ax  ++ ", ay : " ++ show ay
     toLog $ "ax': " ++ show ax' ++ ", ay': " ++ show ay'
     toLog $ "px : " ++ show px  ++ ", py : " ++ show py
@@ -130,17 +127,12 @@ moveSnapResist e epos rpos client clients = do
     window = event_MotionNotifyEvent e
     root_x = root_x_MotionNotifyEvent e
     root_y = root_y_MotionNotifyEvent e
-    event_x = event_x_MotionNotifyEvent e
-    event_y = event_y_MotionNotifyEvent e
 
     cgeometry = client ^. geometry
     cgeometries = cgeometry `L.delete` map (^. geometry) clients
 
-    root_pos = Position (fi root_x) (fi root_y)
-    event_pos = Position (fi event_x) (fi event_y)
     abs_pos = Position (fi root_x) (fi root_y) - epos
     r_rel_pos = Position (fi root_x) (fi root_y) - rpos
-    e_rel_pos = Position (fi event_x) (fi event_y) - epos
 
     move_directions = directions r_rel_pos
 
