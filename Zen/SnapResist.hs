@@ -246,8 +246,12 @@ hasOverlap :: Direction -> Geometry -> Geometry -> Bool
 hasOverlap e ag og
     | e == North || e == South = (west ag > west og && west ag < east og)
                               || (east ag < east og && east ag > west og)
+                              || east ag == east og
+                              || west ag == west og
     | otherwise                = (north ag > north og && north ag < south og)
                               || (south ag < south og && south ag > north og)
+                              || north ag == north og
+                              || south ag == south og
 
 
 border :: Direction -> Geometry -> Int
