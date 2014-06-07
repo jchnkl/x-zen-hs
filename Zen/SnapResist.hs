@@ -5,8 +5,10 @@
 
 module SnapResist (moveSnapResist) where
 
+import Data.Ord (comparing)
+import Data.Function (on)
 import Data.Word
-import Data.Maybe (listToMaybe, isJust, fromJust, catMaybes, fromMaybe)
+import Data.Maybe (maybeToList, listToMaybe, isJust, fromJust, catMaybes, fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
@@ -64,39 +66,33 @@ moveSnapResist e epos rpos client clients = do
 
     let nx (mx,_) = mx
     let ny (_,my) = my
-    let nxlst (mx,_) = catMaybes [mx]
-    let nylst (_,my) = catMaybes [my]
 
-    let nxlst' = nxlst nearest_borders
     let snap_border_x = nx nearest_borders >>= snapBorder cgeometry (fst move_directions) -- nxlst'
     let sticky_x = nx nearest_borders >>= stickyBorder cgeometry
     let stick_x = fmap (finishBorder cgeometry)
                        (snap_border_x <|> sticky_x
                           >>= unstickBorder cgeometry proximity ax')
 
-    let nylst' = nylst nearest_borders
     let snap_border_y = ny nearest_borders >>= snapBorder cgeometry (snd move_directions) -- nylst'
     let sticky_y = ny nearest_borders >>= stickyBorder cgeometry
     let stick_y = fmap (finishBorder cgeometry)
                        (snap_border_y <|> sticky_y
                           >>= unstickBorder cgeometry proximity ay')
 
-    let resist_x = nx nearest_borders >>= useBorder proximity cgeometry ax'
-    let resist_y = ny nearest_borders >>= useBorder proximity cgeometry ay'
+    let next_border_x = fmap (nextBorder cgeometry cgeometries (fst move_directions)) (ny nearest_borders)
+    let next_border_y = fmap (nextBorder cgeometry cgeometries (snd move_directions)) (nx nearest_borders)
+    toLog $ ("next_border_x: " ++) . show $ next_border_x
+    toLog $ ("next_border_y: " ++) . show $ next_border_y
 
-    toLog $ ("border East cgeometry: " ++) . show $ border East cgeometry
-    toLog $ ("border South cgeometry: " ++) . show $ border South cgeometry
-    toLog $ ("nxlst': " ++) . show $ nxlst'
-    toLog $ ("nylst': " ++) . show $ nylst'
-    toLog $ ("snap_border_x: " ++) . show $ snap_border_x
-    toLog $ ("snap_border_y: " ++) . show $ snap_border_y
-    toLog $ ("sticky_x: " ++) . show $ sticky_x
-    toLog $ ("stick_x: " ++) . show $ stick_x
-    toLog $ ("sticky_y: " ++) . show $ sticky_y
-    toLog $ ("stick_y: " ++) . show $ stick_y
+    let resist_x = useBorder' proximity cgeometry ax' $
+                   (concat . maybeToList $ next_border_x)
+                   ++
+                   (maybeToList $nx nearest_borders)
 
-    toLog $ ("resist_x: " ++) . show $ resist_x
-    toLog $ ("resist_y: " ++) . show $ resist_y
+    let resist_y = useBorder' proximity cgeometry ay' $
+                   (concat . maybeToList $ next_border_y)
+                   ++
+                   (maybeToList $ ny nearest_borders)
 
     let px = fromMaybe ax' $ if keypress snap_mod
         then stick_x
@@ -106,7 +102,10 @@ moveSnapResist e epos rpos client clients = do
         then stick_y
         else resist_y
 
-
+    toLog $ ("north cgeometry: " ++) . show $ north cgeometry
+    toLog $ ("south cgeometry: " ++) . show $ south cgeometry
+    toLog $ ("east  cgeometry: " ++) . show $ east cgeometry
+    toLog $ ("west  cgeometry: " ++) . show $ west cgeometry
     toLog $ ("move_directions: " ++) . show $ move_directions
     toLog $ ("cgeometry: " ++) . show $ cgeometry
     toLog $ ("rpos: " ++) . show $ rpos
@@ -186,19 +185,26 @@ snapBorder _ Nothing    _     = Nothing
 snapBorder _ (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
 
 
-useBorder :: Distance
+useBorder' :: Distance
           -> Geometry
           -> Border
-          -> (Direction, Border)
+          -> [(Direction, Border)]
           -> Maybe Border
-useBorder proximity cgeometry b' (d,b)
-    | d == North && b  - b' > 0 && b  - b' < proximity = Just b
-    | d == West  && b  - b' > 0 && b  - b' < proximity = Just b
-    | d == South && b' - bs > 0 && b' - bs < proximity = Just bs
-    | d == East  && b' - be > 0 && b' - be < proximity = Just be
-    | otherwise                                        = Nothing
-    where bs = b - fi (cgeometry ^. dimension . height)
-          be = b - fi (cgeometry ^. dimension . width)
+useBorder' proximity g b' = listToMaybe . catMaybes . map useBorder''
+    where
+    useBorder'' (d,b)
+        | d == North && b  - b' > 0 && b  - b' < proximity = Just b
+        | d == West  && b  - b' > 0 && b  - b' < proximity = Just b
+        | d == South && b' - bs > 0 && b' - bs < proximity = Just bs
+        | d == East  && b' - be > 0 && b' - be < proximity = Just be
+        | otherwise                                        = Nothing
+        where bs = b - fi (g ^. dimension . height)
+              be = b - fi (g ^. dimension . width)
+
+
+listTo :: ([t] -> a) -> [t] -> Maybe a
+listTo _ [] = Nothing
+listTo f ls = Just $ f ls
 
 
 adjacentBorders :: Geometry -> [Geometry] -> [(Direction, Border)]
@@ -214,10 +220,6 @@ adjacentBorders g gs = catMaybes [nb, sb, eb, wb]
     east_pred  g' = east  g <= west  g' && hasOverlap East  g g'
     west_pred  g' = west  g >= east  g' && hasOverlap West  g g'
 
-    listTo _ [] = Nothing
-    listTo f ls = Just $ f ls
-
-
 closestBorders :: Geometry
                -> [(Direction, Border)]
                -> (Maybe (Direction, Border), Maybe (Direction, Border))
@@ -232,6 +234,34 @@ closestBorders g dbs = (mx, my)
     cmp (d1,b1) (d2,b2)
         | abs (b1 - border (opposite d1) g) < abs (b2 - border (opposite d2) g) = LT
         | otherwise                                                             = GT
+
+
+
+nextBorder :: Geometry
+            -> [Geometry]
+            -> Maybe Direction
+            -> (Direction, Border)
+            -> [(Direction, Border)]
+
+nextBorder g gs md (d,_)
+    | d == North || d == South = result ew_diffs
+    | otherwise                = result ns_diffs
+    where
+    result diff_f = map fst . sortByDir []
+                  . filter ((>=0) . snd) . concatMap diff_f
+                  . filter ((border d g ==) . border (opposite d))
+                  $ gs
+    ns_diffs g' = [ ((North, north g'), north g  - north g')
+                  , ((South, south g'), south g' - south g )
+                  ]
+    ew_diffs g' = [ ((East, east g'), east g' - east g )
+                  , ((West, west g'), west g  - west g')
+                  ]
+
+    sortByDir r [] = r
+    sortByDir r (l@((dir,_),_):rest)
+        | md == Just dir = sortByDir (l : r) rest
+        | otherwise      = sortByDir (r ++ [l]) rest
 
 
 adjustBorder :: Direction -> Geometry -> Border -> Border
