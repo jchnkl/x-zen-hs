@@ -40,6 +40,17 @@ type Distance = Int
 -- type BorderWidth = Int
 
 
+-- TODO
+-- distinguish between
+-- Border: Left, Right, Top, Bottom
+-- Edge: North, South, East, West
+-- Axis: X, Y
+-- borderToAxis
+-- edgeToAxis
+-- borderToEdge
+-- edgeToBorder
+
+
 moveSnapResist :: MonadIO m
                => MotionNotifyEvent
                -> Position
@@ -67,22 +78,38 @@ moveSnapResist e epos rpos client clients = do
     let nx (mx,_) = mx
     let ny (_,my) = my
 
-    let snap_border_x = nx nearest_borders >>= snapBorder cgeometry (fst move_directions) -- nxlst'
-    let sticky_x = nx nearest_borders >>= stickyBorder cgeometry
-    let stick_x = fmap (finishBorder cgeometry)
-                       (snap_border_x <|> sticky_x
-                          >>= unstickBorder cgeometry proximity ax')
-
-    let snap_border_y = ny nearest_borders >>= snapBorder cgeometry (snd move_directions) -- nylst'
-    let sticky_y = ny nearest_borders >>= stickyBorder cgeometry
-    let stick_y = fmap (finishBorder cgeometry)
-                       (snap_border_y <|> sticky_y
-                          >>= unstickBorder cgeometry proximity ay')
-
     let next_border_x = fmap (nextBorder cgeometry cgeometries (fst move_directions)) (ny nearest_borders)
     let next_border_y = fmap (nextBorder cgeometry cgeometries (snd move_directions)) (nx nearest_borders)
     toLog $ ("next_border_x: " ++) . show $ next_border_x
     toLog $ ("next_border_y: " ++) . show $ next_border_y
+
+    let snap_border_x = nx nearest_borders >>= snapBorder cgeometry (fst move_directions) -- nxlst'
+    let sticky_x = nx nearest_borders >>= stickyBorder cgeometry
+    -- let stick_x = fmap (finishBorder cgeometry)
+    --                    (snap_border_x <|> sticky_x
+    --                       >>= unstickBorder cgeometry proximity ax')
+    let stick_x = fmap (finishBorder cgeometry)
+                       (unstickBorder cgeometry proximity ax' $
+                       (concat . maybeToList $ next_border_x)
+                       ++
+                       (maybeToList snap_border_x)
+                       ++
+                       (maybeToList sticky_x)
+                       )
+
+    let snap_border_y = ny nearest_borders >>= snapBorder cgeometry (snd move_directions) -- nylst'
+    let sticky_y = ny nearest_borders >>= stickyBorder cgeometry
+    -- let stick_y = fmap (finishBorder cgeometry)
+    --                    (snap_border_y <|> sticky_y
+    --                       >>= unstickBorder cgeometry proximity ay')
+    let stick_y = fmap (finishBorder cgeometry)
+                       (unstickBorder cgeometry proximity ay' $
+                       (concat . maybeToList $ next_border_y)
+                       ++
+                       (maybeToList snap_border_y)
+                       ++
+                       (maybeToList sticky_y)
+                       )
 
     let resist_x = useBorder' proximity cgeometry ax' $
                    (concat . maybeToList $ next_border_x)
@@ -165,18 +192,29 @@ directions p = (x_edge, y_edge)
 finishBorder :: Geometry -> (Direction, Border) -> Border
 finishBorder g (d,b) = adjustBorder d g b
 
-unstickBorder :: Geometry -> Distance -> Border -> (Direction, Border) -> Maybe (Direction, Border)
-unstickBorder g p b' (d,b)
-    | (d == North || d == West) && abs (b' - b) < p                                  = Just (d,b)
-    |  d == South               && abs (b' - (b - fi (g ^. dimension . height))) < p = Just (d,b)
-    |  d == East                && abs (b' - (b - fi (g ^. dimension . width))) < p  = Just (d,b)
-    | otherwise                                                = Nothing
+-- snap policy
+unstickBorder :: Geometry
+              -> Distance
+              -> Border
+              -> [(Direction, Border)]
+              -> Maybe (Direction, Border)
+unstickBorder g p b' = listToMaybe . catMaybes . map unstickBorder'
+    where
+    unstickBorder' (d,b)
+        | (d == North || d == West) && abs (b' - b)  < p = Just (d,b)
+        |  d == South               && abs (b' - bs) < p = Just (d,b)
+        |  d == East                && abs (b' - be) < p = Just (d,b)
+        | otherwise                                      = Nothing
+        where bs = b - fi (g ^. dimension . height)
+              be = b - fi (g ^. dimension . width)
 
 
+-- just checks whether two clients share a border (?)
 stickyBorder :: Geometry -> (Direction, Border) -> Maybe (Direction, Border)
 stickyBorder g (d,b) = if border d g == b then Just (d,b) else Nothing
 
 
+-- checks whether a border (with on an edge) matches the current move direction
 snapBorder :: Geometry
            -> Maybe Direction
            -> (Direction, Border)
@@ -185,6 +223,7 @@ snapBorder _ Nothing    _     = Nothing
 snapBorder _ (Just dir) (d,b) = if d == dir then Just (d,b) else Nothing
 
 
+-- resist policy
 useBorder' :: Distance
           -> Geometry
           -> Border
