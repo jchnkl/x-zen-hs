@@ -31,6 +31,7 @@ import qualified Window as W
 import Message
 import Keyboard (getCleanMask, extraModifier)
 import Component
+import SnapResist (moveSnapResist)
 
 
 -- | Cursors to be loaded at program startup
@@ -221,7 +222,18 @@ moveMotionNotify e = get >>= \case
 
 
 doMoveMotionNotify e (M epos rpos) clients client = do
+    moveSnapResist e epos rpos client clients
 
+    -- put . Just $ M epos rpos
+    put . Just $ M epos $ Position (fi root_x) (fi root_y)
+    -- put . Just $ M (Position (fi event_x) (fi event_y)) rpos
+    -- put . Just $ M (Position (fi event_x) (fi event_y)) (Position (fi root_x) (fi root_y))
+
+    where root_x = root_x_MotionNotifyEvent e
+          root_y = root_y_MotionNotifyEvent e
+          event_x = event_x_MotionNotifyEvent e
+          event_y = event_y_MotionNotifyEvent e
+{-
     -- let npos = Position (fi root_x - ppos ^. x) (fi root_y - ppos ^. y)
     let abs_pos = Position (fi root_x) (fi root_y) - epos
     let rel_pos = Position (fi root_x) (fi root_y) - rpos
@@ -321,6 +333,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
 
     changePosition :: Position -> Client -> Client
     changePosition p = geometry . position .~ p
+-}
 
 
 
