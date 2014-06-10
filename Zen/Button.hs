@@ -187,23 +187,21 @@ doMove e = do
 doResize :: ButtonPressEvent -> Z PointerStack ()
 doResize e = do
     doRaise e
-    reply' <- io . getReply
-        =<< connection $-> (io . flip getGeometry (convertXid window))
-    whenRightM_ reply' $ \reply -> do
-        put $ Just $ R (edges reply)
-                       (Position root_x root_y)
-                       (Geometry (win_pos reply) (win_dim reply))
-        flip whenJustM_ changeCursor
-            =<< asksPS (M.lookup (getCursor $ edges reply) . glyphMap)
+    sendMessage (GetClient window)
+        >>= withReply (flip whenJustM_ resize . getClientReply)
+
     where
     window = event_ButtonPressEvent e
     root_x = fi $ root_x_ButtonPressEvent e
     root_y = fi $ root_y_ButtonPressEvent e
     event_x = fi $ event_x_ButtonPressEvent e
     event_y = fi $ event_y_ButtonPressEvent e
-    win_pos g = Position (fi $ x_GetGeometryReply g) (fi $ y_GetGeometryReply g)
-    win_dim g = Dimension (fi $ width_GetGeometryReply g) (fi $ height_GetGeometryReply g)
-    edges = getEdges . Geometry (Position event_x event_y) . win_dim
+    edges = getEdges . Geometry (Position event_x event_y) . (^. geometry . dimension)
+
+    resize c = do
+        put $ Just $ R (edges c) (Position root_x root_y) (c ^. geometry)
+        flip whenJustM_ changeCursor
+            =<< asksPS (M.lookup (getCursor $ edges c) . glyphMap)
 
 
 moveMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
@@ -348,8 +346,9 @@ handleMotionNotify e = get >>= handle
     handle (Just (M _ _))         = moveMotionNotify e
     -- handle (Just (M p))         = W.configure window
     --     $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
-    handle (Just (R edges p g)) = W.configure window
-        $ (values (fst edges) p g) ++ (values (snd edges) p g)
+    handle (Just r@(R edges p g)) = do
+        W.configure window $ (values (fst edges) p g) ++ (values (snd edges) p g)
+        sendMessage_ $ ModifyClient window $ updateClient r
 
     window = event_MotionNotifyEvent e
     root_x = fi $ root_x_MotionNotifyEvent e
@@ -363,13 +362,26 @@ handleMotionNotify e = get >>= handle
     delta_x p = root_x - src_x p
     delta_y p = root_y - src_y p
 
+    updateClient (R edges p g) = geometry %~
+        (updateClientGeometry (fst edges) p g
+                         . updateClientGeometry (snd edges) p g)
+
+    updateClientGeometry edge p g g' = case edge of
+        Just North -> (position  . y      .~ win_y g + delta_y p)
+                    . (dimension . height .~ win_h g - fi (delta_y p)) $ g'
+        Just South -> (dimension . height .~ win_h g + fi (delta_y p)) g'
+        Just East  -> (dimension . width  .~ win_w g + delta_x p) g'
+        Just West  -> (position  . x      .~ win_x g + fi (delta_x p))
+                    . (dimension . width  .~ win_w g - delta_x p) $ g'
+        _          -> g'
+
     values edge p g = case edge of
-        Just North -> [(ConfigWindowY, win_y g + delta_y p),
-                       (ConfigWindowHeight, win_h g - delta_y p)]
-        Just South -> [(ConfigWindowHeight, win_h g + delta_y p)]
-        Just East  -> [(ConfigWindowWidth, win_w g + delta_x p)]
-        Just West  -> [(ConfigWindowX, win_x g + delta_x p),
-                       (ConfigWindowWidth, win_w g - delta_x p)]
+        Just North -> [(ConfigWindowY, fi (win_y g) + fi (delta_y p)),
+                       (ConfigWindowHeight, fi (win_h g) - fi (delta_y p))]
+        Just South -> [(ConfigWindowHeight, fi (win_h g) + fi (delta_y p))]
+        Just East  -> [(ConfigWindowWidth, fi (win_w g) + fi (delta_x p))]
+        Just West  -> [(ConfigWindowX, fi (win_x g) + fi (delta_x p)),
+                       (ConfigWindowWidth, fi (win_w g) - fi (delta_x p))]
         _          -> []
 
 
