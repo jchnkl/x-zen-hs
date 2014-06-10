@@ -1,9 +1,11 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# LANGUAGE TupleSections #-}
 
 
 module Core where
 
 
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import Control.Monad.State
 import Control.Applicative
@@ -98,3 +100,42 @@ isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
 
 isClient :: Either SomeError GetWindowAttributesReply -> Bool
 isClient = fromRight False . fmap (not . isUnviewable)
+
+
+modifyQueue :: (Functor m, MonadIO m) => (Queue -> Queue) -> Z m ()
+modifyQueue f = sendMessage_ (ModifyQueue f)
+
+
+withQueue :: (Functor m, MonadIO m) => (Queue -> a) -> Z m a
+withQueue f = f . fromMaybe M.empty . fmap getQueueReply <$> sendMessage GetQueue
+
+
+withQueueM :: (Functor m, MonadIO m) => (Queue -> Z m a) -> Z m a
+withQueueM f = f =<< fromMaybe M.empty . fmap getQueueReply <$> sendMessage GetQueue
+
+
+withClient :: (Functor m, MonadIO m) => WindowId -> (Client -> a) -> Z m (Maybe a)
+withClient w f = (fmap f . getClientReply =<<) <$> sendMessage (GetClient w)
+
+
+withClientM :: (Functor m, MonadIO m) => WindowId -> (Client -> Z m a) -> Z m (Maybe a)
+withClientM w f = flip whenJustM f
+                      =<< (getClientReply =<<) <$> sendMessage (GetClient w)
+
+
+handleCoreMessages :: MessageCom -> Z CoreState ()
+handleCoreMessages = sendReply handle
+    where
+    handle (IsClient window)  = IsClientReply <$> getsL queue (M.member window)
+
+    handle (GetClient window) = GetClientReply <$> getsL queue (M.lookup window)
+
+    handle (GetQueue)         = GetQueueReply <$> getL queue
+
+    handle (WithClient w f)   = WithClientReply <$> getsL queue (fmap f . M.lookup w)
+
+    handle (WithQueue f)      = WithQueueReply <$> getsL queue f
+
+    handle (ModifyClient w f) = queue %:= Q.modifyClient w f >> return VoidReply
+
+    handle (ModifyQueue f)    = queue %:= f >> return VoidReply
