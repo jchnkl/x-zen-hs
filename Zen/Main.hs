@@ -6,12 +6,12 @@ import Control.Arrow
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Applicative
+import Control.Exception (finally)
 import Graphics.XHB (Connection, SomeEvent, CW(..), EventMask(..))
 import qualified Graphics.XHB as X
 
 import Util
 import Lens
-import Lens.Family.Stock
 import Types
 import Config (defaultConfig)
 
@@ -72,16 +72,14 @@ startup (Just c) conf = do
 
     where
 
-    run :: Setup -> [Component] -> IO ()
-    run setup cs = do
+    run :: Setup -> [TMVar Component] -> IO ()
+    run setup cvars = do
         tlock <- newTMVarIO []
-        cvars <- mapM newTMVarIO cs
 
-        void $ runSomeSource tlock setup cvars (eventSource setup)
-        -- tids <- runSomeSource setup cvars (messageSource setup)
+        etids <- runSomeSource tlock setup cvars (eventSource setup)
+        mtids <- runSomeSource tlock setup cvars messageSource
 
-        waitForChildren tlock
-
+        waitForChildren tlock `finally` mapM_ killThread (etids ++ mtids)
 
 
     -- children :: Either SomeError QueryTreeReply -> [WindowId]

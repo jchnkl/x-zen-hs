@@ -8,11 +8,13 @@ module Component where
 import Data.Typeable
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Control.Monad.Catch (bracket)
+import Control.Exception (bracket)
+import Control.Concurrent
+import Control.Concurrent.STM
 
 import Log
+import Util
 import Lens
-import Lens.Family.Stock
 import Types
 
 
@@ -35,21 +37,28 @@ execComponent setup event (Component cdata runc su sd hs) =
     returnComponent d = return $ Component d runc su sd hs
 
 
-withComponents :: Setup -> ([Component] -> IO a) -> IO a
+withComponents :: Setup -> ([TMVar Component] -> IO a) -> IO a
 withComponents setup = bracket startup shutdown
     where
-    startup = mapM (startupComponent setup) (setup ^. config . components)
+    startup = do
+        cvars <- mapM newTMVarIO $ setup ^. config . components
+        mapM_ (forkIO . startupComponent setup) cvars
+        return cvars
+
     shutdown = mapM_ (shutdownComponent setup)
 
 
-startupComponent :: Setup -> Component -> IO Component
-startupComponent setup (Component cdata runc startupc sd hs) =
-    runStack (startupc cdata) setup
-        >>= _2 printLog
-            >>= returnComponent . fst
-    where returnComponent d = return $ Component d runc startupc sd hs
+startupComponent :: Setup -> TMVar Component -> IO ()
+startupComponent setup = flip modifyTMVarM exec
+    where
+    exec (Component cdata runc startupc sd hs) = do
+        runStack (startupc cdata) setup
+            >>= _2 printLog
+                >>= return . \(d, _) -> Component d runc startupc sd hs
 
 
-shutdownComponent :: Setup -> Component -> IO ()
-shutdownComponent setup (Component cdata _ _ shutdownc _) =
-    runStack (shutdownc cdata) setup >>= printLog . snd
+shutdownComponent :: Setup -> TMVar Component -> IO ()
+shutdownComponent setup = flip withTMVarM exec
+    where
+    exec (Component cdata _ _ shutdownc _) =
+        runStack (shutdownc cdata) setup >>= printLog . snd
