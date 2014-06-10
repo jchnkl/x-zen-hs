@@ -257,7 +257,6 @@ instance Num Geometry where
 data Client = Client
     { _xid :: WindowId
     , _geometry :: Geometry
-    , _pointer :: Position
     }
     deriving (Eq, Show, Typeable)
 
@@ -267,8 +266,6 @@ xid = lens _xid (\d v -> d { _xid = v })
 geometry :: Functor f => LensLike' f Client Geometry
 geometry = lens _geometry (\d v -> d { _geometry = v })
 
-pointer :: Functor f => LensLike' f Client Position
-pointer = lens _pointer (\d v -> d { _pointer = v })
 
 
 type Queue = Map WindowId Client
