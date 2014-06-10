@@ -1,7 +1,7 @@
 -- vim: set sw=4 sws=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, RankNTypes #-}
+{-# LANGUAGE DeriveDataTypeable, GADTs, MultiParamTypeClasses, RankNTypes #-}
 
 module Types where
 
@@ -15,6 +15,10 @@ import Control.Monad.Writer
 import Graphics.XHB hiding (Setup)
 
 import Lens
+
+
+class TypeConversion a b where
+    convert :: a -> b
 
 
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a

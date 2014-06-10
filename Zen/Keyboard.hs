@@ -23,9 +23,6 @@ import Util
 import Types
 
 
-class TypeConversion a b where
-    convert :: a -> b
-
 instance TypeConversion [KeyButMask] [ModMask] where
     convert = map (fromBit . toBit) . (\\ [KeyButMaskButton1 ..])
 
