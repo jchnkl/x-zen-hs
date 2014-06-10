@@ -109,7 +109,7 @@ data ComponentConfig = forall a. Typeable a => ComponentConfig a
 
 
 class Sink a where
-    dispatch :: forall m. (Monad m, Functor m) => a -> SomeSink (m ()) -> m ()
+    dispatch :: forall m. (MonadIO m, Functor m) => a -> SomeSink (m ()) -> m ()
 
 
 
@@ -126,7 +126,7 @@ data SomeSink b where
     MessageHandler :: (MessageCom -> b) -> SomeSink b
 
 
-data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
+data Component = forall m d. (MonadIO m, Functor m, Typeable d) => Component
     { -- | Component data
       componentData :: d
       -- | Evaluation function
