@@ -11,6 +11,7 @@ import Data.Map (Map)
 
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Control.Concurrent.STM (TMVar)
 
 import Graphics.XHB hiding (Setup)
 
@@ -19,6 +20,88 @@ import Lens
 
 class TypeConversion a b where
     convert :: a -> b
+
+
+class (Typeable a) => Reply a where
+    toReply :: Maybe a -> SomeReply
+    toReply Nothing = NoReply
+    toReply (Just v) = SomeReply v
+
+    fromReply :: SomeReply -> Maybe a
+    fromReply NoReply = Nothing
+    fromReply (SomeReply v) = cast v
+
+
+class (Typeable a) => Message a where
+    toMessage :: a -> SomeMessage
+    toMessage = SomeMessage
+
+    fromMessage :: SomeMessage -> Maybe a
+    fromMessage (SomeMessage m) = cast m
+
+
+data SomeReply where
+    NoReply :: SomeReply
+    SomeReply :: (Reply a) => a -> SomeReply
+    deriving Typeable
+
+
+data SomeMessage where
+    SomeMessage :: (Message a) => a -> SomeMessage
+    deriving Typeable
+
+
+data MessageCom where
+    MessageCom :: TMVar SomeReply -> SomeMessage -> MessageCom
+    deriving Typeable
+
+
+instance Sink MessageCom where
+    dispatch com (MessageHandler f) = f com
+    dispatch _ _                    = return ()
+
+
+data CoreMessage where
+    -- IsClientReply
+    IsClient      :: WindowId -> CoreMessage
+
+    -- GetClientReply
+    GetClient     :: WindowId -> CoreMessage
+
+    -- GetQueueReply
+    GetQueue      :: CoreMessage
+
+    -- WithClientReply
+    WithClient    :: WindowId -> (Client -> a) -> CoreMessage
+
+    -- WithClientsReply
+    WithQueue     :: (Queue -> a) -> CoreMessage
+
+    -- VoidReply
+    ModifyClient  :: WindowId -> (Client -> Client) -> CoreMessage
+
+    -- VoidReply
+    ModifyQueue   :: (Queue -> Queue) -> CoreMessage
+    deriving (Typeable)
+
+instance Message CoreMessage
+
+
+data CoreMessageReply where
+    VoidReply       :: CoreMessageReply
+
+    IsClientReply   :: { isClientReply :: Bool } -> CoreMessageReply
+
+    GetClientReply  :: { getClientReply :: Maybe Client } -> CoreMessageReply
+
+    GetQueueReply   :: { getQueueReply :: Queue } -> CoreMessageReply
+
+    WithClientReply :: { withClientReply :: Maybe a } -> CoreMessageReply
+
+    WithQueueReply  :: { withQueueReply :: a } -> CoreMessageReply
+    deriving (Typeable)
+
+instance Reply CoreMessageReply
 
 
 data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
@@ -40,7 +123,7 @@ data SomeSource where
 
 data SomeSink b where
     EventHandler :: Event a => (a -> b) -> SomeSink b
-    MessageHandler :: Message a => (a -> b) -> SomeSink b
+    MessageHandler :: (MessageCom -> b) -> SomeSink b
 
 
 data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
@@ -57,14 +140,7 @@ data Component = forall m d. (Monad m, Functor m, Typeable d) => Component
     }
 
 
-class Typeable a => Message a where
-    toMessage :: a -> SomeMessage
-    toMessage = SomeMessage
-    fromMessage :: SomeMessage -> Maybe a
-    fromMessage (SomeMessage m) = cast m
 
-data SomeMessage = forall a. Message a => SomeMessage a
-    deriving Typeable
 
 
 data Config = Config
