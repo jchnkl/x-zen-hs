@@ -177,6 +177,8 @@ componentConfigs = lens _componentConfigs (\d v -> d { _componentConfigs = v })
 
 type WindowId = WINDOW
 
+type Direction = Edge
+
 data Edge = North | South | East | West
     deriving (Eq, Ord, Read, Show, Typeable)
 
