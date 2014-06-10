@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, TupleSections #-}
 
 module Keyboard where
@@ -90,10 +91,10 @@ keyboardMapping :: Connection -> Receipt GetKeyboardMappingReply
 keyboardMapping c receipt = keycodes' <$> getReply receipt
     where
     keycodes' (Left _) = M.empty
-    keycodes' (Right reply) =
+    keycodes' (Right msgreply) =
         let min_keycode = min_keycode_Setup $ connectionSetup c
-            ks_per_kc = fi $ keysyms_per_keycode_GetKeyboardMappingReply reply
-            keysyms = partition ks_per_kc $ keysyms_GetKeyboardMappingReply reply
+            ks_per_kc = fi $ keysyms_per_keycode_GetKeyboardMappingReply msgreply
+            keysyms = partition ks_per_kc $ keysyms_GetKeyboardMappingReply msgreply
         in M.fromList $ zip [min_keycode ..] keysyms
 
 
