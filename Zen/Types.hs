@@ -67,8 +67,7 @@ data CoreMessage where
 
     -- GetClientReply
     GetClient     :: WindowId -> CoreMessage
-
-    -- GetQueueReply
+    -- GetClientsReply
     GetQueue      :: CoreMessage
 
     -- WithClientReply
