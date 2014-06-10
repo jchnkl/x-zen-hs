@@ -196,6 +196,14 @@ y = lens _y (\d v -> d { _y = v })
 nullPosition :: Position
 nullPosition = Position 0 0
 
+instance Num Position where
+    Position lx ly + Position rx ry = Position (lx + rx) (ly + ry)
+    Position lx ly - Position rx ry = Position (lx - rx) (ly - ry)
+    Position lx ly * Position rx ry = Position (lx * rx) (ly * ry)
+    abs (Position x' y') = Position (abs x') (abs y')
+    signum (Position x' y') = Position (signum x') (signum y')
+    fromInteger i = Position (fromInteger i) (fromInteger i)
+
 
 data Dimension = Dimension
     { _width :: Word
@@ -212,6 +220,14 @@ height = lens _height (\d v -> d { _height = v })
 nullDimension :: Dimension
 nullDimension = Dimension 0 0
 
+instance Num Dimension where
+    Dimension lw lh + Dimension rw rh = Dimension (lw + rw) (lh + rh)
+    Dimension lw lh - Dimension rw rh = Dimension (lw - rw) (lh - rh)
+    Dimension lw lh * Dimension rw rh = Dimension (lw * rw) (lh * rh)
+    abs (Dimension w' h') = Dimension (abs w') (abs h')
+    signum (Dimension w' h') = Dimension (signum w') (signum h')
+    fromInteger i = Dimension (fromInteger i) (fromInteger i)
+
 
 data Geometry = Geometry
     { _position :: Position
@@ -227,6 +243,14 @@ dimension = lens _dimension (\d v -> d { _dimension = v })
 
 nullGeometry :: Geometry
 nullGeometry = Geometry nullPosition nullDimension
+
+instance Num Geometry where
+    Geometry lp ld + Geometry rp rd = Geometry (lp + rp) (ld + rd)
+    Geometry lp ld - Geometry rp rd = Geometry (lp - rp) (ld - rd)
+    Geometry lp ld * Geometry rp rd = Geometry (lp * rp) (ld * rd)
+    abs (Geometry p' d') = Geometry (abs p') (abs d')
+    signum (Geometry p' d') = Geometry (signum p') (signum d')
+    fromInteger i = Geometry (fromInteger i) (fromInteger i)
 
 
 data Client = Client
