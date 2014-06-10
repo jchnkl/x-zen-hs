@@ -18,6 +18,12 @@ import Message
 import qualified Queue as Q
 import qualified Window as W
 
+{-
+ TODO
+ * Follow focus:
+     - border color
+     - warp mouse pointer when focus change by key
+-}
 
 type CoreState = StateT Core IO
 
