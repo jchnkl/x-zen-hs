@@ -104,7 +104,7 @@ data CoreMessageReply where
 instance Reply CoreMessageReply
 
 
-data ComponentConfig = forall a. (Show a, Typeable a) => ComponentConfig a
+data ComponentConfig = forall a. Typeable a => ComponentConfig a
     deriving Typeable
 
 
