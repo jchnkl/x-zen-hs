@@ -40,10 +40,6 @@ instance Sink SomeEvent where
     dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
     dispatch _ _                    = return ()
 
-instance Sink SomeMessage where
-    dispatch event (MessageHandler f) = whenJustM_ (fromMessage event) f
-    dispatch _ _                      = return ()
-
 
 {-
 class InputEventDispatcher pe re where
