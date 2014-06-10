@@ -12,6 +12,6 @@ toLog s = tell [s]
 
 
 printLog :: [String] -> IO ()
-printLog ls = do
+printLog ls = when (not $ null ls) $ do
     time <- getZonedTime
     putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ ls
