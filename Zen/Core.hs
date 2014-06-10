@@ -36,6 +36,7 @@ coreComponent = Component
     , onShutdown = const $ return ()
     , someSinks = const $ [ EventHandler handleCreateNotify
                           , EventHandler handleDestroyNotify
+                          , EventHandler handleFocusIn
                           , MessageHandler handleCoreMessages
                           ]
     }
@@ -76,6 +77,9 @@ handleCreateNotify e = toLog "Core CreateNotifyEvent" >> manage (window_CreateNo
 handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
 handleDestroyNotify e = toLog "Core DestroyNotifyEvent" >> unmanage (window_DestroyNotifyEvent e)
 
+handleFocusIn :: FocusInEvent -> Z CoreState ()
+handleFocusIn = toLog . ("FocusInEvent " ++) . show
+
 
 initWindow :: MonadIO m => WindowId -> Z m ()
 initWindow window = do
@@ -97,7 +101,6 @@ manage window = whenM (isClient <$> (W.attributes window >>= reply)) $ do
 
 unmanage :: WindowId -> Z CoreState ()
 unmanage w = queue %:= Q.remove w
-
 
 
 isUnviewable :: GetWindowAttributesReply -> Bool
