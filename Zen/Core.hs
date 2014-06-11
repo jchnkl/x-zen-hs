@@ -68,7 +68,7 @@ startupCoreComponent core = do
     mkClient :: (MonadIO m, Functor m) => WindowId -> Z m (WindowId, Client)
     mkClient w = do
         initWindow w
-        (w,) . Client w . fromRight nullGeometry <$> clientGeometry w
+        (w,) . Client w nullPosition . fromRight nullGeometry <$> clientGeometry w
 
 
 handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
@@ -108,7 +108,7 @@ initWindow window = do
 manage :: WindowId -> Z CoreState ()
 manage window = whenM (isClient <$> (W.attributes window >>= reply)) $ do
     initWindow window
-    queue %:= (Q.insert $ Client window (Geometry (Position 0 0) (Dimension 0 0)))
+    queue %:= Q.insert (Client window nullPosition nullGeometry)
 
 
 unmanage :: WindowId -> Z CoreState ()

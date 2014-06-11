@@ -256,12 +256,16 @@ instance Num Geometry where
 
 data Client = Client
     { _xid :: WindowId
+    , _pointer :: Position
     , _geometry :: Geometry
     }
     deriving (Eq, Show, Typeable)
 
 xid :: Functor f => LensLike' f Client WindowId
 xid = lens _xid (\d v -> d { _xid = v })
+
+pointer :: Functor f => LensLike' f Client Position
+pointer = lens _pointer (\d v -> d { _pointer = v })
 
 geometry :: Functor f => LensLike' f Client Geometry
 geometry = lens _geometry (\d v -> d { _geometry = v })
