@@ -30,15 +30,18 @@ import qualified Window as W
 data Mode = Normal | Manage
     deriving (Eq, Read, Show, Typeable)
 
+data CoreConfig = CoreConfig
+    deriving Typeable
+
 data Core = Core
-    { _mode :: Mode
+    { _coreConfig :: CoreConfig
     , _queue :: Queue
     }
-    deriving (Show, Typeable)
+    deriving Typeable
 
 
-mode :: Functor f => LensLike' f Core Mode
-mode = lens _mode (\d v -> d { _mode = v })
+coreConfig :: Functor f => LensLike' f Core CoreConfig
+coreConfig = lens _coreConfig (\d v -> d { _coreConfig = v })
 
 queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
@@ -47,9 +50,9 @@ queue = lens _queue (\d v -> d { _queue = v })
 type CoreState = StateT Core IO
 
 
-coreComponent :: Component
-coreComponent = Component
-    { componentData = Core Normal M.empty
+core :: CoreConfig -> Component
+core c = Component
+    { componentData = Core c M.empty
     , runComponent = runCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()

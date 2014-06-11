@@ -8,10 +8,16 @@ import Log
 import Types
 
 import Event
-import Core
+import Core (CoreConfig(..))
+import qualified Core as C
 import Button
 
--- import Pointer
+
+coreConfig :: CoreConfig
+coreConfig = CoreConfig
+
+core :: Component
+core = C.core coreConfig
 
 buttonConfig :: ButtonConfig
 buttonConfig = ButtonConfig $ M.fromList
@@ -62,7 +68,7 @@ defaultConfig = Config
         -- , (([ModMaskShift], ButtonIndex3), raiseWindowHandler)
         -- ]
 
-    , _components = [baseComponent, coreComponent, pointerComponent]
+    , _components = [baseComponent, core, pointerComponent]
 
 
     , _componentConfigs = [ComponentConfig buttonConfig]
