@@ -36,7 +36,8 @@ coreComponent = Component
     , onShutdown = const $ return ()
     , someSinks = const $ [ EventHandler handleCreateNotify
                           , EventHandler handleDestroyNotify
-                          , EventHandler handleFocusIn
+                          , EventHandler handleEnterNotify
+                          , EventHandler handleLeaveNotify
                           , MessageHandler handleCoreMessages
                           ]
     }
@@ -77,8 +78,19 @@ handleCreateNotify e = toLog "Core CreateNotifyEvent" >> manage (window_CreateNo
 handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
 handleDestroyNotify e = toLog "Core DestroyNotifyEvent" >> unmanage (window_DestroyNotifyEvent e)
 
-handleFocusIn :: FocusInEvent -> Z CoreState ()
-handleFocusIn = toLog . ("FocusInEvent " ++) . show
+
+handleEnterNotify :: EnterNotifyEvent -> Z CoreState ()
+handleEnterNotify e = whenM (getsL queue $ (not isInferior &&) . M.member window)
+    $ config . focusedBorderColor $-> W.setBorderColor window
+    where window = event_EnterNotifyEvent e
+          isInferior = NotifyDetailInferior == detail_EnterNotifyEvent e
+
+
+handleLeaveNotify :: LeaveNotifyEvent -> Z CoreState ()
+handleLeaveNotify e = whenM (getsL queue $ (not isInferior &&) . M.member window)
+    $ config . normalBorderColor $-> W.setBorderColor window
+    where window = event_LeaveNotifyEvent e
+          isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
 
 
 initWindow :: MonadIO m => WindowId -> Z m ()
