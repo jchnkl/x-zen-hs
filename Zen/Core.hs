@@ -1,11 +1,12 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveDataTypeable, TupleSections #-}
 
 
 module Core where
 
 
 import Data.Maybe (fromMaybe)
+import Data.Typeable
 import qualified Data.Map as M
 import Control.Monad.State
 import Control.Applicative
@@ -24,6 +25,24 @@ import qualified Window as W
      - border color
      - warp mouse pointer when focus change by key
 -}
+
+
+data Mode = Normal | Manage
+    deriving (Eq, Read, Show, Typeable)
+
+data Core = Core
+    { _mode :: Mode
+    , _queue :: Queue
+    }
+    deriving (Show, Typeable)
+
+
+mode :: Functor f => LensLike' f Core Mode
+mode = lens _mode (\d v -> d { _mode = v })
+
+queue :: Functor f => LensLike' f Core Queue
+queue = lens _queue (\d v -> d { _queue = v })
+
 
 type CoreState = StateT Core IO
 

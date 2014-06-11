@@ -289,22 +289,6 @@ type Queue = Map WindowId Client
 -- below :: Lens Queue [Client]
 -- below = lens _below (\v d -> d { _below = v })
 
-data Mode = Normal | Manage
-    deriving (Eq, Read, Show, Typeable)
-
-data Core = Core
-    { _mode :: Mode
-    , _queue :: Queue
-    }
-    deriving (Show, Typeable)
-
-mode :: Functor f => LensLike' f Core Mode
-mode = lens _mode (\d v -> d { _mode = v })
-
-queue :: Functor f => LensLike' f Core Queue
-queue = lens _queue (\d v -> d { _queue = v })
-
-
 
 type KeyboardMap = Map KEYCODE [KEYSYM]
 type ModifierMap = Map MapIndex [KEYCODE]
