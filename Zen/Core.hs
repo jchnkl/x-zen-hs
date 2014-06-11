@@ -5,9 +5,12 @@
 module Core where
 
 
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Typeable
+import Data.Map (Map)
 import qualified Data.Map as M
+import Data.List ((\\))
+import qualified Data.List as L
 import Control.Monad.State
 import Control.Applicative
 import Graphics.XHB
@@ -18,6 +21,8 @@ import Log
 import Message
 import qualified Queue as Q
 import qualified Window as W
+import qualified Keyboard as K
+import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
 
 {-
  TODO
@@ -30,8 +35,23 @@ import qualified Window as W
 data Mode = Normal | Manage
     deriving (Eq, Read, Show, Typeable)
 
-data CoreConfig = CoreConfig
+data KeyEventHandler = KeyEventHandler
+    { press   :: KeyPressEvent -> Z CoreState ()
+    , release :: KeyReleaseEvent -> Z CoreState ()
+    }
     deriving Typeable
+
+defaultKeyEventHandler :: KeyEventHandler
+defaultKeyEventHandler = KeyEventHandler (const $ return ()) (const $ return ())
+
+data CoreConfig = CoreConfig
+    { _keyEventHandler :: (Map ([ModMask], KeySym) KeyEventHandler)
+    }
+    deriving Typeable
+
+keyEventHandler :: Functor f => LensLike' f CoreConfig (Map ([ModMask], KeySym) KeyEventHandler)
+keyEventHandler = lens _keyEventHandler (\d v -> d { _keyEventHandler = v })
+
 
 data Core = Core
     { _coreConfig :: CoreConfig
@@ -58,6 +78,7 @@ core c = Component
     , onShutdown = const $ return ()
     , someSinks = const $ [ EventHandler handleCreateNotify
                           , EventHandler handleDestroyNotify
+                          , EventHandler handleKeyPress
                           , EventHandler handleEnterNotify
                           , EventHandler handleLeaveNotify
                           , MessageHandler handleCoreMessages
@@ -65,12 +86,14 @@ core c = Component
     }
 
 
+-- TODO: coreConfig as ReaderT
 runCoreComponent :: CoreState a -> Core -> IO (a, Core)
 runCoreComponent = runStateT
 
 
 startupCoreComponent :: Core -> Z IO Core
 startupCoreComponent core = do
+    grabKeys core
     (core &) . (queue .~) . M.fromList <$>
         (mapM mkClient =<< filterChildren =<< children <$> rootTree)
 
@@ -113,6 +136,44 @@ handleLeaveNotify e = whenM (getsL queue $ (not isInferior &&) . M.member window
     $ config . normalBorderColor $-> W.setBorderColor window
     where window = event_LeaveNotifyEvent e
           isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
+
+
+handleKeyPress :: KeyPressEvent -> Z CoreState ()
+handleKeyPress e = do
+    toLog . ("KeyPressEvent:\n" ++) . show $ e
+    let state = state_KeyPressEvent e
+        keycode = detail_KeyPressEvent e
+
+    mask <- (\\) <$> (K.getCleanMask state) <*> askL (config . modMask)
+
+    let lookupKeysym keysym = fromMaybe (const $ return ())
+                            . fmap press
+                            . M.lookup (mask, fi keysym)
+    mapM_ (\f -> f e)
+        =<< (mapM $ getsL (coreConfig . keyEventHandler) . lookupKeysym)
+            =<< asksL keyboardMap (flip K.keycodeToKeysym keycode)
+
+
+grabKeys :: (Functor m, MonadIO m) => Core -> Z m ()
+grabKeys core = connection $-> \c -> do
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+    modmask <- askL (config . modMask)
+    let keys = M.keys $ core ^. coreConfig . keyEventHandler
+    -- keys <- getsL (core ^. coreConfig . keyEventHandler) M.keys
+
+    let nl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
+        cl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
+        -- TODO: separate function
+        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+        grab (mask, keycode) = io $ grabKey c $ MkGrabKey True (getRoot c)
+                                                          mask keycode
+                                                          GrabModeAsync GrabModeAsync
+
+    forM_ keys $ \(mask, keysym) -> do
+        toLog . ("grabbing " ++) . show $ (mask, keysym)
+        whenJustM_ (K.keysymToKeycode kbdmap (fi keysym)) $
+            mapM_ grab . combos (modmask ++ mask)
 
 
 initWindow :: MonadIO m => WindowId -> Z m ()
