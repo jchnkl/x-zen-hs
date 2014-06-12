@@ -99,9 +99,9 @@ modifierMapping :: Receipt GetModifierMappingReply -> IO (Map MapIndex [KEYCODE]
 modifierMapping receipt = indices <$> getReply receipt
     where
     indices (Left _) = M.empty
-    indices (Right reply) =
-        let kc_per_mod = fi $ keycodes_per_modifier_GetModifierMappingReply reply
-            modifier = partition kc_per_mod $ keycodes_GetModifierMappingReply reply
+    indices (Right r) =
+        let kc_per_mod = fi $ keycodes_per_modifier_GetModifierMappingReply r
+            modifier = partition kc_per_mod $ keycodes_GetModifierMappingReply r
         in M.fromList $ zip [MapIndexShift ..] modifier
 
 
