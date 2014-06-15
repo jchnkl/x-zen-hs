@@ -5,19 +5,30 @@ import Graphics.XHB
 import Graphics.X11.Types -- hiding (Connection, EventMask)
 
 import Log
+import Lens
 import Types
 
 import Event
-import Core (CoreConfig(..))
+import Core (KeyEventHandler(..), CoreConfig(..))
 import qualified Core as C
+import qualified Queue as Q
 import Button
 
 
 coreConfig :: CoreConfig
-coreConfig = CoreConfig
+coreConfig = CoreConfig $ M.fromList
+    [ (([], xK_Tab), C.defaultKeyEventHandler
+        { press = const $ do
+            toLog "xK_Tab press"
+            modifyL C.queue $ Q.focusNext
+            C.refresh
+        }
+      )
+    ]
 
 core :: Component
 core = C.core coreConfig
+
 
 buttonConfig :: ButtonConfig
 buttonConfig = ButtonConfig $ M.fromList
