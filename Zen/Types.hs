@@ -272,7 +272,17 @@ geometry = lens _geometry (\d v -> d { _geometry = v })
 
 
 
-type Queue = Map WindowId Client
+
+type Queue = ClientQueue
+
+data ClientQueue = ClientQueue
+    { above :: [Client]
+    , focus :: Maybe Client
+    , below :: [Client]
+    }
+    deriving Typeable
+
+
 
 -- data Queue = Queue
 --     { _above :: [Client]

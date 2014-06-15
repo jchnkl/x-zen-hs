@@ -72,7 +72,7 @@ type CoreState = StateT Core IO
 
 core :: CoreConfig -> Component
 core c = Component
-    { componentData = Core c M.empty
+    { componentData = Core c (ClientQueue [] Nothing [])
     , runComponent = runCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()
@@ -94,7 +94,7 @@ runCoreComponent = runStateT
 startupCoreComponent :: Core -> Z IO Core
 startupCoreComponent core = do
     grabKeys core
-    (core &) . (queue .~) . M.fromList <$>
+    (core &) . (queue .~) . Q.fromList <$>
         (mapM mkClient =<< filterChildren =<< children <$> rootTree)
 
     where
@@ -125,14 +125,14 @@ handleDestroyNotify e = toLog "Core DestroyNotifyEvent" >> unmanage (window_Dest
 
 
 handleEnterNotify :: EnterNotifyEvent -> Z CoreState ()
-handleEnterNotify e = whenM (getsL queue $ (not isInferior &&) . M.member window)
+handleEnterNotify e = whenM (getsL queue $ (not isInferior &&) . Q.member window)
     $ config . focusedBorderColor $-> W.setBorderColor window
     where window = event_EnterNotifyEvent e
           isInferior = NotifyDetailInferior == detail_EnterNotifyEvent e
 
 
 handleLeaveNotify :: LeaveNotifyEvent -> Z CoreState ()
-handleLeaveNotify e = whenM (getsL queue $ (not isInferior &&) . M.member window)
+handleLeaveNotify e = whenM (getsL queue $ (not isInferior &&) . Q.member window)
     $ config . normalBorderColor $-> W.setBorderColor window
     where window = event_LeaveNotifyEvent e
           isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
@@ -211,11 +211,11 @@ modifyQueue f = sendMessage_ (ModifyQueue f)
 
 
 withQueue :: (Functor m, MonadIO m) => (Queue -> a) -> Z m a
-withQueue f = f . fromMaybe M.empty . fmap getQueueReply <$> sendMessage GetQueue
+withQueue f = f . fromMaybe Q.empty . fmap getQueueReply <$> sendMessage GetQueue
 
 
 withQueueM :: (Functor m, MonadIO m) => (Queue -> Z m a) -> Z m a
-withQueueM f = f =<< fromMaybe M.empty . fmap getQueueReply <$> sendMessage GetQueue
+withQueueM f = f =<< fromMaybe Q.empty . fmap getQueueReply <$> sendMessage GetQueue
 
 
 withClient :: (Functor m, MonadIO m) => WindowId -> (Client -> a) -> Z m (Maybe a)
@@ -230,13 +230,13 @@ withClientM w f = flip whenJustM f
 handleCoreMessages :: MessageCom -> Z CoreState ()
 handleCoreMessages = sendReply handle
     where
-    handle (IsClient window)  = IsClientReply <$> getsL queue (M.member window)
+    handle (IsClient window)  = IsClientReply <$> getsL queue (Q.member window)
 
-    handle (GetClient window) = GetClientReply <$> getsL queue (M.lookup window)
+    handle (GetClient window) = GetClientReply <$> getsL queue (Q.lookup window)
 
     handle (GetQueue)         = GetQueueReply <$> getL queue
 
-    handle (WithClient w f)   = WithClientReply <$> getsL queue (fmap f . M.lookup w)
+    handle (WithClient w f)   = WithClientReply <$> getsL queue (fmap f . Q.lookup w)
 
     handle (WithQueue f)      = WithQueueReply <$> getsL queue f
 

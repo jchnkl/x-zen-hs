@@ -27,6 +27,7 @@ import Util
 import Lens
 import Types
 import qualified Core as C
+import qualified Queue as Q
 import qualified Window as W
 import Message
 import Keyboard (getCleanMask, extraModifier)
@@ -127,7 +128,7 @@ startupPointerComponent (PointerSetup bm _, p) = connection $-> \c -> do
     -- mapM_ (grabButtons bm buttons)
     --     =<< maybe [] (map (^. xid) . getClientsReply) <$> sendMessage GetClients
 
-    C.withQueueM $ mapM_ (grabButtons bm buttons) . M.keys
+    C.withQueueM $ mapM_ (grabButtons bm buttons) . map (^. xid) . Q.toList
 
     io $ putStrLn "GetClients done"
     return (PointerSetup buttonEventMask glyphs, p)
@@ -209,7 +210,7 @@ moveMotionNotify e = get >>= \case
     Just m -> do
         let bw = 3
         mclient <- join . fmap getClientReply <$> sendMessage (GetClient window)
-        clients <- maybe [] (map (addbw bw) . M.elems . getQueueReply) <$> sendMessage GetQueue
+        clients <- maybe [] (map (addbw bw) . Q.toList . getQueueReply) <$> sendMessage GetQueue
         whenJustM_ mclient $ doMoveMotionNotify e m clients . addbw bw
     _ -> return ()
     where window = event_MotionNotifyEvent e
