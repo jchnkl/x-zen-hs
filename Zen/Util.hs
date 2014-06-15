@@ -23,6 +23,15 @@ safeHead [] = Nothing
 safeHead (a:_) = Just a
 
 
+safeTail :: [a] -> [a]
+safeTail [] = []
+safeTail ls = tail ls
+
+
+rotate :: Int -> [t] -> [t]
+rotate n ls = [ l | l <- drop n ls] ++ [ r | r <- take n ls]
+
+
 convertXid :: (XidLike a, XidLike b) => a -> b
 convertXid = fromXid . toXid
 
