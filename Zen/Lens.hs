@@ -3,10 +3,12 @@
 module Lens
     ( module Lens
     , module Lens.Family
+    , module Lens.Family.Stock
     , lens
     ) where
 
 import Lens.Family
+import Lens.Family.Stock
 import Lens.Family.Unchecked (lens)
 
 import Control.Monad.State
