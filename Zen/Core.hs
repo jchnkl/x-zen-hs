@@ -198,6 +198,18 @@ unmanage :: WindowId -> Z CoreState ()
 unmanage w = queue %:= Q.remove w
 
 
+refresh :: Z CoreState ()
+refresh = getL queue >>= refreshBorders
+    where
+    refreshBorders (ClientQueue as mc bs) = do
+        whenJustM_ mc $ \c -> do
+            W.focus (c ^. xid)
+            refreshBorder focusedBorderColor c
+        forM_ (as ++ bs) $ refreshBorder normalBorderColor
+
+    refreshBorder bc c = config . bc $-> W.setBorderColor (c ^. xid)
+
+
 isUnviewable :: GetWindowAttributesReply -> Bool
 isUnviewable r = MapStateUnviewable == map_state_GetWindowAttributesReply r
 
