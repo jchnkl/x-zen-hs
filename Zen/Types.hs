@@ -142,6 +142,11 @@ data Component = forall m d. (MonadIO m, Functor m, Typeable d) => Component
 
 
 
+-- TODO:
+-- * separate components for Key/Button grabbing
+-- * message KeyGrab / ButtonGrab
+-- * border stuff -> Core
+
 data Config = Config
     { _modMask :: [ModMask]
     , _borderWidth :: Word

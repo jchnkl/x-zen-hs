@@ -43,6 +43,9 @@ Small Core which does
      |-> run through EventController, e.g. for MappingNotifyEvent, changing mode
  * run Controller with correct Mode Config -> State
  * run View with correct Mode Config & State
+
+
+ * Warp mouse when focus changes
 -}
 
 
@@ -143,3 +146,29 @@ checkLocks :: ThreadLock -> STM Bool
 checkLocks tlock = takeTMVar tlock >>= \case
     []   -> return False
     l:ls -> putTMVar tlock ls >> takeTMVar l >> return True
+
+
+{-
+data Foo
+    = Foo1
+    | Foo2
+    | Foo3
+
+data Bar
+    = Bar1
+    | Bar2
+    | Bar3
+
+someEventSource :: Setup -> IO SomeEvent
+someEventSource setup = waitForEvent (setup ^. connection)
+
+doTheFoo :: [(Foo, Foo -> IO ())] -> IO ()
+doTheFoo ((foo,fun):foos) = do
+    fun foo
+    doTheFoo foos
+doTheFoo _ = return ()
+
+
+doTheStmBar :: [STM Bar] -> [Bar -> IO ()] -> IO ()
+doTheStmBar = atomically (foldr1 orElse) . (>>= forM_)
+-}
