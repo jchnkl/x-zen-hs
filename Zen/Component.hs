@@ -1,64 +1,78 @@
 -- vim: set sw=4 sws=4 ts=4
 
-{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, StandaloneDeriving #-}
+{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE ExistentialQuantification, RankNTypes #-}
 
 module Component where
 
-import Data.Typeable
+import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Control.Exception (bracket)
-import Control.Concurrent
-import Control.Concurrent.STM
 
 import Log
 import Util
-import Lens
 import Types
 
 
-getConfig :: Typeable a => [ComponentConfig] -> Maybe a
-getConfig (ComponentConfig c:cs) = case cast c of
-    Just c' -> Just c'
-    Nothing -> getConfig cs
-getConfig _ = Nothing
+type ComponentRunner = forall m. MonadIO m
+                     => Setup -> Model -> Component -> m ((Log, Model), Component)
+
+type ComponentSink m = SomeSink (Z' m ())
+
+data Component = forall d m. Monad m => Component
+    { -- | Component data
+      componentData    :: d
+      -- | Pure evaluation function. Favor this!
+    , pureRunComponent :: forall a. m a -> d -> (a, d)
+      -- | Evaluation function with side effects
+    , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
+    -- | Startup hook
+    , onStartup        :: d -> Z' IO d
+    -- | Shutdown hook
+    , onShutdown       :: d -> Z' IO ()
+    -- | List of event handlers
+    , someSinks        :: d -> [ComponentSink m]
+    }
 
 
-runStack :: ReaderT a (WriterT w m) b -> a -> m (b, w)
-runStack f = runWriterT . runReaderT f
+execStack :: Monad m => Z' m () -> Setup -> Model -> m (Log, Model)
+execStack f = runStateT . execWriterT . runReaderT f
 
 
-execComponent :: Sink a => Setup -> a -> Component -> IO Component
-execComponent setup event (Component cdata runc su sd hs) =
-    run >>= _1 (printLog . snd) >>= returnComponent . snd
+runSinks :: (Monad m, Sink a)
+         => a
+         -> Setup
+         -> Model
+         -> [ComponentSink m]
+         -> m (Log, Model)
+runSinks event setup model sinks = execStack (run sinks) setup model
     where
-    run = flip runc cdata $ runStack (mapM (dispatch event) (hs cdata)) setup
-    returnComponent d = return $ Component d runc su sd hs
+    run []           = return ()
+    run (sink:sinks') = do
+        dispatch event sink
+        run sinks'
 
 
-withComponents :: Setup -> ([TMVar Component] -> IO a) -> IO a
-withComponents setup = bracket startup shutdown
+execComponent :: (MonadIO m) => ComponentRunner -> Component -> Z' m (Log, Component)
+execComponent f c = do
+    setup <- ask
+    model <- get
+    ((runlog, model'), c') <- f setup model c
+    put model'
+    return (runlog, c')
+
+
+pureExecComponent :: (MonadIO m, Sink e) => e -> Component -> Z' m (Log, Component)
+pureExecComponent event = execComponent run
     where
-    startup = do
-        cvars <- mapM newTMVarIO $ setup ^. config . components
-        mapM_ (forkIO . startupComponent setup) cvars
-        return cvars
-
-    shutdown = mapM_ (shutdownComponent setup)
+    run setup model (Component d purerun iorun su sd csinks) = do
+        let (a, d') = purerun (runSinks event setup model $ csinks d) d
+        return (a, Component d' purerun iorun su sd csinks)
 
 
-startupComponent :: Setup -> TMVar Component -> IO ()
-startupComponent setup = flip modifyTMVarM exec
+ioExecComponent :: (MonadIO m, Sink e) => e -> Component -> Z' m (Log, Component)
+ioExecComponent event = execComponent run
     where
-    exec (Component cdata runc startupc sd hs) = do
-        runStack (startupc cdata) setup
-            >>= _2 printLog
-                >>= return . \(d, _) -> Component d runc startupc sd hs
-
-
-shutdownComponent :: Setup -> TMVar Component -> IO ()
-shutdownComponent setup = flip withTMVarM exec
-    where
-    exec (Component cdata _ _ shutdownc _) =
-        runStack (shutdownc cdata) setup >>= printLog . snd
+    run setup model (Component d purerun iorun su sd csinks) = do
+        (a, d') <- io $ iorun (runSinks event setup model $ csinks d) d
+        return (a, Component d' purerun iorun su sd csinks)
