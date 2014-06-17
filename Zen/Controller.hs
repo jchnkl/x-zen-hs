@@ -25,17 +25,17 @@ type ComponentSink m = SomeSink (Z' m ())
 
 data Component = forall d m. Monad m => Component
     { -- | Component data
-      componentData :: d
+      componentData    :: d
       -- | Pure evaluation function. Favor this!
-    , pureComponent :: forall a. m a -> d -> (a, d)
+    , pureRunComponent :: forall a. m a -> d -> (a, d)
       -- | Evaluation function with side effects
-    , runComponent  :: forall a. m a -> d -> IO (a, d)
+    , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
     -- | Startup hook
-    , onStartup     :: d -> Z' IO d
+    , onStartup        :: d -> Z' IO d
     -- | Shutdown hook
-    , onShutdown    :: d -> Z' IO ()
+    , onShutdown       :: d -> Z' IO ()
     -- | List of event handlers
-    , someSinks     :: d -> [ComponentSink m]
+    , someSinks        :: d -> [ComponentSink m]
     }
 
 -- setStartup :: (forall d. d -> Z' IO d) -> Component -> Component
@@ -52,12 +52,12 @@ data Component = forall d m. Monad m => Component
 -- setPure :: (forall a m d. m a -> d -> (a, d))
 --         -> Component
 --         -> Component
--- setPure f (Component {..}) = Component { pureComponent = f, ..}
+-- setPure f (Component {..}) = Component { pureRunComponent = f, ..}
 
 -- setRun :: (forall a m d. Monad m => m a -> d -> IO (a, d))
 --        -> Component
 --        -> Component
--- setRun f (Component {..}) = Component { runComponent = f, ..}
+-- setRun f (Component {..}) = Component { ioRunComponent = f, ..}
 
 -- mkComponent :: (Monad m, Functor m)
 --             => d
@@ -85,47 +85,98 @@ data Component = forall d m. Monad m => Component
 
 
 
+-- foo :: MonadIO m => (forall m. Monad m => [ComponentSink m] -> m ([String], Model))
+--     -> Component
+--     -> m (([String], Model), Component)
+-- foo f (Component cdata _ runc _ _ csinks) = do
+--     res <- io $ runc (f $ csinks cdata) cdata
+--     return res
 
-execComponent :: (MonadIO m, Sink a) => a -> Component -> Z' m ([String], Component)
-execComponent event (Component cdata purec runc su sd csinks) = do
-    setup <- ask
-    model <- get
-    ((runlog', model'), cdata') <- io $ runc (run setup model [] $ csinks cdata) cdata
-    put model'
-    return (runlog', Component cdata' purec runc su sd csinks)
-
-    where
-    run setup model runlog []           = return (runlog, model)
-    run setup model runlog (sink:sinks) = do
-        (runlog', model') <- execStack (dispatch event sink) setup model
-        run setup model (runlog ++ runlog') sinks
-
+-- execComponent' :: (Monad m, Sink a)
+--                => (forall a d m2. MonadIO m2 => m a -> m2 (a, d))
+--                -> a
+--                -> Component
+--                -> Z' m ([String], Component)
+-- -- execComponent' f event c = undefined
+-- execComponent' f event (Component cdata purec runc su sd csinks) = do
+--     setup <- ask
+--     model <- get
+--     ((runlog', model'), cdata') <- io $ f (run setup model [] $ csinks cdata)
+--     put model'
+--     return (runlog', Component cdata' purec runc su sd csinks)
 
 
-execStack :: Monad m => Z' m () -> Setup -> Model -> m ([String], Model)
+
+execStack :: Monad m => Z' m () -> Setup -> Model -> m (Log, Model)
 execStack f = runStateT . execWriterT . runReaderT f
 
 
-runStack :: Z' m b -> Setup -> Model -> m ((b, [String]), Model)
-runStack f = runStateT . runWriterT . runReaderT f
+-- runStack :: Z' m b -> Setup -> Model -> m ((b, Log), Model)
+-- runStack f = runStateT . runWriterT . runReaderT f
 
 
--- execStack' :: Monad m => Z'' () -> Setup -> Model -> m ([String], Model)
--- execStack' f = runStateT . execWriterT . runReaderT f
+runSinks :: (Monad m, Sink a)
+         => a
+         -> Setup
+         -> Model
+         -> [ComponentSink m]
+         -> m (Log, Model)
+runSinks event setup model sinks = execStack (run sinks) setup model
+    where
+    run []           = return ()
+    run (sink:sinks') = do
+        dispatch event sink
+        run sinks'
 
-execPureComponent :: (Monad m, Sink a) => a -> Component -> Z' m ([String], Component)
-execPureComponent event (Component cdata purec runc su sd csinks) = do
+--
+-- pure :: (Monad m, Sink e)
+--      => e
+--      -> Setup
+--      -> Model
+--      -> Component
+--      -> m ((Log, Model), Component)
+
+pureExecComponent :: (MonadIO m, Sink e) => e -> Component -> Z' m (Log, Component)
+pureExecComponent event = execComponent run
+    where
+    run setup model (Component d purerun iorun su sd csinks) = do
+        let (a, d') = purerun (runSinks event setup model $ csinks d) d
+        return (a, Component d' purerun iorun su sd csinks)
+
+
+ioExecComponent :: (MonadIO m, Sink e) => e -> Component -> Z' m (Log, Component)
+ioExecComponent event = execComponent run
+    where
+    run setup model (Component d purerun iorun su sd csinks) = do
+        (a, d') <- io $ iorun (runSinks event setup model $ csinks d) d
+        return (a, Component d' purerun iorun su sd csinks)
+
+
+type ComponentRunner = forall m. MonadIO m
+                     => Setup -> Model -> Component -> m ((Log, Model), Component)
+
+execComponent :: (MonadIO m) => ComponentRunner -> Component -> Z' m (Log, Component)
+execComponent f c = do
     setup <- ask
     model <- get
-    let ((runlog', model'), cdata') = purec (run setup model [] (csinks cdata)) cdata
+    ((runlog, model'), c') <- f setup model c
     put model'
-    return (runlog', Component cdata' purec runc su sd csinks)
+    return (runlog, c')
 
-    where
-    run _     model runlog []           = return (runlog, model)
-    run setup model runlog (sink:sinks) = do
-        (runlog', model') <- execStack (dispatch event sink) setup model
-        run setup model' (runlog ++ runlog') sinks
+
+-- execPureComponent :: (Monad m, Sink a) => a -> Component -> Z' m ([String], Component)
+-- execPureComponent event (Component cdata purec runc su sd csinks) = do
+--     setup <- ask
+--     model <- get
+--     let ((runlog', model'), cdata') = purec (run setup model [] (csinks cdata)) cdata
+--     put model'
+--     return (runlog', Component cdata' purec runc su sd csinks)
+--
+--     where
+--     run _     model runlog []           = return (runlog, model)
+--     run setup model runlog (sink:sinks) = do
+--         (runlog', model') <- execStack (dispatch event sink) setup model
+--         run setup model' (runlog ++ runlog') sinks
 
 
 {-
