@@ -16,6 +16,7 @@ import Data.Word
 import Data.Typeable
 import Data.Map (Map)
 
+import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Concurrent.STM (TMVar)
@@ -381,6 +382,17 @@ modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 -- messageQueue :: Functor f => LensLike' f Setup [TChan SomeData]
 -- messageQueue = lens _messageQueue (\d v -> d { _messageQueue = v })
 
+type Model = Maybe ClientStack
+type ModelST = StateT Model
+
+data ClientStack = ClientStack
+    { _above :: [Client]
+    , _focus :: Client
+    , _below :: [Client]
+    }
+    deriving Typeable
+
+
 type LogWT = WriterT [String]
 
 -- data HandlerManageOps
@@ -406,6 +418,7 @@ type LogWT = WriterT [String]
 type SetupRT = ReaderT Setup
 
 -- type Z m a = LogWT (HandlerWT (SetupRT m)) a
-type Z m a = SetupRT (LogWT m) a
+
+type Z m = SetupRT (LogWT (ModelST m))
 
 type StatelessZ a = Z IO a
