@@ -5,7 +5,6 @@
 
 module Controller where
 
-import Data.Typeable
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
@@ -16,29 +15,8 @@ import Graphics.XHB hiding (Setup) -- (Event, SomeEvent, fromEvent, waitForEvent
 import Log
 import Lens
 import Util
-import Types hiding (Sink, dispatch)
+import Types
 import Component
-
-
-data SomeEventHandler = forall a. (Event a) =>
-    SomeEventHandler (forall m. MonadIO m => a -> Z' m ())
-    deriving (Typeable)
-
-instance Handler SomeEventHandler
-
-class Dispatcher a where
-    dispatch :: MonadIO m => a -> SomeHandler -> Z' m ()
-
-instance Dispatcher SomeEvent where
-    dispatch se sh = case fromHandler sh :: Maybe SomeEventHandler of
-        Just (SomeEventHandler f) -> case fromEvent se of
-            Just e -> f e
-            _ -> return ()
-        _ -> return ()
-
-data AnyEvent = forall a. Dispatcher a => AnyEvent a
-
-type EventSource = Setup -> IO AnyEvent
 
 
 xEventSource :: Setup -> IO AnyEvent
@@ -46,9 +24,9 @@ xEventSource setup = AnyEvent <$> waitForEvent (setup ^. connection)
 
 
 execAnyEvent :: Setup -> Model -> AnyEvent -> Component -> IO ((Log, Model), Component)
-execAnyEvent setup m (AnyEvent e) (Component d runpure runio su sd somehandlers) = do
+execAnyEvent setup m (AnyEvent e) (Component d runio su sd somehandlers) = do
     ((runlog, model'), d') <- exec [] m d $ somehandlers d
-    return $ ((runlog, model'), Component d' runpure runio su sd somehandlers)
+    return $ ((runlog, model'), Component d' runio su sd somehandlers)
     where
     exec runlog model cdata []     = return ((runlog, model), cdata)
     exec runlog model cdata (h:hs) = do
@@ -57,12 +35,12 @@ execAnyEvent setup m (AnyEvent e) (Component d runpure runio su sd somehandlers)
     run model cdata h = runio (execStack (dispatch e h) setup model) cdata
 
 
-dispatchAnyEvent :: AnyEvent -> Component -> Z' IO Component
-dispatchAnyEvent (AnyEvent e) (Component d runpure runio su sd handlers) = do
+dispatchAnyEvent :: AnyEvent -> Component -> Z IO Component
+dispatchAnyEvent (AnyEvent e) (Component d runio su sd handlers) = do
     (runlog, d') <- exec [] d $ handlers d
     io $ printLog runlog
     -- toLog $ showLog runlog
-    return $ Component d' runpure runio su sd handlers
+    return $ Component d' runio su sd handlers
     where
     exec runlog cdata []     = return (runlog, cdata)
     exec runlog cdata (h:hs) = do
@@ -87,7 +65,7 @@ runController setup = mapM run
         return (tid, chan)
 
 
-runConsumers :: [TChan AnyEvent] -> [Component] -> Z' IO ()
+runConsumers :: [TChan AnyEvent] -> [Component] -> Z IO ()
 runConsumers chans components = readAnyEvent >>= run components
     where
     run cs ae = mapM (dispatchAnyEvent ae) cs >>= (readAnyEvent >>=) . run

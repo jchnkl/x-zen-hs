@@ -1,7 +1,14 @@
 -- vim: set sw=4 sws=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable, GADTs, MultiParamTypeClasses, RankNTypes #-}
+{-# LANGUAGE
+   DeriveDataTypeable,
+   FlexibleInstances,
+   GADTs,
+   MultiParamTypeClasses,
+   RankNTypes,
+   TypeSynonymInstances
+   #-}
 
 module Types where
 
@@ -20,6 +27,60 @@ import Lens
 
 class TypeConversion a b where
     convert :: a -> b
+
+
+data Component = forall d m. (MonadIO m, Functor m) => Component
+    {
+    -- | Component data
+      componentData    :: d
+    -- | Evaluation with side effects
+    , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
+    -- | Startup hook
+    , onStartup        :: d -> Z IO d
+    -- | Shutdown hook
+    , onShutdown       :: d -> Z IO ()
+    -- | List of event handlers
+    , someHandler        :: d -> [SomeHandler]
+    }
+
+
+class Typeable a => Handler a where
+    fromHandler :: SomeHandler -> Maybe a
+    fromHandler (SomeHandler h) = cast h
+
+data SomeHandler = forall a. Handler a => SomeHandler a
+    deriving Typeable
+
+
+class Dispatcher a where
+    dispatch :: MonadIO m => a -> SomeHandler -> Z m ()
+
+data AnyEvent = forall a. Dispatcher a => AnyEvent a
+
+
+data EventHandler b = forall a. Event a => EventHandler (a -> b)
+    deriving (Typeable)
+
+instance Typeable1 (Z m) where
+   typeOf1 _ = mkTyConApp (mkTyCon3 "zen" "Zen.Types" "Z") []
+
+instance Handler (EventHandler (Z m ()))
+
+data MessageHandler b = forall a. (Message a) => MessageHandler (a -> b)
+    deriving (Typeable)
+
+instance Handler (MessageHandler (Z m ()))
+
+
+instance Dispatcher SomeEvent where
+    dispatch se sh = case fromHandler sh :: Maybe (EventHandler (Z m ())) of
+        Just (EventHandler f) -> case fromEvent se of
+            Just e -> f e
+            _ -> return ()
+        _ -> return ()
+
+
+type EventSource m = Setup -> IO AnyEvent
 
 
 class (Typeable a) => Reply a where
@@ -56,9 +117,6 @@ data MessageCom where
     deriving Typeable
 
 
-instance Sink MessageCom where
-    dispatch com (MessageHandler f) = f com
-    dispatch _ _                    = return ()
 
 
 data CoreMessage where
@@ -106,37 +164,6 @@ instance Reply CoreMessageReply
 data ComponentConfig = forall a. Typeable a => ComponentConfig a
     deriving Typeable
 
-
-class Sink a where
-    dispatch :: forall m. (MonadIO m, Functor m) => a -> SomeSink (m ()) -> m ()
-
-
-
-
-
-
-data SomeSource where
-    EventSource :: (Setup -> IO SomeEvent) -> SomeSource
-    MessageSource :: (Setup -> IO SomeMessage) -> SomeSource
-
-
-data SomeSink b where
-    EventHandler :: Event a => (a -> b) -> SomeSink b
-    MessageHandler :: (MessageCom -> b) -> SomeSink b
-
-
-data Component = forall m d. (MonadIO m, Functor m, Typeable d) => Component
-    { -- | Component data
-      componentData :: d
-      -- | Evaluation function
-    , runComponent :: forall a. m a -> d -> IO (a, d)
-    -- | Function to run on startup
-    , onStartup :: d -> Z IO d
-    -- | Function to run on shutdown
-    , onShutdown :: d -> Z IO ()
-    -- | Generic event handler
-    , someSinks :: d -> [SomeSink (Z m ())]
-    }
 
 
 
