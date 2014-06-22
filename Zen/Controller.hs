@@ -60,6 +60,7 @@ execAnyEvent setup m (AnyEvent e) (Component d runpure runio su sd somehandlers)
 dispatchAnyEvent :: AnyEvent -> Component -> Z' IO Component
 dispatchAnyEvent (AnyEvent e) (Component d runpure runio su sd handlers) = do
     (runlog, d') <- exec [] d $ handlers d
+    io $ printLog runlog
     -- toLog $ showLog runlog
     return $ Component d' runpure runio su sd handlers
     where
