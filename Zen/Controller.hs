@@ -78,9 +78,6 @@ dispatchAnyEvent (AnyEvent e) (Component d runpure runio su sd handlers) = do
         return (rlog, cdata')
 
 
-deriving instance Typeable SomeEvent
-
-
 runController :: Setup -> [Setup -> IO AnyEvent] -> IO [(ThreadId, TChan AnyEvent)]
 runController setup = mapM run
     where
