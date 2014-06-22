@@ -46,8 +46,8 @@ xEventSource setup = AnyEvent <$> waitForEvent (setup ^. connection)
 
 
 execAnyEvent :: Setup -> Model -> AnyEvent -> Component -> IO ((Log, Model), Component)
-execAnyEvent setup model (AnyEvent e) (Component d runpure runio su sd somehandlers) = do
-    ((runlog, model'), d') <- exec [] model d $ somehandlers d
+execAnyEvent setup m (AnyEvent e) (Component d runpure runio su sd somehandlers) = do
+    ((runlog, model'), d') <- exec [] m d $ somehandlers d
     return $ ((runlog, model'), Component d' runpure runio su sd somehandlers)
     where
     exec runlog model cdata []     = return ((runlog, model), cdata)
