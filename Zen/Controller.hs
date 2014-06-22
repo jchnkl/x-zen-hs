@@ -5,12 +5,10 @@
 
 module Controller where
 
-import GHC.Exts
 import Data.Typeable
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
-import Control.Monad.Writer
 import Control.Concurrent
 import Control.Concurrent.STM
 import Graphics.XHB hiding (Setup) -- (Event, SomeEvent, fromEvent, waitForEvent)
