@@ -22,28 +22,11 @@ import Types hiding (Sink, dispatch)
 import Component
 
 
-
--- data SomeEventHandler = forall a. Event a =>
---     SomeEventHandler (forall m. Monad m => a -> Z' m ())
---     deriving Typeable
-
 data SomeEventHandler = forall a. (Event a) =>
     SomeEventHandler (forall m. MonadIO m => a -> Z' m ())
     deriving (Typeable)
 
--- instance Typeable1 m => Handler (SomeEventHandler (Z' m ()))
 instance Handler SomeEventHandler
-
--- deriving instance Typeable (Z' m ())
-
--- data SomeMessageHandler = forall a. Message a =>
---     SomeMessageHandler (forall m. MonadIO m => a -> Z' m ())
---     deriving Typeable
-
--- instance Handler SomeMessageHandler
-
-hither :: Setup -> IO (Event a => a -> Maybe b)
-hither = undefined
 
 class Dispatcher a where
     dispatch :: MonadIO m => a -> SomeHandler -> Z' m ()
@@ -59,14 +42,10 @@ data AnyEvent = forall a. Dispatcher a => AnyEvent a
 
 type EventSource = Setup -> IO AnyEvent
 
--- data Setup = Setup
---     { connection :: Connection
---     , components :: [Component]
---     , eventSources :: [EventSource]
---     }
 
 xEventSource :: Setup -> IO AnyEvent
 xEventSource setup = AnyEvent <$> waitForEvent (setup ^. connection)
+
 
 execAnyEvent :: Setup -> Model -> AnyEvent -> Component -> IO ((Log, Model), Component)
 execAnyEvent setup model (AnyEvent e) (Component d runpure runio su sd somehandlers) = do
@@ -98,108 +77,6 @@ dispatchAnyEvent (AnyEvent e) (Component d runpure runio su sd handlers) = do
         ((rlog, m'), cdata') <- io $ runio (execStack (dispatch e h) s m) cdata
         put m'
         return (rlog, cdata')
-
-
--- -- xEventSource :: Setup -> IO (SomeHandler -> (forall m. MonadIO m => Z' m ()))
--- xEventSource :: Setup -> IO (forall m . MonadIO m => SomeHandler -> Z' m ())
--- xEventSource setup = do
---     (waitForEvent $ setup ^. connection) >>= return . run
---     where
---     -- run :: MonadIO m => SomeEvent -> (SomeHandler -> Z' m ())
---     run se sh = case (fromHandler sh :: Maybe (SomeEventHandler (Z' m ()))) of
---         Just (SomeEventHandler f) -> case (fromEvent se) of
---             Just e -> f e
---             _ -> return ()
---         _ -> return ()
-
--- xEventSource :: Setup -> (Component -> SomeHandler)
---     -> ((forall m. MonadIO m => Z' m ()) -> Component -> IO Component)
---     -> Component
---     -> IO Component
---     -- -> IO ()
--- xEventSource setup sh f component = do
---     se <- (waitForEvent $ setup ^. connection)
---     f (run se $ sh component) component
---     where
---     -- run :: MonadIO m => SomeEvent -> (SomeHandler -> Z' m ())
---     run se sh = case (fromHandler sh :: Maybe SomeEventHandler) of
---         Just (SomeEventHandler f) -> case (fromEvent se) of
---             Just e -> f e
---             _ -> return ()
---         _ -> return ()
-
-
-
--- fro00 :: (forall m. MonadIO m => Z' m ()) -> Component -> IO Component
--- fro00 f c@(Component d p iorun su sd cs) = do
---     ((runlog, model'), d') <- io $ iorun (execStack (f ) undefined undefined) d
---     return c
-
--- exec :: MonadIO m => Component -> (SomeHandler -> Z' m ()) -> IO Component
--- exec c@(Component d p iorun su sd cs) f = do
---     ((runlog, model'), d') <- io $ iorun (execStack (f (head $ cs d)) undefined undefined) d
---     return c
-
--- xEventSource :: (forall m. MonadIO m => Z' m () -> IO ()) -> Setup -> [SomeHandler] -> IO ()
--- xEventSource exec setup handler = do
---     -- setup <- ask
---     (waitForEvent $ setup ^. connection) >>= run handler
---     where
---     -- run :: [SomeHandler] -> SomeEvent -> Z' IO ()
---     run []       _  = return ()
---     run (sh:shs) se = case (fromHandler sh :: Maybe SomeEventHandler) of
---         Just (SomeEventHandler f) -> case (fromEvent se) of
---             Just e -> exec $ f e
---             _ -> return ()
---         _ -> return ()
-
-
--- runComponent' :: (forall m. MonadIO m => SomeHandler -> Z' m ())
---               -> Component
---               -> Z' IO Component
--- runComponent' f (Component d purerun iorun su sd csinks) = do
---     setup <- ask
---     model <- get
---     ((runlog, model'), d') <- io $ iorun (execStack (f somehs) setup model) d
---     return (Component d' purerun iorun su sd csinks)
-
--- execStack :: Monad m => Z' m () -> Setup -> Model -> m (Log, Model)
-
-    -- where
-    -- somehs = (undefined :: SomeHandler)
-
-
--- asdf :: Setup -> [SomeHandler] -> IO ()
--- asdf = xEventSource runComponent'
-
--- someEventDispatcher :: SomeItem -> [SomeHandler] -> Z' IO ()
--- someEventDispatcher = undefined
-
-
-barComponent :: (Component -> [SomeHandler])
-                -> (MonadIO m => m a -> Component -> IO (a, Component))
-                -> Component -> IO Component
-barComponent hs runc component = undefined
-    -- (hs component)
-    -- runc component
-
-
--- fooComponent :: SomeHandler
--- fooComponent = SomeHandler $ SomeEventHandler $ \(e :: KeyPressEvent) -> io $ print "KeyPressEvent"
-
--- [Component] -> [Component]
--- source -> dispatcher ->
-
-
-
--- data SomeItem where
---     SomeEventItem   :: SomeEvent   -> SomeItem
---     SomeMessageItem :: SomeMessage -> SomeItem
-
-
--- instance Sink SomeEvent where
---     dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
---     dispatch _ _                    = return ()
 
 
 deriving instance Typeable SomeEvent
@@ -373,163 +250,3 @@ runConsumers chans components = readAnyEvent >>= run components
     where
     run cs ae = mapM (dispatchAnyEvent ae) cs >>= (readAnyEvent >>=) . run
     readAnyEvent = io . atomically . foldr1 orElse . map readTChan $ chans
-
-
-{-
-data Foo
-    = Foo1
-    | Foo2
-    | Foo3
-
-data Bar
-    = Bar1
-    | Bar2
-    | Bar3
-
-someEventSource :: Setup -> IO SomeEvent
-someEventSource setup = waitForEvent (setup ^. connection)
-
-doTheFoo :: [(Foo, Foo -> IO ())] -> IO ()
-doTheFoo ((foo,fun):foos) = do
-    fun foo
-    doTheFoo foos
-doTheFoo _ = return ()
-
-
-doTheStmBar :: [STM Bar] -> [Bar -> IO ()] -> IO ()
-doTheStmBar = atomically (foldr1 orElse) . (>>= forM_)
--}
-
-
-{-
-class Dispatcher a where
-    type DispatchConstraint a :: * -> Constraint
-    dispatch' :: DispatchConstraint a b => a -> (b -> Component' -> Component')
-                                                 -> (Component' -> Component')
-
-instance Dispatcher SomeEvent where
-    type DispatchConstraint SomeEvent = Event
-    dispatch' se f = case (fromEvent se) of
-        Just e -> f e
-        _ -> id
-
-instance Dispatcher SomeMessage where
-    type DispatchConstraint SomeMessage = Message
-    dispatch' se f = case (fromMessage se) of
-        Just e -> f e
-        _ -> id
-
-
--- source :: DispatchConstraint SomeEvent a => Setup
---        -> (a -> Component' -> Component')
---        -- -> (forall b. DispatchConstraint a b => b -> Component' -> Component')
---        -> IO (Component' -> Component')
-
-source :: DispatchConstraint SomeEvent a => Setup
-       -> (a -> Component' -> Component')
-       -- -> (forall b. DispatchConstraint a b => b -> Component' -> Component')
-       -> IO (Component' -> Component')
-source setup f = do
-    waitForEvent (setup ^. connection) >>= return . flip dispatch' f
-    -- waitForEvent (setup ^. connection) >>= return . f
-
-msgSource :: DispatchConstraint SomeMessage a => Setup
-       -> (a -> Component' -> Component')
-       -- -> (forall b. DispatchConstraint a b => b -> Component' -> Component')
-       -> IO (Component' -> Component')
-msgSource setup f = do
-    (undefined :: IO SomeMessage) >>= return . flip dispatch' f
-    -- waitForEvent (setup ^. connection) >>= return . f
--}
-
--- sources :: forall a b.
---     DispatchConstraint b a =>
---     [Setup
---     -> (a -> Component' -> Component')
---     -> IO (Component' -> Component')]
--- sources = [source, msgSource]
-
-class Typeable a => FooClass a where
-    fromFoo :: SomeFoo -> Maybe a
-    fromFoo (SomeFoo sf) = cast sf
-
-data SomeFoo = forall a. FooClass a => SomeFoo a
-    deriving Typeable
-
-class Typeable a => BarClass a where
-    fromBar :: SomeBar -> Maybe a
-    fromBar (SomeBar sb) = cast sb
-
-data SomeBar = forall a. BarClass a => SomeBar a
-    deriving Typeable
-
-data SomeFooHandler = forall a. FooClass a => SomeFooHandler (a -> IO ())
-    deriving Typeable
-
-data SomeBarHandler = forall a. BarClass a => SomeBarHandler (a -> IO ())
-    deriving Typeable
-
-class Typeable a => Wrapper a where
-    fromWrapper :: SomeWrapper -> Maybe a
-    fromWrapper (SomeWrapper f) = cast f
-
-data SomeWrapper = forall a. Wrapper a => SomeWrapper a
-    deriving Typeable
-
-instance Wrapper SomeFooHandler
-instance Wrapper SomeBarHandler
-
-data MyFoo = MyFoo
-    deriving (Show, Typeable)
-
-data MyBar = MyBar
-    deriving (Show, Typeable)
-
-instance FooClass MyFoo
-instance BarClass MyBar
-
-myFoo :: MyFoo -> IO ()
-myFoo = print
-
-myBar :: MyBar -> IO ()
-myBar = print
-
-doFoo :: SomeWrapper -> IO ()
-doFoo sh = let somefoo = SomeFoo MyFoo in
-    case (fromWrapper sh :: (Maybe SomeFooHandler)) of
-        Just (SomeFooHandler f) -> case (fromFoo somefoo) of
-            Just foo -> f foo
-            _ -> return ()
-        _ -> return ()
-
-
-doBar :: SomeWrapper -> IO ()
-doBar sh = let somebar = SomeBar MyBar in
-    case (fromWrapper sh :: (Maybe SomeBarHandler)) of
-        Just (SomeBarHandler f) -> case (fromBar somebar) of
-            Just bar -> f bar
-            _ -> return ()
-        _ -> return ()
-
-
-someHandlers = [ SomeWrapper (SomeFooHandler myFoo)
-               , SomeWrapper (SomeBarHandler myBar)
-               ]
-
-someDoers = [doFoo, doBar]
-
--- class Item a where
---     type ItemConstraint a :: * -> Constraint
---     dispatch :: SomeEventWrapper -> a -> (Component' -> Component')
-
-
--- -- data SomeXEvent = forall a. Event a => SomeXEvent (a -> Component' -> Component')
--- -- data SomeEventWrapper = forall a. ItemConstraint a => SomeEventWrapper (a -> Component' -> Component')
--- data SomeEventWrapper = SomeEventWrapper
---     (forall a b. ItemConstraint a b => a -> b -> Component' -> Component')
-
--- instance Item SomeEvent where
---     type ItemConstraint SomeEvent = Event
---     dispatch (SomeEventWrapper f) se = case (fromEvent se) of
---         Just e -> f se e
---         _ -> id
