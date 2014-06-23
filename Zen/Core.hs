@@ -78,20 +78,18 @@ core c = Component
     , ioRunComponent = runCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()
-    , someSinks = const $ [ EventHandler handleCreateNotify
-                          , EventHandler handleDestroyNotify
-                          , EventHandler handleKeyPress
-                          , EventHandler handleEnterNotify
-                          , EventHandler handleLeaveNotify
-                          , MessageHandler handleCoreMessages
-                          ]
+    , someHandler = const $
+        map SomeHandler [ EventHandler handleCreateNotify
+                        , EventHandler handleDestroyNotify
+                        , EventHandler handleKeyPress
+                        , EventHandler handleEnterNotify
+                        , EventHandler handleLeaveNotify
+                        ]
     }
 
 
--- TODO: coreConfig as ReaderT
 runCoreComponent :: CoreState a -> (Core, CoreConfig) -> IO (a, (Core, CoreConfig))
 runCoreComponent f (c, cc) = second (,cc) <$> runStateT (runReaderT f cc) c
-
 
 
 startupCoreComponent :: (Core, CoreConfig) -> Z IO (Core, CoreConfig)
