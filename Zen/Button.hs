@@ -29,6 +29,7 @@ import Types
 import qualified Core as C
 import qualified Queue as Q
 import qualified Window as W
+import qualified Model as Model
 import Message
 import Keyboard (getCleanMask, extraModifier)
 import Component
@@ -187,8 +188,7 @@ doMove e = do
 doResize :: ButtonPressEvent -> Z PointerStack ()
 doResize e = do
     doRaise e
-    sendMessage (GetClient window)
-        >>= withReply (flip whenJustM_ resize . getClientReply)
+    Model.lookup window >>= flip whenJustM_ resize
 
     where
     window = event_ButtonPressEvent e
@@ -208,8 +208,8 @@ moveMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
 moveMotionNotify e = getPM >>= \case
     Just m -> do
         let bw = 3
-        mclient <- join . fmap getClientReply <$> sendMessage (GetClient window)
-        clients <- maybe [] (map (addbw bw) . Q.toList . getQueueReply) <$> sendMessage GetQueue
+        mclient <- Model.lookup window
+        clients <- Model.asList
         whenJustM_ mclient $ doMoveMotionNotify e m clients . addbw bw
     _ -> return ()
     where window = event_MotionNotifyEvent e
@@ -348,7 +348,7 @@ handleMotionNotify e = getPM >>= handle
     --     $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
     handle (Just r@(R edges p g)) = do
         W.configure window $ (values (fst edges) p g) ++ (values (snd edges) p g)
-        sendMessage_ $ ModifyClient window $ updateClient r
+        Model.modifyClientM window $ updateClient r
 
     window = event_MotionNotifyEvent e
     root_x = fi $ root_x_MotionNotifyEvent e
@@ -393,7 +393,7 @@ handleCreateNotify e = do
     whenM isClient $ grabButtons mask buttons window
     where
     window = window_CreateNotifyEvent e
-    isClient = maybe False isClientReply <$> sendMessage (IsClient window)
+    isClient = Model.member window
 
 
 grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
