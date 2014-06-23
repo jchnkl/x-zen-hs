@@ -24,6 +24,7 @@ import Message
 import qualified Queue as Q
 import qualified Window as W
 import qualified Keyboard as K
+import qualified Model as Model
 import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
 
 {-
@@ -47,12 +48,10 @@ defaultKeyEventHandler :: KeyEventHandler
 defaultKeyEventHandler = KeyEventHandler (const $ return ()) (const $ return ())
 
 data CoreConfig = CoreConfig
-    { _keyEventHandler :: (Map ([ModMask], KeySym) KeyEventHandler)
+    { keyEventHandler :: (Map ([ModMask], KeySym) KeyEventHandler)
     }
     deriving Typeable
 
-keyEventHandler :: Functor f => LensLike' f CoreConfig (Map ([ModMask], KeySym) KeyEventHandler)
-keyEventHandler = lens _keyEventHandler (\d v -> d { _keyEventHandler = v })
 
 
 data Core = Core
@@ -65,8 +64,12 @@ queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
 
-asksCC :: (CoreConfig -> a) -> Z CoreState a
-asksCC = lift . lift . lift . asks
+askConfig :: Z CoreState CoreConfig
+askConfig = lift . lift . lift $ ask
+
+
+asksConfig :: (CoreConfig -> a) -> Z CoreState a
+asksConfig = lift . lift . lift . asks
 
 
 type CoreState = ReaderT CoreConfig (StateT Core IO)
@@ -118,23 +121,29 @@ startupCoreComponent (core, config) = do
 
 
 handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
-handleCreateNotify e = toLog "Core CreateNotifyEvent" >> manage (window_CreateNotifyEvent e)
+handleCreateNotify e = do
+    toLog "Core CreateNotifyEvent"
+    manage (window_CreateNotifyEvent e)
 
 
 handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
-handleDestroyNotify e = toLog "Core DestroyNotifyEvent" >> unmanage (window_DestroyNotifyEvent e)
+handleDestroyNotify e = do
+    toLog "Core DestroyNotifyEvent"
+    unmanage (window_DestroyNotifyEvent e)
 
 
 handleEnterNotify :: EnterNotifyEvent -> Z CoreState ()
-handleEnterNotify e = whenM (getsL queue $ (not isInferior &&) . Q.member window)
-    $ config . focusedBorderColor $-> W.setBorderColor window
+handleEnterNotify e = do
+    whenM ((not isInferior &&) <$> Model.member window)
+        $ config . focusedBorderColor $-> W.setBorderColor window
     where window = event_EnterNotifyEvent e
           isInferior = NotifyDetailInferior == detail_EnterNotifyEvent e
 
 
 handleLeaveNotify :: LeaveNotifyEvent -> Z CoreState ()
-handleLeaveNotify e = whenM (getsL queue $ (not isInferior &&) . Q.member window)
-    $ config . normalBorderColor $-> W.setBorderColor window
+handleLeaveNotify e = do
+    whenM ((not isInferior &&) <$> Model.member window)
+        $ config . normalBorderColor $-> W.setBorderColor window
     where window = event_LeaveNotifyEvent e
           isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
 
@@ -142,17 +151,18 @@ handleLeaveNotify e = whenM (getsL queue $ (not isInferior &&) . Q.member window
 handleKeyPress :: KeyPressEvent -> Z CoreState ()
 handleKeyPress e = do
     toLog . ("KeyPressEvent:\n" ++) . show $ e
-    let state = state_KeyPressEvent e
-        keycode = detail_KeyPressEvent e
 
     mask <- (\\) <$> (K.getCleanMask state) <*> askL (config . modMask)
 
-    let lookupKeysym keysym = fromMaybe (const $ return ())
-                            . fmap press
-                            . M.lookup (mask, fi keysym)
-    mapM_ (\f -> f e)
-        =<< (mapM $ getsL (coreConfig . keyEventHandler) . lookupKeysym)
+    mapM_ ($ e)
+        =<< mapM (asksConfig . (. keyEventHandler) . lookupKeysym mask)
             =<< asksL keyboardMap (flip K.keycodeToKeysym keycode)
+
+    where state = state_KeyPressEvent e
+          keycode = detail_KeyPressEvent e
+          lookupKeysym mask keysym = fromMaybe (const $ return ())
+                                   . fmap press
+                                   . M.lookup (mask, fi keysym)
 
 
 grabKeys :: (Functor m, MonadIO m) => CoreConfig -> Z m ()
@@ -160,9 +170,8 @@ grabKeys coreconfig = connection $-> \c -> do
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
     modmask <- askL (config . modMask)
-    let keys = M.keys $ coreconfig ^. keyEventHandler
-    -- keys <- getsL (core ^. coreConfig . keyEventHandler) M.keys
 
+    let keys = M.keys $ keyEventHandler coreconfig
     let nl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
         cl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
         -- TODO: separate function
@@ -192,11 +201,12 @@ initWindow window = do
 manage :: WindowId -> Z CoreState ()
 manage window = whenM (isClient <$> (W.attributes window >>= reply)) $ do
     initWindow window
-    queue %:= Q.insert (Client window nullPosition nullGeometry)
+    Model.insert window
 
 
 unmanage :: WindowId -> Z CoreState ()
-unmanage w = queue %:= Q.remove w
+unmanage window = do
+    Model.remove window
 
 
 refresh :: Z CoreState ()
