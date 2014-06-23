@@ -12,6 +12,8 @@ import qualified Data.Map as M
 import Data.List ((\\))
 import qualified Data.List as L
 import Control.Monad.State
+import Control.Monad.Reader
+import Control.Arrow (second)
 import Control.Applicative
 import Graphics.XHB
 import Types
@@ -54,26 +56,26 @@ keyEventHandler = lens _keyEventHandler (\d v -> d { _keyEventHandler = v })
 
 
 data Core = Core
-    { _coreConfig :: CoreConfig
-    , _queue :: Queue
+    { _queue :: Queue
     }
     deriving Typeable
 
-
-coreConfig :: Functor f => LensLike' f Core CoreConfig
-coreConfig = lens _coreConfig (\d v -> d { _coreConfig = v })
 
 queue :: Functor f => LensLike' f Core Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
 
-type CoreState = StateT Core IO
+asksCC :: (CoreConfig -> a) -> Z CoreState a
+asksCC = lift . lift . lift . asks
+
+
+type CoreState = ReaderT CoreConfig (StateT Core IO)
 
 
 core :: CoreConfig -> Component
 core c = Component
-    { componentData = Core c (ClientQueue [] Nothing [])
-    , runComponent = runCoreComponent
+    { componentData = (Core (ClientQueue [] Nothing []), c)
+    , ioRunComponent = runCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()
     , someSinks = const $ [ EventHandler handleCreateNotify
@@ -87,14 +89,15 @@ core c = Component
 
 
 -- TODO: coreConfig as ReaderT
-runCoreComponent :: CoreState a -> Core -> IO (a, Core)
-runCoreComponent = runStateT
+runCoreComponent :: CoreState a -> (Core, CoreConfig) -> IO (a, (Core, CoreConfig))
+runCoreComponent f (c, cc) = second (,cc) <$> runStateT (runReaderT f cc) c
 
 
-startupCoreComponent :: Core -> Z IO Core
-startupCoreComponent core = do
-    grabKeys core
-    (core &) . (queue .~) . Q.fromList <$>
+
+startupCoreComponent :: (Core, CoreConfig) -> Z IO (Core, CoreConfig)
+startupCoreComponent (core, config) = do
+    grabKeys config
+    (,config) <$> (core &) . (queue .~) . Q.fromList <$>
         (mapM mkClient =<< filterChildren =<< children <$> rootTree)
 
     where
@@ -154,12 +157,12 @@ handleKeyPress e = do
             =<< asksL keyboardMap (flip K.keycodeToKeysym keycode)
 
 
-grabKeys :: (Functor m, MonadIO m) => Core -> Z m ()
-grabKeys core = connection $-> \c -> do
+grabKeys :: (Functor m, MonadIO m) => CoreConfig -> Z m ()
+grabKeys coreconfig = connection $-> \c -> do
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
     modmask <- askL (config . modMask)
-    let keys = M.keys $ core ^. coreConfig . keyEventHandler
+    let keys = M.keys $ coreconfig ^. keyEventHandler
     -- keys <- getsL (core ^. coreConfig . keyEventHandler) M.keys
 
     let nl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
