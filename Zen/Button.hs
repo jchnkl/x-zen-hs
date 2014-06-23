@@ -95,16 +95,24 @@ data PointerMotion = M Position Position
 type PointerStack = ReaderT PointerSetup (StateT (Maybe PointerMotion) IO)
 
 
+-- Setup -> Log -> Model -> PointerSetup -> Maybe PointerMotion
+putPM :: Maybe PointerMotion -> Z PointerStack ()
+putPM = lift . lift . lift . put
+
+getPM :: Z PointerStack (Maybe PointerMotion)
+getPM = lift . lift . lift $ get
+
 asksPS :: (PointerSetup -> a) -> Z PointerStack a
 asksPS = lift . lift . asks
 
 pointerComponent :: Component
 pointerComponent = Component
     { componentData = (PointerSetup [] M.empty, Nothing)
-    , runComponent = runPointerComponent
+    , ioRunComponent = runPointerComponent
     , onStartup = startupPointerComponent
     , onShutdown = shutdownPointerComponent
-    , someSinks = const $ [ EventHandler handleButtonPress
+    , someHandler = const $ map SomeHandler
+                          [ EventHandler handleButtonPress
                           , EventHandler handleMotionNotify
                           , EventHandler handleCreateNotify
                           ]
@@ -175,7 +183,7 @@ doLower = W.lower . event_ButtonPressEvent
 doMove :: ButtonPressEvent -> Z PointerStack ()
 doMove e = do
     doRaise e
-    put . Just $ M (Position event_x event_y) (Position root_x root_y)
+    putPM . Just $ M (Position event_x event_y) (Position root_x root_y)
     -- put $ Just . M $ Position root_x root_y
     flip whenJustM_ changeCursor =<< asksPS (M.lookup xC_fleur . glyphMap)
     where
@@ -200,13 +208,13 @@ doResize e = do
     edges = getEdges . Geometry (Position event_x event_y) . (^. geometry . dimension)
 
     resize c = do
-        put $ Just $ R (edges c) (Position root_x root_y) (c ^. geometry)
+        putPM $ Just $ R (edges c) (Position root_x root_y) (c ^. geometry)
         flip whenJustM_ changeCursor
             =<< asksPS (M.lookup (getCursor $ edges c) . glyphMap)
 
 
 moveMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
-moveMotionNotify e = get >>= \case
+moveMotionNotify e = getPM >>= \case
     Just m -> do
         let bw = 3
         mclient <- join . fmap getClientReply <$> sendMessage (GetClient window)
@@ -224,7 +232,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
     moveSnapResist e epos rpos client clients
 
     -- put . Just $ M epos rpos
-    put . Just $ M epos $ Position (fi root_x) (fi root_y)
+    putPM . Just $ M epos $ Position (fi root_x) (fi root_y)
     -- put . Just $ M (Position (fi event_x) (fi event_y)) rpos
     -- put . Just $ M (Position (fi event_x) (fi event_y)) (Position (fi root_x) (fi root_y))
 
@@ -340,7 +348,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
 
 
 handleMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
-handleMotionNotify e = get >>= handle
+handleMotionNotify e = getPM >>= handle
     where
     handle :: Maybe PointerMotion -> Z PointerStack ()
     handle Nothing              = return ()
