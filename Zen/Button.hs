@@ -74,15 +74,12 @@ data ButtonConfig = ButtonConfig
     }
     deriving (Eq, Show, Typeable)
 
-buttonActions :: (MonadIO m, Functor m) => Z m (Maybe ButtonMap)
-buttonActions = (_buttonActions <$>)
-            <$> asksL (config . componentConfigs) getButtonConfig
-
 
 type GlyphMap = Map Glyph CURSOR
 
 data PointerSetup = PointerSetup
-    { buttonMask :: [EventMask]
+    { buttonActions :: ButtonMap
+    , buttonMask :: [EventMask]
     , glyphMap :: GlyphMap
     }
     deriving (Show, Typeable)
@@ -105,9 +102,9 @@ getPM = lift . lift . lift $ get
 asksPS :: (PointerSetup -> a) -> Z PointerStack a
 asksPS = lift . lift . asks
 
-pointerComponent :: Component
-pointerComponent = Component
-    { componentData = (PointerSetup [] M.empty, Nothing)
+pointerComponent :: ButtonMap -> Component
+pointerComponent buttons = Component
+    { componentData = (PointerSetup buttons [] M.empty, Nothing)
     , ioRunComponent = runPointerComponent
     , onStartup = startupPointerComponent
     , onShutdown = shutdownPointerComponent
@@ -127,10 +124,9 @@ runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
                         -> Z IO (PointerSetup, Maybe PointerMotion)
-startupPointerComponent (PointerSetup bm _, p) = connection $-> \c -> do
+startupPointerComponent (PointerSetup buttons bm _, p) = connection $-> \c -> do
     toLog "Button startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
-    buttons <- fromMaybe M.empty <$> buttonActions
     io $ putStrLn "GetClients start"
 
     -- mapM_ (grabButtons bm buttons)
@@ -139,17 +135,13 @@ startupPointerComponent (PointerSetup bm _, p) = connection $-> \c -> do
     C.withQueueM $ mapM_ (grabButtons bm buttons) . map (^. xid) . Q.toList
 
     io $ putStrLn "GetClients done"
-    return (PointerSetup buttonEventMask glyphs, p)
+    return (PointerSetup buttons buttonEventMask glyphs, p)
 
 
 shutdownPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
-shutdownPointerComponent (PointerSetup _ glyphs, _) = do
+shutdownPointerComponent (PointerSetup _ _ glyphs, _) = do
     toLog "Button shutdownPointerComponent"
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
-
-
-getButtonConfig :: [ComponentConfig] -> Maybe ButtonConfig
-getButtonConfig = getConfig
 
 
 handleButtonPress :: ButtonPressEvent -> Z PointerStack ()
@@ -157,8 +149,7 @@ handleButtonPress e = do
     toLog "Button ButtonPressEvent"
 
     mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
-    flip whenJustM_ handle =<<
-        (join . (M.lookup (mask, button) <$>) <$> buttonActions)
+    asksPS (M.lookup (mask, button) . buttonActions) >>= flip whenJustM_ handle
 
     where
     bstate = state_ButtonPressEvent e
@@ -398,7 +389,7 @@ handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify e = do
     toLog "Button CreateNotifyEvent"
     mask <- asksPS buttonMask
-    buttons <- fromMaybe M.empty <$> buttonActions
+    buttons <- asksPS buttonActions
     whenM isClient $ grabButtons mask buttons window
     where
     window = window_CreateNotifyEvent e
