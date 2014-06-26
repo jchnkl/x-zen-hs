@@ -182,6 +182,8 @@ data Config = Config
     , _normalBorderColor :: Word
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
+
+    , _components :: [Component]
     }
     deriving (Typeable)
 
@@ -199,6 +201,9 @@ focusedBorderColor = lens _focusedBorderColor (\d v -> d { _focusedBorderColor =
 
 selectionBorderColor :: Functor f => LensLike' f Config Word
 selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderColor = v })
+
+components :: Functor f => LensLike' f Config [Component]
+components = lens _components (\d v -> d { _components = v })
 
 
 type WindowId = WINDOW
