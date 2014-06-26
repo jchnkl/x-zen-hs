@@ -105,7 +105,8 @@ asksPS = lift . lift . asks
 
 pointerComponent :: ButtonMap -> Component
 pointerComponent buttons = Component
-    { componentData = (PointerSetup buttons [] M.empty, Nothing)
+    { componentId = "Pointer"
+    , componentData = (PointerSetup buttons [] M.empty, Nothing)
     , ioRunComponent = runPointerComponent
     , onStartup = startupPointerComponent
     , onShutdown = shutdownPointerComponent

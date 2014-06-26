@@ -77,7 +77,8 @@ type CoreState = ReaderT CoreConfig (StateT Core IO)
 
 core :: CoreConfig -> Component
 core c = Component
-    { componentData = (Core (ClientQueue [] Nothing []), c)
+    { componentId = "Core"
+    , componentData = (Core (ClientQueue [] Nothing []), c)
     , ioRunComponent = runCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()

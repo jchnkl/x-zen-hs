@@ -31,10 +31,11 @@ class TypeConversion a b where
 
 
 data Component = forall d m. (MonadIO m, Functor m) => Component
-    {
-    -- | Component data
-      componentData    :: d
-    -- | Evaluation with side effects
+    { -- | Arbitratry id string, for logging only
+      componentId :: String
+      -- | Component data
+    , componentData    :: d
+      -- | Evaluation with side effects
     , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
     -- | Startup hook
     , onStartup        :: d -> Z IO d

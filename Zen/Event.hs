@@ -95,8 +95,9 @@ data BaseComponent = BaseComponent
 
 baseComponent :: Component
 baseComponent = Component
-    { componentData = BaseComponent
-    , runComponent = runBaseComponent
+    { componentId = "Base"
+    , componentData = BaseComponent
+    , ioRunComponent = runBaseComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
     , someSinks = const $
