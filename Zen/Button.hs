@@ -30,7 +30,6 @@ import qualified Core as C
 import qualified Queue as Q
 import qualified Window as W
 import qualified Model as Model
-import Message
 import Keyboard (getCleanMask, extraModifier)
 import Component
 import SnapResist (moveSnapResist)
@@ -127,28 +126,24 @@ runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
                         -> Z IO (PointerSetup, Maybe PointerMotion)
 startupPointerComponent (PointerSetup buttons bm _, p) = connection $-> \c -> do
-    toLog "Button startupPointerComponent"
+    toLog "startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
-    io $ putStrLn "GetClients start"
 
     -- mapM_ (grabButtons bm buttons)
     --     =<< maybe [] (map (^. xid) . getClientsReply) <$> sendMessage GetClients
 
-    C.withQueueM $ mapM_ (grabButtons bm buttons) . map (^. xid) . Q.toList
-
-    io $ putStrLn "GetClients done"
     return (PointerSetup buttons buttonEventMask glyphs, p)
 
 
 shutdownPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
 shutdownPointerComponent (PointerSetup _ _ glyphs, _) = do
-    toLog "Button shutdownPointerComponent"
+    toLog "shutdownPointerComponent"
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
 
 
 handleButtonPress :: ButtonPressEvent -> Z PointerStack ()
 handleButtonPress e = do
-    toLog "Button ButtonPressEvent"
+    toLog "ButtonPressEvent"
 
     mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
     asksPS (M.lookup (mask, button) . buttonActions . buttonConfig) >>= flip whenJustM_ handle
@@ -230,8 +225,7 @@ doMoveMotionNotify e (M epos rpos) clients client = do
 
     where root_x = root_x_MotionNotifyEvent e
           root_y = root_y_MotionNotifyEvent e
-          event_x = event_x_MotionNotifyEvent e
-          event_y = event_y_MotionNotifyEvent e
+
 {-
     -- let npos = Position (fi root_x - ppos ^. x) (fi root_y - ppos ^. y)
     let abs_pos = Position (fi root_x) (fi root_y) - epos
