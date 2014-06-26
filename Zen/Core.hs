@@ -32,9 +32,6 @@ import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
 -}
 
 
-data Mode = Normal | Manage
-    deriving (Eq, Read, Show, Typeable)
-
 data KeyEventHandler = KeyEventHandler
     { press   :: KeyPressEvent -> Z CoreState ()
     , release :: KeyReleaseEvent -> Z CoreState ()
