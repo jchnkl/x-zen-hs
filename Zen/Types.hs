@@ -29,6 +29,8 @@ import Lens
 
 type View = Model -> IO ()
 
+type Controller = SetupRT IO AnyEvent
+
 
 class TypeConversion a b where
     convert :: a -> b
@@ -79,9 +81,6 @@ instance Dispatcher SomeEvent where
             Just e -> f e
             _ -> return ()
         _ -> return ()
-
-
-type EventSource m = Setup -> IO AnyEvent
 
 
 -- TODO:
@@ -276,10 +275,7 @@ modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 
 
-type Controller = SetupRT IO AnyEvent
-
 type Model = ClientQueue
-type ModelST = StateT Model
 
 data ClientStack = ClientStack
     { _above :: [Client]
@@ -290,6 +286,8 @@ data ClientStack = ClientStack
 
 
 type LogWT = WriterT [String]
+
+type ModelST = StateT Model
 
 type SetupRT = ReaderT Setup
 
