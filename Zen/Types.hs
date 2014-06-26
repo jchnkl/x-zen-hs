@@ -322,8 +322,6 @@ geometry :: Functor f => LensLike' f Client Geometry
 geometry = lens _geometry (\d v -> d { _geometry = v })
 
 
-
-
 type Queue = ClientQueue
 
 data ClientQueue = ClientQueue
@@ -336,23 +334,6 @@ data ClientQueue = ClientQueue
 instance Show ClientQueue where
     show = unlines . map show . toList
        where toList (ClientQueue as mc bs) = maybeToList mc ++ as ++ bs
-
-
-
--- data Queue = Queue
---     { _above :: [Client]
---     , _focus :: Maybe Client
---     , _below :: [Client]
---     }
-
--- above :: Lens Queue [Client]
--- above = lens _above (\v d -> d { _above = v })
-
--- focus :: Lens Queue (Maybe Client)
--- focus = lens _focus (\v d -> d { _focus = v })
-
--- below :: Lens Queue [Client]
--- below = lens _below (\v d -> d { _below = v })
 
 
 type KeyboardMap = Map KEYCODE [KEYSYM]
@@ -368,15 +349,6 @@ data Setup = Setup
    -- provide message service for {un,}grabbing keys
     , _keyboardMap :: KeyboardMap
     , _modifierMap :: ModifierMap
-
-    -- , _producer :: [Producer]
-    -- , _eventQueue :: TChan SomeEvent
-    -- , _messageQueue :: TChan SomeMessage
-    -- , _eventQueue :: Channel
-    -- , _messageQueue :: Channel
-    -- , _eventSources :: [SomeChannel]
-    -- , _eventChannels :: [EventSource TChan]
-    -- , _messageQueue :: [TChan SomeData]
     }
     deriving Typeable
 
@@ -389,20 +361,12 @@ connection = lens _connection (\d v -> d { _connection = v })
 rootWindow :: Functor f => LensLike' f Setup WindowId
 rootWindow = lens _rootWindow (\d v -> d { _rootWindow = v })
 
--- buttonMask :: Functor f => LensLike' f Setup [EventMask]
--- buttonMask = lens _buttonMask (\d v -> d { _buttonMask = v })
-
 keyboardMap :: Functor f => LensLike' f Setup (Map KEYCODE [KEYSYM])
 keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })
 
 modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 
--- eventQueue :: Functor f => LensLike' f Setup Channel
--- eventQueue = lens _eventQueue (\d v -> d { _eventQueue = v })
-
--- messageQueue :: Functor f => LensLike' f Setup [TChan SomeData]
--- messageQueue = lens _messageQueue (\d v -> d { _messageQueue = v })
 
 type Controller = SetupRT IO AnyEvent
 
@@ -419,29 +383,7 @@ data ClientStack = ClientStack
 
 type LogWT = WriterT [String]
 
--- data HandlerManageOps
---     = AttachHandler Int SomeHandler
---     | DetachHandler Int
-
--- type HandlerWT = WriterT [HandlerManageOps]
-
--- instance Hashable SomeHandler where
---     hashWithSalt salt (SomeHandler _ f) = hashWithSalt salt (typeOf f)
-
--- attachHandler :: Monad m => SomeHandler -> Z m Int
--- attachHandler h = do
---     lift $ tell [AttachHandler hashsum h]
---     return hashsum
---     where hashsum = hash h
-
--- detachHandler :: Monad m => Int -> Z m ()
--- detachHandler i = lift . tell $ [DetachHandler i]
-
--- type MessageWT = WriterT [SomeMessage]
-
 type SetupRT = ReaderT Setup
-
--- type Z m a = LogWT (HandlerWT (SetupRT m)) a
 
 type Z m = LogWT (ModelST (SetupRT m))
 
