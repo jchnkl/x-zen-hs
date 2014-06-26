@@ -96,11 +96,10 @@ baseComponent = Component
     , ioRunComponent = runBaseComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
-    , someSinks = const $
-        [ EventHandler handleMapRequest
-        , EventHandler handleConfigureRequest
-        , EventHandler handleCirculateNotify
-        ]
+    , someHandler = const $
+        map SomeHandler $ [ EventHandler handleMapRequest
+                          , EventHandler handleConfigureRequest
+                          ]
     }
 
 
