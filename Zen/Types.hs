@@ -290,15 +290,24 @@ instance Num Geometry where
     fromInteger i = Geometry (fromInteger i) (fromInteger i)
 
 
+data UpdateHint = UpdateX
+                | UpdateY
+                | UpdateWidth
+                | UpdateHeight
+                | UpdateBorderWidth
+                | UpdateBorderColor
+   deriving (Eq, Typeable)
+
 data Client = Client
-    { _xid :: WindowId
-    , _pointer :: Position
-    , _geometry :: Geometry
+    { _xid         :: WindowId
+    , _pointer     :: Position
+    , _geometry    :: Geometry
+    , _updateHints :: [UpdateHint]
     }
     deriving (Eq, Typeable)
 
 instance Show Client where
-    show (Client i _ (Geometry pos dim)) =
+    show (Client i _ (Geometry pos dim) _) =
         "0x" ++ showHex (fromXid $ toXid i :: Word32) ""
         ++ " @ " ++ show (pos ^. x) ++ "x" ++ show (pos ^. y) ++ "+"
                  ++ show (dim ^. width) ++ "+" ++ show (dim ^. height)

@@ -104,7 +104,9 @@ startupCoreComponent conf = do
     mkClient :: (MonadIO m, Functor m) => WindowId -> Z m (WindowId, Client)
     mkClient w = do
         initWindow w
-        (w,) . Client w nullPosition . fromRight nullGeometry <$> clientGeometry w
+        (w,) . makeClientWithGeometry w . fromRight nullGeometry <$> clientGeometry w
+
+    makeClientWithGeometry w g = Client w nullPosition g []
 
 
 handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
