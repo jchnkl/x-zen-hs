@@ -32,13 +32,6 @@ import Window
 -- import Keyboard
 
 
-someEventSource :: Setup -> IO SomeEvent
-someEventSource setup = waitForEvent (setup ^. connection)
-
-
-instance Sink SomeEvent where
-    dispatch event (EventHandler f) = whenJustM_ (fromEvent event) f
-    dispatch _ _                    = return ()
 
 
 {-
