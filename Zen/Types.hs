@@ -270,8 +270,9 @@ data UpdateHint = UpdateX
                 | UpdateY
                 | UpdateWidth
                 | UpdateHeight
-                | UpdateBorderWidth
+                | UpdateStackOrder
                 | UpdateBorderColor
+                | UpdateBorderWidth
    deriving (Eq, Show, Typeable)
 
 data Model = Model
