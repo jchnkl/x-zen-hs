@@ -38,7 +38,7 @@ insertClient = modify . (model %~) . Q.insert
 
 
 insert :: Monad m => WindowId -> Z m ()
-insert window = modify $ model %~ Q.insert (Client window nullPosition nullGeometry)
+insert window = insertClient (Client window nullPosition nullGeometry)
 
 
 remove :: Monad m => WindowId -> Z m ()
