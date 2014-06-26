@@ -6,7 +6,7 @@ import Graphics.X11.Types -- hiding (Connection, EventMask)
 
 import Log
 import Lens
-import Types
+import Types hiding (pointer)
 
 import Event
 import Core (KeyEventHandler(..), CoreConfig(..))
@@ -17,27 +17,29 @@ import Button
 
 coreConfig :: CoreConfig
 coreConfig = CoreConfig $ M.fromList
-    [ (([], xK_Tab), C.defaultKeyEventHandler
-        { press = const $ do
-            toLog "xK_Tab press"
-            modifyL C.queue $ Q.focusNext
-            C.refresh
-        }
-      )
-    ]
+    []
+    -- [ (([], xK_Tab), C.defaultKeyEventHandler
+    --     { press = const $ do
+    --         toLog "xK_Tab press"
+    --         modifyL C.queue $ Q.focusNext
+    --         C.refresh
+    --     }
+    --   )
+    -- ]
 
 core :: Component
 core = C.core coreConfig
 
-
-buttonConfig :: ButtonConfig
-buttonConfig = ButtonConfig $ M.fromList
+buttons :: ButtonConfig
+buttons = ButtonConfig $ M.fromList
     [ (([],             ButtonIndex1), Move)
     , (([],             ButtonIndex2), Resize)
     , (([],             ButtonIndex3), Lower)
     , (([ModMaskShift], ButtonIndex3), Raise)
     ]
 
+pointer :: Component
+pointer = pointerComponent buttons
 
 defaultConfig :: Config
 defaultConfig = Config
@@ -79,8 +81,7 @@ defaultConfig = Config
         -- , (([ModMaskShift], ButtonIndex3), raiseWindowHandler)
         -- ]
 
-    , _components = [baseComponent, core, pointerComponent]
-
-
-    , _componentConfigs = [ComponentConfig buttonConfig]
+    -- , _components = [baseComponent, core, pointerComponent]
+       , _components = [base, core, pointer]
+    -- , _componentConfigs = [ComponentConfig buttonConfig]
     }
