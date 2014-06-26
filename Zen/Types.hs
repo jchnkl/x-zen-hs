@@ -13,6 +13,8 @@
 module Types where
 
 import Data.Word
+import Data.Maybe
+import Numeric
 import Data.Typeable
 import Data.Map (Map)
 
@@ -293,7 +295,13 @@ data Client = Client
     , _pointer :: Position
     , _geometry :: Geometry
     }
-    deriving (Eq, Show, Typeable)
+    deriving (Eq, Typeable)
+
+instance Show Client where
+    show (Client i _ (Geometry pos dim)) =
+        "0x" ++ showHex (fromXid $ toXid i :: Word32) ""
+        ++ " @ " ++ show (pos ^. x) ++ "x" ++ show (pos ^. y) ++ "+"
+                 ++ show (dim ^. width) ++ "+" ++ show (dim ^. height)
 
 xid :: Functor f => LensLike' f Client WindowId
 xid = lens _xid (\d v -> d { _xid = v })
@@ -314,7 +322,11 @@ data ClientQueue = ClientQueue
     , focus :: Maybe Client
     , below :: [Client]
     }
-    deriving Typeable
+    deriving (Typeable)
+
+instance Show ClientQueue where
+    show = unlines . map show . toList
+       where toList (ClientQueue as mc bs) = maybeToList mc ++ as ++ bs
 
 
 
