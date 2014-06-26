@@ -434,6 +434,6 @@ type SetupRT = ReaderT Setup
 
 -- type Z m a = LogWT (HandlerWT (SetupRT m)) a
 
-type Z m = SetupRT (LogWT (ModelST m))
+type Z m = LogWT (ModelST (SetupRT m))
 
 type StatelessZ a = Z IO a
