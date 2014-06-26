@@ -30,7 +30,7 @@ import Lens
 import Types
 import qualified Core as C
 import qualified Window as W
-import Message
+import qualified Model as Model
 import Keyboard (getCleanMask, extraModifier)
 import Component
 
@@ -144,8 +144,7 @@ moveSnapResist e epos rpos client clients = do
 
     toLog $ ("adjacentBorders: " ++) . show $ nearest_borders
 
-    sendMessage_ $ ModifyClient window $ changePosition
-                 $ Position px py
+    Model.modifyClientM window $ changePosition $ Position px py
 
     W.configure window [(ConfigWindowX, fi px), (ConfigWindowY, fi py)]
 
