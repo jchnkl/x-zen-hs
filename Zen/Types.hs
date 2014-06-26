@@ -26,6 +26,9 @@ import Graphics.XHB hiding (Setup)
 import Lens
 
 
+type View = Model -> IO ()
+
+
 class TypeConversion a b where
     convert :: a -> b
 
