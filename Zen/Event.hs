@@ -86,6 +86,9 @@ dispatch e = mapM_ try =<< getsL eventHooks ((++ defaultHandler) . S.toList)
 data BaseComponent = BaseComponent
     deriving (Show, Typeable)
 
+base :: Component
+base = baseComponent
+
 baseComponent :: Component
 baseComponent = Component
     { componentId = "Base"
