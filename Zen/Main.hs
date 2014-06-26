@@ -58,7 +58,7 @@ Small Core which does
 
 
 initialModel :: Model
-initialModel = ClientQueue [] Nothing []
+initialModel = Model (ClientQueue [] Nothing []) M.empty
 
 
 controller :: [Controller]

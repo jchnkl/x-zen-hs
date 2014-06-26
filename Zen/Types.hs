@@ -266,7 +266,26 @@ modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 
 
-type Model = ClientQueue
+data UpdateHint = UpdateX
+                | UpdateY
+                | UpdateWidth
+                | UpdateHeight
+                | UpdateBorderWidth
+                | UpdateBorderColor
+   deriving (Eq, Show, Typeable)
+
+data Model = Model
+   { _model :: Queue
+   , _updateHints :: Map WindowId [UpdateHint]
+   }
+   deriving (Show, Typeable)
+
+model :: Functor f => LensLike' f Model Queue
+model = lens _model (\d v -> d { _model = v })
+
+updateHints :: Functor f => LensLike' f Model (Map WindowId [UpdateHint])
+updateHints = lens _updateHints (\d v -> d { _updateHints = v })
+
 
 data ClientStack = ClientStack
     { _above :: [Client]
