@@ -115,13 +115,13 @@ startupCoreComponent conf = do
 
 handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
 handleCreateNotify e = do
-    toLog "Core CreateNotifyEvent"
+    toLog "CreateNotifyEvent"
     manage (window_CreateNotifyEvent e)
 
 
 handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
 handleDestroyNotify e = do
-    toLog "Core DestroyNotifyEvent"
+    toLog "DestroyNotifyEvent"
     unmanage (window_DestroyNotifyEvent e)
 
 
