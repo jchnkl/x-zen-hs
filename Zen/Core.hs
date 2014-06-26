@@ -53,17 +53,6 @@ data CoreConfig = CoreConfig
     deriving Typeable
 
 
-
-data Core = Core
-    { _queue :: Queue
-    }
-    deriving Typeable
-
-
-queue :: Functor f => LensLike' f Core Queue
-queue = lens _queue (\d v -> d { _queue = v })
-
-
 askConfig :: Z CoreState CoreConfig
 askConfig = lift . lift . lift $ ask
 
@@ -72,13 +61,13 @@ asksConfig :: (CoreConfig -> a) -> Z CoreState a
 asksConfig = lift . lift . lift . asks
 
 
-type CoreState = ReaderT CoreConfig (StateT Core IO)
+type CoreState = ReaderT CoreConfig IO
 
 
 core :: CoreConfig -> Component
 core c = Component
     { componentId = "Core"
-    , componentData = (Core (ClientQueue [] Nothing []), c)
+    , componentData = c
     , ioRunComponent = runCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()
@@ -92,15 +81,18 @@ core c = Component
     }
 
 
-runCoreComponent :: CoreState a -> (Core, CoreConfig) -> IO (a, (Core, CoreConfig))
-runCoreComponent f (c, cc) = second (,cc) <$> runStateT (runReaderT f cc) c
+runCoreComponent :: CoreState a -> CoreConfig -> IO (a, CoreConfig)
+runCoreComponent f cc = (,cc) <$> runReaderT f cc
 
 
-startupCoreComponent :: (Core, CoreConfig) -> Z IO (Core, CoreConfig)
-startupCoreComponent (core, config) = do
-    grabKeys config
-    (,config) <$> (core &) . (queue .~) . Q.fromList <$>
-        (mapM mkClient =<< filterChildren =<< children <$> rootTree)
+startupCoreComponent :: CoreConfig -> Z IO CoreConfig
+startupCoreComponent conf = do
+    grabKeys conf
+
+    mapM_ ((Model.insertClient . snd =<<) . mkClient)
+        =<< filterChildren =<< children <$> rootTree
+
+    return conf
 
     where
     children :: Either SomeError QueryTreeReply -> [WindowId]
@@ -143,8 +135,8 @@ handleEnterNotify e = do
 
 handleLeaveNotify :: LeaveNotifyEvent -> Z CoreState ()
 handleLeaveNotify e = do
-    whenM ((not isInferior &&) <$> Model.member window)
-        $ config . normalBorderColor $-> W.setBorderColor window
+    whenM ((not isInferior &&) <$> Model.member window) $ do
+        config . normalBorderColor $-> W.setBorderColor window
     where window = event_LeaveNotifyEvent e
           isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
 
