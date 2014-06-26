@@ -129,8 +129,8 @@ startupPointerComponent (PointerSetup buttons bm _, p) = connection $-> \c -> do
     toLog "startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
 
-    -- mapM_ (grabButtons bm buttons)
-    --     =<< maybe [] (map (^. xid) . getClientsReply) <$> sendMessage GetClients
+    Model.withQueueM $ mapM_ (grabButtons bm (buttonActions buttons))
+                     . map (^. xid) . Q.toList
 
     return (PointerSetup buttons buttonEventMask glyphs, p)
 
@@ -161,11 +161,11 @@ handleButtonPress e = do
 
 
 doRaise :: ButtonPressEvent -> Z PointerStack ()
-doRaise = W.raise . event_ButtonPressEvent
+doRaise = Model.raise . event_ButtonPressEvent
 
 
 doLower :: ButtonPressEvent -> Z PointerStack ()
-doLower = W.lower . event_ButtonPressEvent
+doLower = Model.lower . event_ButtonPressEvent
 
 
 doMove :: ButtonPressEvent -> Z PointerStack ()
