@@ -395,6 +395,8 @@ modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 -- messageQueue :: Functor f => LensLike' f Setup [TChan SomeData]
 -- messageQueue = lens _messageQueue (\d v -> d { _messageQueue = v })
 
+type Controller = SetupRT IO AnyEvent
+
 type Model = ClientQueue
 type ModelST = StateT Model
 
