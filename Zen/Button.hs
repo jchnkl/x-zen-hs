@@ -215,6 +215,11 @@ moveMotionNotify e = getPM >>= \case
                    . (geometry . dimension . height +~ 2 * bw)
 
 
+doMoveMotionNotify :: MotionNotifyEvent
+                   -> PointerMotion
+                   -> [Client]
+                   -> Client
+                   -> Z PointerStack ()
 doMoveMotionNotify e (M epos rpos) clients client = do
     moveSnapResist e epos rpos client clients
 
