@@ -386,5 +386,3 @@ type LogWT = WriterT [String]
 type SetupRT = ReaderT Setup
 
 type Z m = LogWT (ModelST (SetupRT m))
-
-type StatelessZ a = Z IO a

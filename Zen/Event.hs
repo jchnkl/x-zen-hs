@@ -107,14 +107,14 @@ runBaseComponent :: IO a -> BaseComponent -> IO (a, BaseComponent)
 runBaseComponent f b = (,b) <$> f
 
 
--- dispatch :: SomeEvent -> StatelessZ ()
+-- dispatch :: SomeEvent -> Z IO ()
 -- -- dispatch e = toLog "dispatch" >> mapM_ try defaultHandler
 -- dispatch e = mapM_ try defaultHandler
 --     where
---     try :: EventHandler (StatelessZ ()) -> StatelessZ ()
+--     try :: EventHandler (Z IO ()) -> Z IO ()
 --     try (EventHandler handler) = whenJustM_ (fromEvent e) handler
 
-    -- defaultHandler :: [EventHandler (StatelessZ ())]
+    -- defaultHandler :: [EventHandler (Z IO ())]
     -- defaultHandler =
     --     -- Structure control events
     --     [ EventHandler handleMapRequest
@@ -169,13 +169,13 @@ copyValues _ _ = []
 -- handleMapRequest :: MonadIO m => MapRequestEvent -> SetupRT m ()
 -- handleMapRequest :: MonadIO m => MapRequestEvent -> Z ()
 
-handleMapRequest :: MapRequestEvent -> StatelessZ ()
+handleMapRequest :: MapRequestEvent -> Z IO ()
 handleMapRequest e = do
     toLog "MapRequestEvent"
     connection $-> io . flip mapWindow (window_MapRequestEvent e)
 
 
-handleConfigureRequest :: ConfigureRequestEvent -> StatelessZ ()
+handleConfigureRequest :: ConfigureRequestEvent -> Z IO ()
 handleConfigureRequest e = do
     toLog "ConfigureRequestEvent"
     configure window values
@@ -185,7 +185,7 @@ handleConfigureRequest e = do
     values = copyValues e (value_mask_ConfigureRequestEvent e)
 
 
-handleCirculateNotify :: CirculateNotifyEvent -> StatelessZ ()
+handleCirculateNotify :: CirculateNotifyEvent -> Z IO ()
 handleCirculateNotify _ = toLog "CirculateNotifyEvent"
 
 
