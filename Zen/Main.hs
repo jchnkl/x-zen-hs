@@ -1,21 +1,29 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE LambdaCase #-}
 
+import qualified Data.Map as M
+import Control.Monad.State
 import Control.Monad.Reader
+import Control.Monad.Writer
 import Control.Arrow
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Applicative
-import Control.Exception (finally)
+import Control.Monad.Catch (finally)
 import Graphics.XHB (Connection, SomeEvent, CW(..), EventMask(..))
 import qualified Graphics.XHB as X
 
+import Log
 import Util
 import Lens
 import Types
 import Config (defaultConfig)
 
-import Message
+import Core
+import Event
+import Types
+import Controller
+
 import Keyboard
 import Component
 
@@ -49,18 +57,43 @@ Small Core which does
 -}
 
 
-
-main :: IO ()
-main = X.connect >>= flip startup defaultConfig
-
-
-eventSource :: Setup -> IO SomeEvent
-eventSource setup = X.waitForEvent (setup ^. connection)
+initialModel :: Model
+initialModel = ClientQueue [] Nothing []
 
 
-startup :: Maybe Connection -> Config -> IO ()
-startup Nothing _ = print "Got no connection!"
-startup (Just c) conf = do
+controller :: [Controller]
+controller = [xEventSource]
+
+
+views :: [Model -> IO ()]
+views = [print]
+
+
+mainLoop :: [TChan AnyEvent] -> [Component] -> ModelST (SetupRT IO) ()
+mainLoop chans cs = do
+    (cs', l) <- runWriterT (runComponentsOnce chans cs)
+    io $ printLog l
+    get >>= io . forM_ Main.views . flip id
+    mainLoop chans cs'
+
+
+runMainLoop :: [(ThreadId, TChan AnyEvent)] -> SetupRT IO ()
+runMainLoop tcs = evalStateT (withComponents . mainLoop $ map snd tcs) initialModel
+                  `finally` mapM_ (io . killThread . fst) tcs
+
+
+withSetup :: Connection -> Config -> (SetupRT IO a) -> IO a
+withSetup c conf f = do
+    let min_keycode = X.min_keycode_Setup $ X.connectionSetup c
+        max_keycode = X.max_keycode_Setup (X.connectionSetup c) - min_keycode + 1
+    kbdmap <- io (keyboardMapping c =<< X.getKeyboardMapping c min_keycode max_keycode)
+    modmap <- io (modifierMapping =<< X.getModifierMapping c)
+    runReaderT f $ Setup conf c (X.getRoot c) kbdmap modmap
+
+
+startup :: Config -> Maybe Connection -> IO ()
+startup _ Nothing     = print "Got no connection!"
+startup conf (Just c) = do
     let mask = CWEventMask
         values = X.toMask [ EventMaskSubstructureRedirect
                           , EventMaskSubstructureNotify
@@ -71,104 +104,8 @@ startup (Just c) conf = do
 
     -- TODO: ungrab / regrab keys for MappingNotifyEvent
 
-    withSetup c conf (ap withComponents run)
-
-    where
-
-    run :: Setup -> [TMVar Component] -> IO ()
-    run setup cvars = do
-        tlock <- newTMVarIO []
-
-        etids <- runSomeSource tlock setup cvars (eventSource setup)
-        mtids <- runSomeSource tlock setup cvars messageSource
-
-        waitForChildren tlock `finally` mapM_ killThread (etids ++ mtids)
+    withSetup c conf $ runController controller >>= runMainLoop
 
 
-    -- children :: Either SomeError QueryTreeReply -> [WindowId]
-    -- children (Left _) = []
-    -- children (Right reply) = children_QueryTreeReply reply
-
-
--- runReaderT (f :: ReaderT Setup IO ()) setup
-withSetup :: -- MonadReader r m
-          -- => Connection
-             Connection
-          -> Config
-          -> (Setup -> IO a)
-          -> IO a
-withSetup c conf f = do
-    let min_keycode = X.min_keycode_Setup $ X.connectionSetup c
-        max_keycode = X.max_keycode_Setup (X.connectionSetup c) - min_keycode + 1
-    kbdmap <- keyboardMapping c =<< X.getKeyboardMapping c min_keycode max_keycode
-    modmap <- modifierMapping =<< X.getModifierMapping c
-    f $ Setup conf c (X.getRoot c) kbdmap modmap
-
-
-runSomeSource :: Sink a => ThreadLock -> Setup -> [TMVar Component] -> IO a -> IO [ThreadId]
-runSomeSource tlock setup cvars f =
-    uncurry (flip (:)) <$> (run <$> newBroadcastTChanIO >>= _1 id >>= _2 id)
-    where run = runSinks tlock setup cvars &&& runSource tlock f
-
-
-runSource :: ThreadLock -> IO a -> TChan a -> IO ThreadId
-runSource tlock f chan =
-    fork tlock . forever $ f >>= atomically . writeTChan chan
-
-
-runSinks :: Sink a => ThreadLock -> Setup -> [TMVar Component] -> TChan a -> IO [ThreadId]
-runSinks tlock setup cvars chan =
-    mapM (fork tlock . (dupchan >>=) . runSink setup) cvars
-    where dupchan = atomically $ dupTChan chan
-
-
-runSink :: Sink a => Setup -> TMVar Component -> TChan a -> IO ()
-runSink setup cvar = forever . (exec =<<) . atomically . readTChan
-    where exec = modifyTMVarM cvar . execComponent setup
-
-
-type ThreadLock = TMVar [TMVar ()]
-
-
-fork :: ThreadLock -> IO () -> IO ThreadId
-fork tlock f = do
-    lock <- newEmptyTMVarIO
-    modifyTMVar tlock (lock :)
-    forkFinally f (const $ atomically $ putTMVar lock ())
-
-
-waitForChildren :: ThreadLock -> IO ()
-waitForChildren tlock =
-    unlessM (atomically $ checkLocks tlock) $ waitForChildren tlock
-
-
-checkLocks :: ThreadLock -> STM Bool
-checkLocks tlock = takeTMVar tlock >>= \case
-    []   -> return False
-    l:ls -> putTMVar tlock ls >> takeTMVar l >> return True
-
-
-{-
-data Foo
-    = Foo1
-    | Foo2
-    | Foo3
-
-data Bar
-    = Bar1
-    | Bar2
-    | Bar3
-
-someEventSource :: Setup -> IO SomeEvent
-someEventSource setup = waitForEvent (setup ^. connection)
-
-doTheFoo :: [(Foo, Foo -> IO ())] -> IO ()
-doTheFoo ((foo,fun):foos) = do
-    fun foo
-    doTheFoo foos
-doTheFoo _ = return ()
-
-
-doTheStmBar :: [STM Bar] -> [Bar -> IO ()] -> IO ()
-doTheStmBar = atomically (foldr1 orElse) . (>>= forM_)
--}
+main :: IO ()
+main = X.connect >>= startup defaultConfig
