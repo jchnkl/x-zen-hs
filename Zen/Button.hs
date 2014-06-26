@@ -205,7 +205,7 @@ moveMotionNotify e = getPM >>= \case
     Just m -> do
         let bw = 3
         mclient <- Model.lookup window
-        clients <- Model.asList
+        clients <- map (addbw bw) <$> Model.asList
         whenJustM_ mclient $ doMoveMotionNotify e m clients . addbw bw
     _ -> return ()
     where window = event_MotionNotifyEvent e
