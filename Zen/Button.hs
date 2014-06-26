@@ -71,7 +71,7 @@ data PointerAction = Move
 type ButtonMap = Map ([ModMask], ButtonIndex) PointerAction
 
 data ButtonConfig = ButtonConfig
-    { _buttonActions :: ButtonMap
+    { buttonActions :: ButtonMap
     }
     deriving (Eq, Show, Typeable)
 
@@ -79,7 +79,7 @@ data ButtonConfig = ButtonConfig
 type GlyphMap = Map Glyph CURSOR
 
 data PointerSetup = PointerSetup
-    { buttonActions :: ButtonMap
+    { buttonConfig :: ButtonConfig
     , buttonMask :: [EventMask]
     , glyphMap :: GlyphMap
     }
@@ -103,7 +103,7 @@ getPM = lift . lift . lift $ get
 asksPS :: (PointerSetup -> a) -> Z PointerStack a
 asksPS = lift . lift . asks
 
-pointerComponent :: ButtonMap -> Component
+pointerComponent :: ButtonConfig -> Component
 pointerComponent buttons = Component
     { componentId = "Pointer"
     , componentData = (PointerSetup buttons [] M.empty, Nothing)
@@ -151,7 +151,7 @@ handleButtonPress e = do
     toLog "Button ButtonPressEvent"
 
     mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
-    asksPS (M.lookup (mask, button) . buttonActions) >>= flip whenJustM_ handle
+    asksPS (M.lookup (mask, button) . buttonActions . buttonConfig) >>= flip whenJustM_ handle
 
     where
     bstate = state_ButtonPressEvent e
@@ -388,22 +388,23 @@ handleMotionNotify e = getPM >>= handle
 
 handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify e = do
-    toLog "Button CreateNotifyEvent"
+    toLog "CreateNotifyEvent"
     mask <- asksPS buttonMask
-    buttons <- asksPS buttonActions
+    buttons <- asksPS (buttonActions . buttonConfig)
     whenM isClient $ grabButtons mask buttons window
     where
     window = window_CreateNotifyEvent e
+    -- isClient = maybe False isClientReply <$> sendMessage (IsClient window)
     isClient = Model.member window
 
 
 grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
-grabButtons eventmask actions window = connection $-> \c -> do
+grabButtons eventmask buttons window = connection $-> \c -> do
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
 
-    forM_ (M.keys actions) $ \(m, b) -> do
+    forM_ (M.keys buttons) $ \(m, b) -> do
         let keys = zip (combinations (m ++ modmask ++ extraModifier kbdmap modmap)) (repeat b)
         mapM_ (grab c eventmask) keys
 
