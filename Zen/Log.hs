@@ -13,6 +13,8 @@ type Log = [String]
 toLog :: Monad m => String -> Z m ()
 toLog s = tell [s]
 
+appendLog :: Monad m => [String] -> Z m ()
+appendLog s = tell s
 
 printLog :: Log -> IO ()
 printLog ls = when (not $ null ls) $ do
