@@ -7,7 +7,8 @@
    GADTs,
    MultiParamTypeClasses,
    RankNTypes,
-   TypeSynonymInstances
+   TypeSynonymInstances,
+   LambdaCase
    #-}
 
 module Types where
@@ -18,6 +19,7 @@ import Numeric
 import Data.Typeable
 import Data.Map (Map)
 
+import Control.Monad.Free
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -303,3 +305,48 @@ type ModelST = StateT Model
 type SetupRT = ReaderT Setup
 
 type Z m = LogWT (ModelST (SetupRT m))
+
+
+
+foo :: Z Xproto ()
+foo = lift . lift . lift $ move undefined (Position 0 0)
+
+bar :: IO Model
+bar = do
+   let f = runReaderT (execStateT (execWriterT foo) undefined) undefined
+   runXproto undefined f
+
+
+
+liftF :: (Functor f, MonadFree f m) => f a -> m a
+liftF = wrap . fmap return
+
+data XprotoF a = Move   WindowId Position  a
+               | Resize WindowId Dimension a
+   deriving Typeable
+
+instance Functor XprotoF where
+    fmap f (Move   win pos a) = Move   win pos (f a)
+    fmap f (Resize win dim a) = Resize win dim (f a)
+
+type Xproto = Free XprotoF
+
+move :: WindowId -> Position -> Xproto ()
+move win pos = liftF $ Move win pos ()
+
+resize :: WindowId -> Dimension -> Xproto ()
+resize win dim = liftF $ Resize win dim ()
+
+runXproto :: Connection -> Xproto r -> IO r
+runXproto c = \case
+   (Pure r) -> return r
+
+   (Impure (Move win (Position x' y') t)) -> do
+      configureWindow c win $ toValueParam [(ConfigWindowX, fromIntegral x'),
+                                            (ConfigWindowY, fromIntegral y')]
+      runXproto c t
+
+   (Impure (Resize win (Dimension w' h') t)) -> do
+      configureWindow c win $ toValueParam [(ConfigWindowWidth, fromIntegral w'),
+                                            (ConfigWindowHeight, fromIntegral h')]
+      runXproto c t
