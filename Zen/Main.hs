@@ -71,10 +71,11 @@ views = [print]
 
 mainLoop :: [TChan AnyEvent] -> [Component] -> ModelST (SetupRT IO) ()
 mainLoop chans cs = do
-    (cs', l) <- connection $-> flip runXprotoT (runWriterT (runComponentsOnce chans cs))
+    (cs', l) <- runOps (runWriterT (runComponentsOnce chans cs))
     io $ printLog l
     get >>= io . forM_ Main.views . flip id
     mainLoop chans cs'
+    where runOps ops = connection $-> flip runXprotoT ops
 
 
 runMainLoop :: [(ThreadId, TChan AnyEvent)] -> SetupRT IO ()
