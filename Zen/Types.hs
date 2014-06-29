@@ -1,4 +1,4 @@
--- vim: set sw=4 sws=4 ts=4
+-- vim: set sw=4 sts=4 ts=4
 
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE
