@@ -37,7 +37,11 @@ import Types
 
 
 runXprotoT :: MonadIO m => Connection -> FreeT XprotoF m a -> m a
-runXprotoT c m = runFreeT m >>= \case
+runXprotoT c m = runFreeT m >>= runXproto c
+
+
+runXproto :: MonadIO m => Connection -> FreeF XprotoF a (FreeT XprotoF m a) -> m a
+runXproto c = \case
     Pure a -> return a
 
     Free (GetReply receipt f) ->
