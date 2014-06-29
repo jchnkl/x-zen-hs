@@ -1,7 +1,6 @@
 -- vim: set sw=4 sts=4 ts=4
 
--- {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE
     DeriveDataTypeable,
     FlexibleInstances,
@@ -10,7 +9,6 @@
     RankNTypes,
     TypeSynonymInstances,
     StandaloneDeriving,
-    -- FlexibleContexts,
     UndecidableInstances,
     DeriveFoldable,
     DeriveTraversable
@@ -82,7 +80,6 @@ data EventHandler b = forall a. Event a => EventHandler (a -> b)
     deriving (Typeable)
 
 instance Typeable1 (Z m) where
--- instance Typeable1 ((LogWT (ModelST (SetupRT m)))) where
     typeOf1 _ = mkTyConApp (mkTyCon3 "zen" "Zen.Types" "Z") []
 
 instance Handler (EventHandler (Z m ()))
@@ -312,49 +309,13 @@ data ClientStack = ClientStack
 data XprotoF a = forall r. GetReply (Receipt r) (Either SomeError r -> a)
                | ConfigureWindow WindowId (ValueParam Word16) a
                | GetWindowAttributes WindowId (Receipt GetWindowAttributesReply -> a)
-               -- | PutStrLn String a
     deriving Typeable
 
 instance Functor XprotoF where
     fmap f (GetReply receipt k)  = GetReply receipt (f . k)
     fmap f (ConfigureWindow win vp a) = ConfigureWindow win vp (f a)
     fmap f (GetWindowAttributes win k) = GetWindowAttributes win (f . k)
-    -- fmap f (PutStrLn str a)      = PutStrLn str (f a)
 
-{-
-
-deriving instance Foldable XprotoF
-deriving instance Traversable XprotoF
-
-instance (Functor f, MonadIO m) => MonadIO (FreeT f m) where
-    liftIO = lift . liftIO
-
--- liftCatch :: (m a -> (e -> m a) -> m a) -> IdentityT m a -> (e -> IdentityT m a) -> IdentityT m a
--- liftCatch f m h = IdentityT $ f (runIdentityT m) (runIdentityT . h)
-
--- runFreeT :: (Functor f, MonadTrans m) => FreeT f m a -> m a
--- runFreeT f = untrans f >>= lift . runXproto c
-
-    -- catch (FreeT (Left a)) c = c a -- FreeT $ m `catch` (\e -> c e)
-    -- catch (FreeT (Right m)) c = m -- c a -- FreeT $ m `catch` (\e -> c e)
-        -- FreeT (catch m (wrap . c))
-
--- instance (Functor f, MonadThrow m) => MonadMask (FreeT f m) where
-
-instance (Functor f, MonadReader r m) => MonadReader r (FreeT f m) where
-    ask = lift ask
-    local = undefined -- lift . local
-
-instance (Functor f, MonadState s m) => MonadState s (FreeT f m) where
-    get = lift get
-    put = lift . put
-
--- instance (Functor f, MonadCatch m) => MonadCatch (FreeT f m) where
---     -- catch :: m a -> (e -> m a) -> m a
---     -- catch f c = f `catch` c
---     catch f c = catch f c
-
--}
 
 instance (Functor f, MonadThrow m) => MonadThrow (FreeT f m) where
     throwM = lift . throwM
@@ -380,7 +341,3 @@ type SetupRT = ReaderT Setup
 type XprotoFT = FreeT XprotoF
 
 type Z m = LogWT (XprotoFT (ModelST (SetupRT m)))
-
--- type ProtoZ m = (LogWT (XprotoFT (ModelST (SetupRT m))))
-
--- type Z m = (LogWT (XprotoFT (ModelST (SetupRT m))))
