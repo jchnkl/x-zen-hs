@@ -100,7 +100,7 @@ getPM :: Z PointerStack (Maybe PointerMotion)
 getPM = lift . lift . lift $ get
 
 asksPS :: (PointerSetup -> a) -> Z PointerStack a
-asksPS = lift . lift . lift . asks
+asksPS = lift . lift . lift . lift . asks
 
 pointerComponent :: ButtonConfig -> Component
 pointerComponent buttons = Component
