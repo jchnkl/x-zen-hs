@@ -21,6 +21,7 @@ import Config (defaultConfig)
 import Core
 import Event
 import Types
+import Xproto
 import Controller
 
 import Keyboard
@@ -70,7 +71,7 @@ views = [print]
 
 mainLoop :: [TChan AnyEvent] -> [Component] -> ModelST (SetupRT IO) ()
 mainLoop chans cs = do
-    (cs', l) <- runWriterT (runComponentsOnce chans cs)
+    (cs', l) <- connection $-> flip runXprotoT (runWriterT (runComponentsOnce chans cs))
     io $ printLog l
     get >>= io . forM_ Main.views . flip id
     mainLoop chans cs'
