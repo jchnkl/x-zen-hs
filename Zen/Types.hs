@@ -1,15 +1,20 @@
 -- vim: set sw=4 sts=4 ts=4
 
-{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+-- {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE
-   DeriveDataTypeable,
-   FlexibleInstances,
-   GADTs,
-   MultiParamTypeClasses,
-   RankNTypes,
-   TypeSynonymInstances,
-   LambdaCase
-   #-}
+    DeriveDataTypeable,
+    FlexibleInstances,
+    GADTs,
+    MultiParamTypeClasses,
+    RankNTypes,
+    TypeSynonymInstances,
+    StandaloneDeriving,
+    -- FlexibleContexts,
+    UndecidableInstances,
+    DeriveFoldable,
+    DeriveTraversable
+    #-}
 
 module Types where
 
@@ -17,9 +22,12 @@ import Data.Word
 import Data.Maybe
 import Numeric
 import Data.Typeable
+import Data.Traversable
 import Data.Map (Map)
 
 import Control.Monad.Free
+import Control.Monad.Trans.Free
+import Control.Monad.Catch hiding (Handler)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -46,8 +54,10 @@ data Component = forall d m. (MonadIO m, Functor m) => Component
       -- | Evaluation with side effects
     , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
     -- | Startup hook
+    -- , onStartup        :: d -> LogWT ((ModelST (SetupRT IO))) d
     , onStartup        :: d -> Z IO d
     -- | Shutdown hook
+    -- , onShutdown       :: d -> LogWT ((ModelST (SetupRT IO))) ()
     , onShutdown       :: d -> Z IO ()
     -- | List of event handlers
     , someHandler        :: d -> [SomeHandler]
@@ -72,7 +82,8 @@ data EventHandler b = forall a. Event a => EventHandler (a -> b)
     deriving (Typeable)
 
 instance Typeable1 (Z m) where
-   typeOf1 _ = mkTyConApp (mkTyCon3 "zen" "Zen.Types" "Z") []
+-- instance Typeable1 ((LogWT (ModelST (SetupRT m)))) where
+    typeOf1 _ = mkTyConApp (mkTyCon3 "zen" "Zen.Types" "Z") []
 
 instance Handler (EventHandler (Z m ()))
 
@@ -275,13 +286,13 @@ data UpdateHint = UpdateX
                 | UpdateStackOrder
                 | UpdateBorderColor
                 | UpdateBorderWidth
-   deriving (Eq, Show, Typeable)
+    deriving (Eq, Show, Typeable)
 
 data Model = Model
-   { _model :: Queue
-   , _updateHints :: Map WindowId [UpdateHint]
-   }
-   deriving (Show, Typeable)
+    { _model :: Queue
+    , _updateHints :: Map WindowId [UpdateHint]
+    }
+    deriving (Show, Typeable)
 
 model :: Functor f => LensLike' f Model Queue
 model = lens _model (\d v -> d { _model = v })
@@ -298,55 +309,78 @@ data ClientStack = ClientStack
     deriving Typeable
 
 
+data XprotoF a = forall r. GetReply (Receipt r) (Either SomeError r -> a)
+               | ConfigureWindow WindowId (ValueParam Word16) a
+               | GetWindowAttributes WindowId (Receipt GetWindowAttributesReply -> a)
+               -- | PutStrLn String a
+    deriving Typeable
+
+instance Functor XprotoF where
+    fmap f (GetReply receipt k)  = GetReply receipt (f . k)
+    fmap f (ConfigureWindow win vp a) = ConfigureWindow win vp (f a)
+    fmap f (GetWindowAttributes win k) = GetWindowAttributes win (f . k)
+    -- fmap f (PutStrLn str a)      = PutStrLn str (f a)
+
+{-
+
+deriving instance Foldable XprotoF
+deriving instance Traversable XprotoF
+
+instance (Functor f, MonadIO m) => MonadIO (FreeT f m) where
+    liftIO = lift . liftIO
+
+-- liftCatch :: (m a -> (e -> m a) -> m a) -> IdentityT m a -> (e -> IdentityT m a) -> IdentityT m a
+-- liftCatch f m h = IdentityT $ f (runIdentityT m) (runIdentityT . h)
+
+-- runFreeT :: (Functor f, MonadTrans m) => FreeT f m a -> m a
+-- runFreeT f = untrans f >>= lift . runXproto c
+
+    -- catch (FreeT (Left a)) c = c a -- FreeT $ m `catch` (\e -> c e)
+    -- catch (FreeT (Right m)) c = m -- c a -- FreeT $ m `catch` (\e -> c e)
+        -- FreeT (catch m (wrap . c))
+
+-- instance (Functor f, MonadThrow m) => MonadMask (FreeT f m) where
+
+instance (Functor f, MonadReader r m) => MonadReader r (FreeT f m) where
+    ask = lift ask
+    local = undefined -- lift . local
+
+instance (Functor f, MonadState s m) => MonadState s (FreeT f m) where
+    get = lift get
+    put = lift . put
+
+-- instance (Functor f, MonadCatch m) => MonadCatch (FreeT f m) where
+--     -- catch :: m a -> (e -> m a) -> m a
+--     -- catch f c = f `catch` c
+--     catch f c = catch f c
+
+-}
+
+instance (Functor f, MonadThrow m) => MonadThrow (FreeT f m) where
+    throwM = lift . throwM
+
+instance (Functor f, MonadCatch m) => MonadCatch (FreeT f m) where
+    -- catch :: m a -> (e -> m a) -> m a
+    -- catch :: FreeT f m a -> (e -> FreeT f m a) -> FreeT f m a
+    catch m c = FreeT $ runFreeT m `catch` \e -> runFreeT (c e)
+
+instance (Functor f, MonadMask m) => MonadMask (FreeT f m) where
+    -- mask :: ((forall a. m a -> m a) -> m b) -> m b
+    mask = FreeT . runFreeT . mask
+    -- uninterruptibleMask :: ((forall a. m a -> m a) -> m b) -> m b
+    uninterruptibleMask = FreeT . runFreeT . uninterruptibleMask
+
+
 type LogWT = WriterT [String]
 
 type ModelST = StateT Model
 
 type SetupRT = ReaderT Setup
 
-type Z m = LogWT (ModelST (SetupRT m))
+type XprotoFT = FreeT XprotoF
 
+type Z m = LogWT (XprotoFT (ModelST (SetupRT m)))
 
+-- type ProtoZ m = (LogWT (XprotoFT (ModelST (SetupRT m))))
 
-foo :: Z Xproto ()
-foo = lift . lift . lift $ move undefined (Position 0 0)
-
-bar :: IO Model
-bar = do
-   let f = runReaderT (execStateT (execWriterT foo) undefined) undefined
-   runXproto undefined f
-
-
-
-liftF :: (Functor f, MonadFree f m) => f a -> m a
-liftF = wrap . fmap return
-
-data XprotoF a = Move   WindowId Position  a
-               | Resize WindowId Dimension a
-   deriving Typeable
-
-instance Functor XprotoF where
-    fmap f (Move   win pos a) = Move   win pos (f a)
-    fmap f (Resize win dim a) = Resize win dim (f a)
-
-type Xproto = Free XprotoF
-
-move :: WindowId -> Position -> Xproto ()
-move win pos = liftF $ Move win pos ()
-
-resize :: WindowId -> Dimension -> Xproto ()
-resize win dim = liftF $ Resize win dim ()
-
-runXproto :: Connection -> Xproto r -> IO r
-runXproto c = \case
-   (Pure r) -> return r
-
-   (Impure (Move win (Position x' y') t)) -> do
-      configureWindow c win $ toValueParam [(ConfigWindowX, fromIntegral x'),
-                                            (ConfigWindowY, fromIntegral y')]
-      runXproto c t
-
-   (Impure (Resize win (Dimension w' h') t)) -> do
-      configureWindow c win $ toValueParam [(ConfigWindowWidth, fromIntegral w'),
-                                            (ConfigWindowHeight, fromIntegral h')]
-      runXproto c t
+-- type Z m = (LogWT (XprotoFT (ModelST (SetupRT m))))
