@@ -4,14 +4,9 @@
 {-# LANGUAGE
     DeriveDataTypeable,
     FlexibleInstances,
-    GADTs,
+    ExistentialQuantification,
     MultiParamTypeClasses,
-    RankNTypes,
-    TypeSynonymInstances,
-    StandaloneDeriving,
-    UndecidableInstances,
-    DeriveFoldable,
-    DeriveTraversable
+    RankNTypes
     #-}
 
 module Types where
@@ -20,12 +15,9 @@ import Data.Word
 import Data.Maybe
 import Numeric
 import Data.Typeable
-import Data.Traversable
 import Data.Map (Map)
 
-import Control.Monad.Free
 import Control.Monad.Trans.Free
-import Control.Monad.Catch hiding (Handler)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -315,21 +307,6 @@ instance Functor XprotoF where
     fmap f (GetReply receipt k)  = GetReply receipt (f . k)
     fmap f (ConfigureWindow win vp a) = ConfigureWindow win vp (f a)
     fmap f (GetWindowAttributes win k) = GetWindowAttributes win (f . k)
-
-
-instance (Functor f, MonadThrow m) => MonadThrow (FreeT f m) where
-    throwM = lift . throwM
-
-instance (Functor f, MonadCatch m) => MonadCatch (FreeT f m) where
-    -- catch :: m a -> (e -> m a) -> m a
-    -- catch :: FreeT f m a -> (e -> FreeT f m a) -> FreeT f m a
-    catch m c = FreeT $ runFreeT m `catch` \e -> runFreeT (c e)
-
-instance (Functor f, MonadMask m) => MonadMask (FreeT f m) where
-    -- mask :: ((forall a. m a -> m a) -> m b) -> m b
-    mask = FreeT . runFreeT . mask
-    -- uninterruptibleMask :: ((forall a. m a -> m a) -> m b) -> m b
-    uninterruptibleMask = FreeT . runFreeT . uninterruptibleMask
 
 
 type LogWT = WriterT [String]
