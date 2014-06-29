@@ -1,7 +1,5 @@
 -- vim: set sw=4 sws=4 ts=4
 
-{-# OPTIONS_GHC -Wall #-}
-{-# LANGUAGE ImpredicativeTypes, FlexibleInstances, NoMonomorphismRestriction, DeriveDataTypeable, ConstraintKinds, TypeFamilies, ExistentialQuantification, GADTs, RankNTypes, StandaloneDeriving, ScopedTypeVariables #-}
 
 module Controller where
 
