@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Util where
