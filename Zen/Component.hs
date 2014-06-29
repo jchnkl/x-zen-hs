@@ -13,6 +13,7 @@ import Log
 import Lens
 import Util
 import Types
+import Xproto
 
 
 withComponents :: ([Component] -> ModelST (SetupRT IO) a) -> ModelST (SetupRT IO) a
@@ -24,20 +25,22 @@ withComponents = bracket startup shutdown
 
 startupComponent :: Component -> ModelST (SetupRT IO) Component
 startupComponent (Component cid d r startup su h) = do
-    (d', l) <- runWriterT (startup d)
+    (d', l) <- connection $-> flip runXprotoT (runWriterT (startup d))
     io . printLog $ ("startup " ++ cid ++ ":") : l
     return $ Component cid d' r startup su h
 
 
 shutdownComponent :: Component -> ModelST (SetupRT IO) ()
 shutdownComponent (Component cid d _ _ shutdown _) = do
-    l <- execWriterT (shutdown d)
+    l <- connection $-> flip runXprotoT (execWriterT (shutdown d))
     io . printLog $ ("shutdown " ++ cid ++ ":") : l
 
 
-runStack :: Monad m => Setup -> Model -> Z m a -> m ((a, Log), Model)
-runStack setup model f = runReaderT (runStateT (runWriterT f) model) setup
+runStack :: MonadIO m => Setup -> Model -> Z m a -> m ((a, Log), Model)
+runStack setup m f = runReaderT (runStateT (runXprotoT c $ runWriterT f) m) setup
+    where c = setup ^. connection
 
 
-execStack :: Monad m => Setup -> Model -> Z m () -> m (Log, Model)
-execStack setup model f = runReaderT (runStateT (execWriterT f) model) setup
+execStack :: MonadIO m => Setup -> Model -> Z m () -> m (Log, Model)
+execStack setup m f = runReaderT (runStateT (runXprotoT c $ execWriterT f) m) setup
+    where c = setup ^. connection
