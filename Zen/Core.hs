@@ -47,11 +47,11 @@ data CoreConfig = CoreConfig
 
 
 askConfig :: Z CoreState CoreConfig
-askConfig = lift . lift . lift $ ask
+askConfig = lift . lift . lift . lift $ ask
 
 
 asksConfig :: (CoreConfig -> a) -> Z CoreState a
-asksConfig = lift . lift . lift . asks
+asksConfig = lift . lift . lift . lift . asks
 
 
 type CoreState = ReaderT CoreConfig IO
