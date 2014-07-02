@@ -28,6 +28,8 @@ import Graphics.XHB hiding (Setup)
 import Lens
 
 
+type Log = [String]
+
 type View = Model -> IO ()
 
 type Controller = SetupRT IO AnyEvent

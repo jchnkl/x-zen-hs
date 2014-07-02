@@ -7,9 +7,6 @@ import Control.Monad.Writer
 import Types
 
 
-type Log = [String]
-
-
 toLog :: Monad m => String -> Z m ()
 toLog s = tell [s]
 
