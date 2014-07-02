@@ -57,16 +57,12 @@ data Component = forall d m. (MonadIO m, Functor m, Typeable m) => Component
     }
 
 
-class Typeable a => Handler a where
-    fromHandler :: SomeHandler -> Maybe a
-    fromHandler (SomeHandler h) = cast h
-
-data SomeHandler = forall a. (Handler a) => SomeHandler a
+data SomeHandler = forall a. (Typeable a) => SomeHandler a
     deriving Typeable
 
 
-class Dispatcher a where
-    dispatch :: (Handler h, Typeable m, Monad m) => h -> a -> m ()
+class Dispatcher event where
+    dispatch :: (Typeable handler, Typeable m, Monad m) => handler -> event -> m ()
 
 data AnyEvent = forall a. (Dispatcher a) => AnyEvent a
 
@@ -79,9 +75,6 @@ deriving instance Typeable WriterT
 deriving instance Typeable ReaderT
 deriving instance Typeable StateT
 deriving instance Typeable FreeT
-
-
-instance Typeable m => Handler (EventHandler (Z m ()))
 
 
 instance Dispatcher SomeEvent where
