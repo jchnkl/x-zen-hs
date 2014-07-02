@@ -19,11 +19,11 @@ getL :: MonadState a1 m => FoldLike r a1 a' r b' -> m r
 getL l = view l `liftM` get
 
 -- | Control.Monad.State.put
-putL :: MonadState a m => Setter a a b b' -> b' -> m ()
+putL :: MonadState a m => ASetter a a b b' -> b' -> m ()
 putL l v = get >>= put . (l .~ v)
 
 -- | `putL`
-(^:=) :: MonadState a m => Setter a a b b' -> b' -> m ()
+(^:=) :: MonadState a m => ASetter a a b b' -> b' -> m ()
 (^:=) = putL
 infix 4 ^:=
 
@@ -32,11 +32,11 @@ getsL :: MonadState a m => FoldLike b a a' b b' -> (b -> c) -> m c
 getsL l f = (f . view l) `liftM` get
 
 -- modifyL :: MonadState a m => Lens a b -> (b -> b) -> m ()
-modifyL :: MonadState s m => Setter s s b b' -> (b -> b') -> m ()
+modifyL :: MonadState s m => ASetter s s b b' -> (b -> b') -> m ()
 modifyL l f = modify (l %~ f)
 
 -- | `modifyL
-(%:=) :: MonadState s m => Setter s s b b' -> (b -> b') -> m ()
+(%:=) :: MonadState s m => ASetter s s b b' -> (b -> b') -> m ()
 (%:=) = modifyL
 infix 4 %:=
 
