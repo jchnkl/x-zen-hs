@@ -22,21 +22,21 @@ xEventSource = askL connection >>= fmap AnyEvent . io . waitForEvent
 
 dispatchAnyEvent :: MonadIO m => AnyEvent -> Component -> Z m Component
 dispatchAnyEvent (AnyEvent e) (Component cid d runio su sd handlers) = do
-    model <- get
-    ((l, model'), d') <- exec model d [] $ handlers d
+    _model <- get
+    ((l, model'), d') <- exec _model d [] $ handlers d
     put model'
     when (not $ null l) $ appendLog $ [cid ++ ":"] ++ map ("\t"++) l
     return $ Component cid d' runio su sd handlers
 
     where
-    exec model cdata l []     = return ((l, model), cdata)
-    exec model cdata l (h:hs) = do
-        ((l', model'), cdata') <- run model cdata h
+    exec _model cdata l []     = return ((l, _model), cdata)
+    exec _model cdata l (h:hs) = do
+        ((l', model'), cdata') <- run _model cdata h
         exec model' cdata' (l ++ l') hs
 
-    run model cdata (SomeHandler h) = do
+    run _model cdata (SomeHandler h) = do
         setup <- ask
-        io $ runio (execStack setup model (dispatch h e)) cdata
+        io $ runio (execStack setup _model (dispatch h e)) cdata
 
 
 runController :: [SetupRT IO AnyEvent] -> SetupRT IO [(ThreadId, TChan AnyEvent)]
