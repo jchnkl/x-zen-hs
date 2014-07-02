@@ -1,11 +1,12 @@
 -- vim: set sw=4 sts=4 ts=4
 
-{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE
     DeriveDataTypeable,
     FlexibleInstances,
     ExistentialQuantification,
     MultiParamTypeClasses,
+    StandaloneDeriving,
     RankNTypes
     #-}
 
@@ -36,7 +37,7 @@ class TypeConversion a b where
     convert :: a -> b
 
 
-data Component = forall d m. (MonadIO m, Functor m) => Component
+data Component = forall d m. (MonadIO m, Functor m, Typeable m) => Component
     { -- | Arbitratry id string, for logging only
       componentId :: String
       -- | Component data
@@ -58,31 +59,36 @@ class Typeable a => Handler a where
     fromHandler :: SomeHandler -> Maybe a
     fromHandler (SomeHandler h) = cast h
 
-data SomeHandler = forall a. Handler a => SomeHandler a
+data SomeHandler = forall a. (Handler a) => SomeHandler a
     deriving Typeable
 
 
 class Dispatcher a where
-    dispatch :: MonadIO m => a -> SomeHandler -> Z m ()
+    dispatch :: (Handler h, Typeable m, Monad m) => h -> a -> m ()
 
-data AnyEvent = forall a. Dispatcher a => AnyEvent a
+data AnyEvent = forall a. (Dispatcher a) => AnyEvent a
 
 
-data EventHandler b = forall a. Event a => EventHandler (a -> b)
+data EventHandler b = forall a. (Event a) => EventHandler (a -> b)
     deriving (Typeable)
 
-instance Typeable1 (Z m) where
-    typeOf1 _ = mkTyConApp (mkTyCon3 "zen" "Zen.Types" "Z") []
 
-instance Handler (EventHandler (Z m ()))
+deriving instance Typeable WriterT
+deriving instance Typeable ReaderT
+deriving instance Typeable StateT
+deriving instance Typeable FreeT
+
+
+instance Typeable m => Handler (EventHandler (Z m ()))
 
 
 instance Dispatcher SomeEvent where
-    dispatch se sh = case fromHandler sh :: Maybe (EventHandler (Z m ())) of
+    dispatch sh se = case cast sh of
         Just (EventHandler f) -> case fromEvent se of
             Just e -> f e
-            _ -> return ()
-        _ -> return ()
+            _      -> return ()
+        _                     -> return ()
+
 
 
 -- TODO:

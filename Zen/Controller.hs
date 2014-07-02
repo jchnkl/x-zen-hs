@@ -34,9 +34,9 @@ dispatchAnyEvent (AnyEvent e) (Component cid d runio su sd handlers) = do
         ((l', model'), cdata') <- run model cdata h
         exec model' cdata' (l ++ l') hs
 
-    run model cdata h = do
+    run model cdata (SomeHandler h) = do
         setup <- ask
-        io $ runio (execStack setup model (dispatch e h)) cdata
+        io $ runio (execStack setup model (dispatch h e)) cdata
 
 
 runController :: [SetupRT IO AnyEvent] -> SetupRT IO [(ThreadId, TChan AnyEvent)]
