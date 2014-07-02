@@ -1,3 +1,5 @@
+-- vim:sw=4:sts=4:ts=4
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, TupleSections #-}
 

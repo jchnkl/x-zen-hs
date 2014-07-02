@@ -1,4 +1,4 @@
--- vim: set sw=4 sws=4 ts=4
+-- vim:sw=4:sts=4:ts=4
 
 module Config where
 
