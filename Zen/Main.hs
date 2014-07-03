@@ -30,35 +30,6 @@ import Keyboard
 import Component
 
 
-{-
-* TODO:
-    - Free Monads for Layout
-    - Split in proper modules
-      - Pointer -> grabButton, *Cursor, etc.
-      - Keyboard -> grabKeys, etc.
-        or generic X module?
-
-* IDEAS
- - Use Mod4 with lock after timeout
- - data BorderColor = BorderColor { _normal :: Word | _focused :: Word | etc.
-
- |-> Config | Normal | Manage
- |-> View:       Config determines State presentation
- |-> Controller: Config determines input interpretation
-       |-> modifies State
-       |-> modifies Config?
-
-Small Core which does
- * listen for events
-     |-> run through EventController, e.g. for MappingNotifyEvent, changing mode
- * run Controller with correct Mode Config -> State
- * run View with correct Mode Config & State
-
-
- * Warp mouse when focus changes
--}
-
-
 initialModel :: Model
 initialModel = Model (ClientQueue [] Nothing []) M.empty
 
