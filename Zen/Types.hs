@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 {-# LANGUAGE
     DeriveDataTypeable,
+    DeriveFunctor,
     FlexibleInstances,
     ExistentialQuantification,
     MultiParamTypeClasses,
@@ -308,6 +309,13 @@ instance Functor XprotoF where
     fmap f (GetReply receipt k)  = GetReply receipt (f . k)
     fmap f (ConfigureWindow win vp a) = ConfigureWindow win vp (f a)
     fmap f (GetWindowAttributes win k) = GetWindowAttributes win (f . k)
+
+
+data ModelOpsF f = Move   WindowId Position  f
+                 | Resize WindowId Dimension f
+    deriving (Functor, Show, Typeable)
+
+type ModelOps = Free ModelOpsF
 
 
 type LogWT = WriterT [String]
