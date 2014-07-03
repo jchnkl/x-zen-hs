@@ -1,9 +1,12 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# LANGUAGE DeriveDataTypeable,
-             ScopedTypeVariables,
-             LambdaCase,
-             TupleSections #-}
+{-# LANGUAGE
+    DeriveDataTypeable,
+    ScopedTypeVariables,
+    LambdaCase,
+    TupleSections,
+    FlexibleContexts
+    #-}
 
 module Button where
 
@@ -95,13 +98,13 @@ type PointerStack = ReaderT PointerSetup (StateT (Maybe PointerMotion) IO)
 
 
 -- Setup -> Log -> Model -> PointerSetup -> Maybe PointerMotion
-putPM :: Maybe PointerMotion -> Z PointerStack ()
+putPM :: (MonadState (Maybe PointerMotion) m) => Maybe PointerMotion -> Z m ()
 putPM = lift . lift . lift . put
 
-getPM :: Z PointerStack (Maybe PointerMotion)
+getPM :: (MonadState (Maybe PointerMotion) m) => Z m (Maybe PointerMotion)
 getPM = lift . lift . lift $ get
 
-asksPS :: (PointerSetup -> a) -> Z PointerStack a
+asksPS :: (MonadReader PointerSetup m) => (PointerSetup -> a) -> Z m a
 asksPS = lift . lift . lift . lift . asks
 
 pointerComponent :: ButtonConfig -> Component
