@@ -27,7 +27,7 @@ import Graphics.X11.Xlib.Cursor
 import Log
 import Util
 import Lens
-import Types
+import Types hiding (Move, Resize)
 import qualified Core as C
 import qualified Queue as Q
 import qualified Window as W

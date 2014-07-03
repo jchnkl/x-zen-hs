@@ -8,7 +8,7 @@ import Graphics.X11.Types -- hiding (Connection, EventMask)
 
 import Log
 import Lens
-import Types hiding (pointer)
+import Types hiding (Move, Resize, pointer)
 
 import Event
 import Core (KeyEventHandler(..), CoreConfig(..))
