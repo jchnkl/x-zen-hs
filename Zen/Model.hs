@@ -1,7 +1,7 @@
 -- vim:sw=4:sts=4:ts=4
 
 {-# OPTIONS_GHC -Wall #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleContexts, LambdaCase #-}
 
 module Model where
 
@@ -13,10 +13,12 @@ module Model where
 -- import Data.List ((\\))
 -- import qualified Data.List as L
 import Control.Monad.State
+import Control.Monad.Reader
+import Control.Monad.Trans.Free
 -- import Control.Applicative
 -- import Graphics.XHB
 import Types
--- import Util
+import Util
 import Lens
 -- import Log
 -- import Message
@@ -24,6 +26,7 @@ import qualified Queue as Q
 import qualified Window as W
 -- import qualified Keyboard as K
 -- import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
+import Graphics.XHB as X hiding (Setup)
 
 {-
  TODO
@@ -31,6 +34,32 @@ import qualified Window as W
      - border color
      - warp mouse pointer when focus change by key
 -}
+
+
+type ModelOpsFT = FreeT ModelOpsF
+
+
+move :: MonadFree ModelOpsF m => WindowId -> Position -> m ()
+move w p = liftF (Move w p ())
+
+
+resize :: MonadFree ModelOpsF m => WindowId -> Dimension -> m ()
+resize w d = liftF (Resize w d ())
+
+
+runModelOpsX :: (MonadReader Setup m, MonadIO m) => ModelOpsF (m a) -> m a
+runModelOpsX m = do
+    c <- askL connection
+    case m of
+        (Move w p f) -> do
+            io $ X.configureWindow c w $ toValueParam [(ConfigWindowX, fi $ p ^. x),
+                                                       (ConfigWindowY, fi $ p ^. y)]
+            f
+
+        (Resize w d f) -> do
+            io $ X.configureWindow c w $ toValueParam [(ConfigWindowWidth,  fi $ d ^. width),
+                                                       (ConfigWindowHeight, fi $ d ^. height)]
+            f
 
 
 insertClient :: Monad m => Client -> Z m ()
