@@ -312,12 +312,22 @@ instance Functor XprotoF where
     fmap f (GetWindowAttributes win k) = GetWindowAttributes win (f . k)
 
 
-data ModelOpsF f = Move   WindowId Position  f
-                 | Resize WindowId Dimension f
-    deriving (Functor, Show, Typeable)
+data ModelOps f =
+      GetModel (Model -> f)
+    | Raise     WindowId f
+    | Lower     WindowId f
+    | SetX      WindowId Int f
+    | SetY      WindowId Int f
+    | SetWidth  WindowId Word f
+    | SetHeight WindowId Word f
+    | SetPosition  WindowId Position  f
+    | SetDimension WindowId Dimension f
+    | SetBorderColor WindowId Word f
+    | SetBorderWidth WindowId Word f
+    deriving (Functor, Typeable)
 
-type ModelOps = Free ModelOpsF
 
+type ModelOpsFT = FreeT ModelOps
 
 type LogWT = WriterT [String]
 
