@@ -133,7 +133,7 @@ data Position = Position
     { _x :: Int
     , _y :: Int
     }
-    deriving (Eq, Read, Show, Typeable)
+    deriving (Eq, Ord, Read, Show, Typeable)
 
 x :: Functor f => LensLike' f Position Int
 x = lens _x (\d v -> d { _x = v })
@@ -157,7 +157,7 @@ data Dimension = Dimension
     { _width :: Word
     , _height :: Word
     }
-    deriving (Eq, Read, Show, Typeable)
+    deriving (Eq, Ord, Read, Show, Typeable)
 
 width :: Functor f => LensLike' f Dimension Word
 width = lens _width (\d v -> d { _width = v })
@@ -181,7 +181,7 @@ data Geometry = Geometry
     { _position :: Position
     , _dimension :: Dimension
     }
-    deriving (Eq, Read, Show, Typeable)
+    deriving (Eq, Ord, Read, Show, Typeable)
 
 position :: Functor f => LensLike' f Geometry Position
 position = lens _position (\d v -> d { _position = v })
