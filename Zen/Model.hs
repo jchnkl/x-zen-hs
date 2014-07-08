@@ -8,10 +8,7 @@ module Model where
 
 import Data.Map as M
 import Data.Set as S
-
 import Control.Monad.State
-import Control.Monad.Reader
-import Control.Monad.Trans.Free
 
 import Types
 import Lens
@@ -59,11 +56,6 @@ updateHints = lift . \case
     SetBorderWidth w v _ -> modhs (HintBorderWidth v) w
     _ -> return ()
     where modhs h = modify . M.alter (Just . maybe (S.singleton h) (S.insert h))
-
-
-type ComponentStack m = LogWT (ReaderT Model (FreeT ModelOps (SetupRT m)))
-
-type Y' m = LogWT (ReaderT Model (SetupRT m))
 
 
 insertClient :: Monad m => Client -> Z m ()
