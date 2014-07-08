@@ -67,25 +67,6 @@ updateHints = lift . \case
     where modhs h = modify . M.alter (Just . maybe (S.singleton h) (S.insert h))
 
 
-xcbView :: (MonadIO m, MonadReader Setup m) => Model -> UpdateHints -> m ()
-xcbView _ = mapM_ (uncurry configure) . M.toList
-          . M.map (toValueParam . concat . L.map hintToValueParam . S.toList)
-    where
-    configure w vp = connection $-> \c -> io $ X.configureWindow c w vp
-    hintToValueParam = \case
-        HintX v -> [(ConfigWindowX, fi v)]
-        HintY v -> [(ConfigWindowY, fi v)]
-        HintWidth v -> [(ConfigWindowWidth, fi v)]
-        HintHeight v -> [(ConfigWindowHeight, fi v)]
-        HintPosition p -> [(ConfigWindowX, fi $ p ^. x), (ConfigWindowY, fi $ p ^. y)]
-        HintDimension d -> [(ConfigWindowWidth, fi $ d ^. width), (ConfigWindowHeight, fi $ d ^. height)]
-        _ -> []
-        -- HintRaise w
-        -- HintLower w
-        -- HintBorderColor v) w
-        -- HintBorderWidth v) w
-
-
 type ComponentStack m = LogWT (ReaderT Model (FreeT ModelOps (SetupRT m)))
 
 type Y' m = LogWT (ReaderT Model (SetupRT m))
