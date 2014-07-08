@@ -1,28 +1,22 @@
 -- vim:sw=4:sts=4:ts=4
 
--- {-# OPTIONS_GHC -Wall #-}
-{-# LANGUAGE DeriveDataTypeable, DeriveFunctor, FlexibleContexts, LambdaCase, TupleSections #-}
+{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase #-}
 
 module Model where
 
 
-import Data.Word
-import Data.Maybe (catMaybes, fromMaybe)
-import Data.Typeable
 import Data.Map as M
 import Data.Set as S
-import Data.List as L
+
 import Control.Monad.State
 import Control.Monad.Reader
-import Control.Monad.Writer
-import qualified Control.Monad.Free as F
 import Control.Monad.Trans.Free
+
 import Types
-import Util
 import Lens
 import qualified Queue as Q
 import qualified Window as W
-import Graphics.XHB as X hiding (Setup, Property)
 
 {-
  TODO
