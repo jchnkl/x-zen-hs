@@ -302,7 +302,12 @@ data ClientStack = ClientStack
 
 
 data ModelOps f =
-      GetModel (Model -> f)
+      GetQueue (Queue -> f)
+    | PutQueue Queue f
+    | InsertClient Client f
+    | RemoveClient Client f
+    | InsertWindow WindowId f
+    | RemoveWindow WindowId f
     | Raise     WindowId f
     | Lower     WindowId f
     | SetX      WindowId Int f
@@ -311,6 +316,7 @@ data ModelOps f =
     | SetHeight WindowId Word f
     | SetPosition  WindowId Position  f
     | SetDimension WindowId Dimension f
+    | SetGeometry  WindowId Geometry f
     | SetBorderColor WindowId Word f
     | SetBorderWidth WindowId Word f
     deriving (Functor, Typeable)
