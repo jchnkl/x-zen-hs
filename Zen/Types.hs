@@ -301,17 +301,6 @@ data ClientStack = ClientStack
     deriving Typeable
 
 
-data XprotoF a = forall r. GetReply (Receipt r) (Either SomeError r -> a)
-               | ConfigureWindow WindowId (ValueParam Word16) a
-               | GetWindowAttributes WindowId (Receipt GetWindowAttributesReply -> a)
-    deriving Typeable
-
-instance Functor XprotoF where
-    fmap f (GetReply receipt k)  = GetReply receipt (f . k)
-    fmap f (ConfigureWindow win vp a) = ConfigureWindow win vp (f a)
-    fmap f (GetWindowAttributes win k) = GetWindowAttributes win (f . k)
-
-
 data ModelOps f =
       GetModel (Model -> f)
     | Raise     WindowId f
@@ -335,6 +324,5 @@ type ModelST = StateT Model
 
 type SetupRT = ReaderT Setup
 
-type XprotoFT = FreeT XprotoF
+type Z m = LogWT (ModelOpsFT (SetupRT m))
 
-type Z m = LogWT (XprotoFT (ModelST (SetupRT m)))
