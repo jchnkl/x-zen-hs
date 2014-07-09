@@ -284,12 +284,12 @@ data UpdateHint =
     deriving (Eq, Ord, Show, Typeable)
 
 data Model = Model
-    { _model :: Queue
+    { _queue :: Queue
     }
     deriving (Show, Typeable)
 
-model :: Functor f => LensLike' f Model Queue
-model = lens _model (\d v -> d { _model = v })
+queue :: Functor f => LensLike' f Model Queue
+queue = lens _queue (\d v -> d { _queue = v })
 
 
 
