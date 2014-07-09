@@ -48,10 +48,8 @@ data Component = forall d m. (MonadIO m, Functor m, Typeable m) => Component
       -- | Evaluation with side effects
     , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
     -- | Startup hook
-    -- , onStartup        :: d -> LogWT ((ModelST (SetupRT IO))) d
     , onStartup        :: d -> Z IO d
     -- | Shutdown hook
-    -- , onShutdown       :: d -> LogWT ((ModelST (SetupRT IO))) ()
     , onShutdown       :: d -> Z IO ()
     -- | List of event handlers
     , someHandler        :: d -> [SomeHandler]
