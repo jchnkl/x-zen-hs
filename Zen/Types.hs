@@ -40,20 +40,28 @@ class TypeConversion a b where
     convert :: a -> b
 
 
-data Component = forall d m. (MonadIO m, Functor m, Typeable m) => Component
+type ControllerComponent = Component (Z IO)
+
+data Component core = forall d m. (Monad m, Typeable m) => Component
     { -- | Arbitratry id string, for logging only
       componentId :: String
       -- | Component data
     , componentData    :: d
       -- | Evaluation with side effects
-    , ioRunComponent   :: forall a. m a -> d -> IO (a, d)
+    , execComponent   :: m () -> d -> core d
     -- | Startup hook
-    , onStartup        :: d -> Z IO d
+    , onStartup        :: d -> core d
     -- | Shutdown hook
-    , onShutdown       :: d -> Z IO ()
+    , onShutdown       :: d -> core ()
     -- | List of event handlers
     , someHandler        :: d -> [SomeHandler]
     }
+
+
+runComponent :: Monad core => AnyEvent -> Component core -> core (Component core)
+runComponent (AnyEvent e) (Component cid d runio su sd handlers) = do
+    d' <- runio (mapM_ (flip dispatch e) (handlers d)) d
+    return $ Component cid d' runio su sd handlers
 
 
 data SomeHandler = forall a. (Typeable a) => SomeHandler a
@@ -97,7 +105,8 @@ data Config = Config
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
 
-    , _components :: [Component]
+    , _views :: [View]
+    , _components :: [ControllerComponent]
     }
     deriving (Typeable)
 
@@ -116,7 +125,7 @@ focusedBorderColor = lens _focusedBorderColor (\d v -> d { _focusedBorderColor =
 selectionBorderColor :: Functor f => LensLike' f Config Word
 selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderColor = v })
 
-components :: Functor f => LensLike' f Config [Component]
+components :: Functor f => LensLike' f Config [ControllerComponent]
 components = lens _components (\d v -> d { _components = v })
 
 
