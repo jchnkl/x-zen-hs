@@ -10,7 +10,7 @@ import Log
 import Lens
 import Types hiding (Move, Resize, pointer)
 
-import Event
+import Base
 import Core (KeyEventHandler(..), CoreConfig(..))
 import qualified Core as C
 import qualified Queue as Q

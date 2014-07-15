@@ -23,17 +23,19 @@ import Types
 import Window
 
 
-data BaseComponent = BaseComponent
-    deriving (Show, Typeable)
+type BaseComponent = Z IO
 
-base :: Component
+execBaseComponent :: BaseComponent () -> () -> Z IO ()
+execBaseComponent f () = f
+
+base :: ControllerComponent
 base = baseComponent
 
-baseComponent :: Component
+baseComponent :: ControllerComponent
 baseComponent = Component
     { componentId = "Base"
-    , componentData = BaseComponent
-    , ioRunComponent = runBaseComponent
+    , componentData = ()
+    , execComponent = execBaseComponent
     , onStartup = return . id
     , onShutdown = const $ return ()
     , someHandler = const $
@@ -43,8 +45,8 @@ baseComponent = Component
     }
 
 
-runBaseComponent :: IO a -> BaseComponent -> IO (a, BaseComponent)
-runBaseComponent f b = (,b) <$> f
+-- runBaseComponent :: IO a -> BaseComponent -> IO (a, BaseComponent)
+-- runBaseComponent f b = (,b) <$> f
 
 
 --     -- Structure control events
@@ -97,13 +99,13 @@ copyValues _ _ = []
 
 -- Event handler
 
-handleMapRequest :: MapRequestEvent -> Z IO ()
+handleMapRequest :: MapRequestEvent -> BaseComponent ()
 handleMapRequest e = do
     toLog "MapRequestEvent"
     connection $-> io . flip mapWindow (window_MapRequestEvent e)
 
 
-handleConfigureRequest :: ConfigureRequestEvent -> Z IO ()
+handleConfigureRequest :: ConfigureRequestEvent -> BaseComponent ()
 handleConfigureRequest e = do
     toLog "ConfigureRequestEvent"
     configure window values
@@ -112,5 +114,5 @@ handleConfigureRequest e = do
     values = copyValues e (value_mask_ConfigureRequestEvent e)
 
 
-handleCirculateNotify :: CirculateNotifyEvent -> Z IO ()
+handleCirculateNotify :: CirculateNotifyEvent -> BaseComponent ()
 handleCirculateNotify _ = toLog "CirculateNotifyEvent"

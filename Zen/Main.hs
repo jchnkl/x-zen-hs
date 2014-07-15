@@ -21,7 +21,7 @@ import Types
 import Config (defaultConfig)
 
 import Core
-import Event
+import Base
 import Types
 import Xproto
 import Controller
