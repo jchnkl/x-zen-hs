@@ -1,19 +1,8 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE DeriveDataTypeable,
-             ExistentialQuantification,
-             MultiParamTypeClasses,
-             LambdaCase,
-             TupleSections #-}
-             -- FlexibleContexts,
-             -- RankNTypes,
-
 module Base where
 
-import Data.Typeable
 import Data.Word
-import Control.Applicative
 import Graphics.XHB hiding (Setup)
 
 import Log
@@ -21,7 +10,6 @@ import Lens
 import Util
 import Types
 import Window
-
 
 type BaseComponent = Z IO
 
