@@ -9,7 +9,7 @@
              -- FlexibleContexts,
              -- RankNTypes,
 
-module Event where
+module Base where
 
 import Data.Typeable
 import Data.Word
