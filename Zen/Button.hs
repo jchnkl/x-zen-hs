@@ -30,13 +30,10 @@ import Graphics.X11.Xlib.Cursor
 import Log
 import Util
 import Lens
-import Types hiding (Move, Resize)
-import qualified Core as C
+import Types hiding (Raise, Lower, Move, Resize)
 import qualified Queue as Q
-import qualified Window as W
 import qualified Model as Model
 import Keyboard (getCleanMask, extraModifier)
-import Component
 import SnapResist (moveSnapResist)
 
 
@@ -94,24 +91,24 @@ data PointerMotion = M Position Position
                    | R (Maybe Direction, Maybe Direction) Position Geometry
     deriving (Show, Typeable)
 
-type PointerStack = ReaderT PointerSetup (StateT (Maybe PointerMotion) IO)
+type PointerStackT = ReaderT PointerSetup (StateT (Maybe PointerMotion) (Z IO))
+
+putPM :: (MonadState (Maybe PointerMotion) m) => Maybe PointerMotion -> m ()
+putPM = put
 
 
--- Setup -> Log -> Model -> PointerSetup -> Maybe PointerMotion
-putPM :: (MonadState (Maybe PointerMotion) m) => Maybe PointerMotion -> Z m ()
-putPM = lift . lift . lift . put
+getPM :: (MonadState (Maybe PointerMotion) m, MonadTrans t, Monad (t m)) => t m (Maybe PointerMotion)
+getPM = lift get
 
-getPM :: (MonadState (Maybe PointerMotion) m) => Z m (Maybe PointerMotion)
-getPM = lift . lift . lift $ get
+asksPS :: (MonadReader PointerSetup m) => (PointerSetup -> a) -> m a
+asksPS = asks
 
-asksPS :: (MonadReader PointerSetup m) => (PointerSetup -> a) -> Z m a
-asksPS = lift . lift . lift . lift . asks
 
-pointerComponent :: ButtonConfig -> Component
+pointerComponent :: ButtonConfig -> ControllerComponent
 pointerComponent buttons = Component
     { componentId = "Pointer"
     , componentData = (PointerSetup buttons [] M.empty, Nothing)
-    , ioRunComponent = runPointerComponent
+    , execComponent = execPointerComponent
     , onStartup = startupPointerComponent
     , onShutdown = shutdownPointerComponent
     , someHandler = const $ map SomeHandler
@@ -122,10 +119,10 @@ pointerComponent buttons = Component
     }
 
 
-runPointerComponent :: PointerStack a
-                    -> (PointerSetup, Maybe PointerMotion)
-                    -> IO (a, (PointerSetup, Maybe PointerMotion))
-runPointerComponent f (ps, pm) = second (ps,) <$> runStateT (runReaderT f ps) pm
+execPointerComponent :: PointerStackT ()
+                     -> (PointerSetup, Maybe PointerMotion)
+                     -> Z IO (PointerSetup, Maybe PointerMotion)
+execPointerComponent f (ps, pm) = (ps,) <$> execStateT (runReaderT f ps) pm
 
 
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
@@ -146,18 +143,20 @@ shutdownPointerComponent (PointerSetup _ _ glyphs, _) = do
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
 
 
-handleButtonPress :: ButtonPressEvent -> Z PointerStack ()
+handleButtonPress :: ButtonPressEvent -> PointerStackT ()
 handleButtonPress e = do
     toLog "ButtonPressEvent"
 
-    mask <- (\\) <$> (getCleanMask bstate) <*> askL (config . modMask)
+    mask <- (\\) <$> (lift . lift $ getCleanMask bstate) <*> askModMask
     asksPS (M.lookup (mask, button) . buttonActions . buttonConfig) >>= flip whenJustM_ handle
 
     where
     bstate = state_ButtonPressEvent e
     button = fromValue $ detail_ButtonPressEvent e
 
-    handle :: PointerAction -> Z PointerStack ()
+    askModMask = lift . lift $ askL (config . modMask)
+
+    handle :: PointerAction -> PointerStackT ()
     handle = \case
         (Move) -> doMove e
         (Resize)    -> doResize e
@@ -165,15 +164,15 @@ handleButtonPress e = do
         (Lower)     -> doLower e
 
 
-doRaise :: ButtonPressEvent -> Z PointerStack ()
+doRaise :: ButtonPressEvent -> PointerStackT ()
 doRaise = Model.raise . event_ButtonPressEvent
 
 
-doLower :: ButtonPressEvent -> Z PointerStack ()
+doLower :: ButtonPressEvent -> PointerStackT ()
 doLower = Model.lower . event_ButtonPressEvent
 
 
-doMove :: ButtonPressEvent -> Z PointerStack ()
+doMove :: ButtonPressEvent -> PointerStackT ()
 doMove e = do
     doRaise e
     putPM . Just $ M (Position event_x event_y) (Position root_x root_y)
@@ -186,7 +185,7 @@ doMove e = do
     event_y = fi $ event_y_ButtonPressEvent e
 
 
-doResize :: ButtonPressEvent -> Z PointerStack ()
+doResize :: ButtonPressEvent -> PointerStackT ()
 doResize e = do
     doRaise e
     Model.lookup window >>= flip whenJustM_ resize
@@ -205,7 +204,7 @@ doResize e = do
             =<< asksPS (M.lookup (getCursor $ edges c) . glyphMap)
 
 
-moveMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
+moveMotionNotify :: MotionNotifyEvent -> PointerStackT ()
 moveMotionNotify e = getPM >>= \case
     Just m -> do
         let bw = 3
@@ -224,9 +223,9 @@ doMoveMotionNotify :: MotionNotifyEvent
                    -> PointerMotion
                    -> [Client]
                    -> Client
-                   -> Z PointerStack ()
+                   -> PointerStackT ()
 doMoveMotionNotify e (M epos rpos) clients client = do
-    moveSnapResist e epos rpos client clients
+    lift . lift $ moveSnapResist e rpos epos client clients
 
     -- put . Just $ M epos rpos
     putPM . Just $ M epos $ Position (fi root_x) (fi root_y)
@@ -343,17 +342,17 @@ doMoveMotionNotify e (M epos rpos) clients client = do
 
 
 
-handleMotionNotify :: MotionNotifyEvent -> Z PointerStack ()
+handleMotionNotify :: MotionNotifyEvent -> PointerStackT ()
 handleMotionNotify e = getPM >>= handle
     where
-    handle :: Maybe PointerMotion -> Z PointerStack ()
+    handle :: Maybe PointerMotion -> PointerStackT ()
     handle Nothing              = return ()
     handle (Just (M _ _))         = moveMotionNotify e
     -- handle (Just (M p))         = W.configure window
     --     $ [(ConfigWindowX, root_x - src_x p), (ConfigWindowY, root_y - src_y p)]
     handle (Just r@(R edges p g)) = do
-        W.configure window $ (values (fst edges) p g) ++ (values (snd edges) p g)
-        Model.modifyClientM window $ updateClient r
+        updateClient (fst edges) p g
+        updateClient (snd edges) p g
 
     window = event_MotionNotifyEvent e
     root_x = fi $ root_x_MotionNotifyEvent e
@@ -391,11 +390,12 @@ handleMotionNotify e = getPM >>= handle
 
 
 handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
+handleCreateNotify :: CreateNotifyEvent -> PointerStackT ()
 handleCreateNotify e = do
     toLog "CreateNotifyEvent"
     mask <- asksPS buttonMask
     buttons <- asksPS (buttonActions . buttonConfig)
-    whenM isClient $ grabButtons mask buttons window
+    whenM isClient $ lift . lift $ grabButtons mask buttons window
     where
     window = window_CreateNotifyEvent e
     -- isClient = maybe False isClientReply <$> sendMessage (IsClient window)
@@ -448,9 +448,10 @@ withFont c name = bracket getFont (closeFont c)
         return font
 
 
-changeCursor :: CURSOR -> Z PointerStack ()
-changeCursor cursor = connection $-> \c -> asksPS buttonMask >>= changeGrab c
+changeCursor :: CURSOR -> PointerStackT ()
+changeCursor cursor = askConnection >>= \c -> asksPS buttonMask >>= changeGrab c
     where
+    askConnection = lift . lift $ askL connection
     changeGrab c = liftIO . changeActivePointerGrab c
                           . MkChangeActivePointerGrab cursor
                                                       (toValue TimeCurrentTime)
