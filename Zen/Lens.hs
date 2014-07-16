@@ -17,67 +17,55 @@ import Control.Monad.State
 import Control.Monad.Reader
 
 -- | Control.Monad.State.get
-getL :: (MonadState a1 m, MonadTrans t, Monad (t m))
-     => FoldLike r a1 a' r b' -> t m r
-getL l = view l `liftM` (lift get)
+getL :: MonadState a1 m => FoldLike r a1 a' r b' -> m r
+getL l = view l `liftM` get
 
 -- | Control.Monad.State.put
-putL :: (MonadState a m, MonadTrans t, Monad (t m))
-     => ASetter a a b b' -> b' -> t m ()
-putL l v = lift $ get >>= put . (l .~ v)
+putL :: MonadState a m => ASetter a a b b' -> b' -> m ()
+putL l v = get >>= put . (l .~ v)
 
 -- | `putL`
-(^:=) :: (MonadState a m, MonadTrans t, Monad (t m))
-      => ASetter a a b b' -> b' -> t m ()
+(^:=) :: MonadState a m => ASetter a a b b' -> b' -> m ()
 (^:=) = putL
 infix 4 ^:=
 
 -- | Control.Monad.State.gets
-getsL :: (MonadState a m, MonadTrans t, Monad (t m))
-      => FoldLike b a a' b b' -> (b -> c) -> t m c
-getsL l f = (f . view l) `liftM` (lift get)
+getsL :: MonadState a m => FoldLike b a a' b b' -> (b -> c) -> m c
+getsL l f = (f . view l) `liftM` get
 
 -- modifyL :: MonadState a m => Lens a b -> (b -> b) -> m ()
-modifyL :: (MonadState s m, MonadTrans t, Monad (t m))
-        => ASetter s s b b' -> (b -> b') -> t m ()
-modifyL l f = lift $ modify (l %~ f)
+modifyL :: MonadState s m => ASetter s s b b' -> (b -> b') -> m ()
+modifyL l f = modify (l %~ f)
 
 -- | `modifyL
-(%:=) :: (MonadState s m, MonadTrans t, Monad (t m))
-      => ASetter s s b b' -> (b -> b') -> t m ()
+(%:=) :: MonadState s m => ASetter s s b b' -> (b -> b') -> m ()
 (%:=) = modifyL
 infix 4 %:=
 
 -- | Control.Monad.Reader.ask
-askL :: (MonadReader a1 m, MonadTrans t, Monad (t m))
-     => FoldLike r a1 a' r b' -> t m r
-askL l = view l `liftM` (lift ask)
+askL :: MonadReader a1 m => FoldLike r a1 a' r b' -> m r
+askL l = view l `liftM` ask
 
 -- | Control.Monad.Reader.asks
-asksL :: (MonadReader a m, MonadTrans t, Monad (t m))
-      => FoldLike b a a' b b' -> (b -> c) -> t m c
-asksL l f = (f . view l) `liftM` (lift ask)
+asksL :: MonadReader a m => FoldLike b a a' b b' -> (b -> c) -> m c
+asksL l f = (f . view l) `liftM` ask
 
 -- | >>= with lenses for MonadState
-($*>) :: (MonadState a m, MonadTrans t, Monad (t m))
-      => FoldLike b a a' b b' -> (b -> t m c) -> t m c
-($*>) l f = lift (gets $ view l) >>= f
+($*>) :: MonadState a m => FoldLike b a a' b b' -> (b -> m c) -> m c
+($*>) l f = gets (view l) >>= f
 infix 4 $*>
 
 -- | `($*>)`
-(<*$) :: (MonadState a m, MonadTrans t, Monad (t m))
-      => (b -> t m c) -> FoldLike b a a' b b' -> t m c
+(<*$) :: MonadState a m => (b -> m c) -> FoldLike b a a' b b' -> m c
 (<*$) = flip ($*>)
 infix 4 <*$
 
 -- | >>= with lenses for MonadReader
-($->) :: (MonadReader a m, MonadTrans t, Monad (t m))
-      => FoldLike b a a' b b' -> (b -> t m c) -> t m c
-($->) l f = lift (asks $ view l) >>= f
+($->) :: MonadReader a m => FoldLike b a a' b b' -> (b -> m c) -> m c
+($->) l f = asks (view l) >>= f
 infix 4 $->
 
 -- | `($->)`
-(<-$) :: (MonadReader a m, MonadTrans t, Monad (t m))
-      => (b -> t m c) -> FoldLike b a a' b b' -> t m c
+(<-$) :: MonadReader a m => (b -> m c) -> FoldLike b a a' b b' -> m c
 (<-$) = flip ($->)
 infix 4 <-$
