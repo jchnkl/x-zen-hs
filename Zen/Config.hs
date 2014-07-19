@@ -29,7 +29,7 @@ coreConfig = CoreConfig M.empty
     --   )
     -- ]
 
-core :: Component
+core :: ControllerComponent
 core = C.core coreConfig
 
 buttons :: ButtonConfig
