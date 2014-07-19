@@ -1,6 +1,7 @@
 -- vim:sw=4:sts=4:ts=4
 
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Log where
 
@@ -9,10 +10,10 @@ import Control.Monad.Writer
 import Types
 
 
-toLog :: Monad m => String -> Z m ()
+toLog :: (MonadWriter Log m) => String -> m ()
 toLog s = tell [s]
 
-appendLog :: Monad m => [String] -> Z m ()
+appendLog :: (MonadWriter Log m) => [String] -> m ()
 appendLog s = tell s
 
 printLog :: Log -> IO ()
