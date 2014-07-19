@@ -42,7 +42,7 @@ class TypeConversion a b where
 
 type ControllerComponent = Component (Z IO)
 
-data Component core = forall d m. (Monad m, Typeable m) => Component
+data Component core = forall d m. (Monad core, Monad m, Typeable m) => Component
     { -- | Arbitratry id string, for logging only
       componentId :: String
       -- | Component data
