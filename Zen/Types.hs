@@ -8,7 +8,7 @@
     ExistentialQuantification,
     MultiParamTypeClasses,
     StandaloneDeriving,
-    RankNTypes
+    TypeSynonymInstances
     #-}
 
 module Types where
