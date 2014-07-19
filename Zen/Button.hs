@@ -360,30 +360,16 @@ handleMotionNotify e = getPM >>= handle
     delta_x p = root_x - src_x p
     delta_y p = root_y - src_y p
 
-    updateClient (R edges p g) = geometry %~
-        (updateClientGeometry (fst edges) p g
-                         . updateClientGeometry (snd edges) p g)
-
-    updateClientGeometry edge p g g' = case edge of
-        Just North -> (position  . y      .~ win_y g + delta_y p)
-                    . (dimension . height .~ win_h g - fi (delta_y p)) $ g'
-        Just South -> (dimension . height .~ win_h g + fi (delta_y p)) g'
-        Just East  -> (dimension . width  .~ win_w g + delta_x p) g'
-        Just West  -> (position  . x      .~ win_x g + fi (delta_x p))
-                    . (dimension . width  .~ win_w g - delta_x p) $ g'
-        _          -> g'
-
-    values edge p g = case edge of
-        Just North -> [(ConfigWindowY, fi (win_y g) + fi (delta_y p)),
-                       (ConfigWindowHeight, fi (win_h g) - fi (delta_y p))]
-        Just South -> [(ConfigWindowHeight, fi (win_h g) + fi (delta_y p))]
-        Just East  -> [(ConfigWindowWidth, fi (win_w g) + fi (delta_x p))]
-        Just West  -> [(ConfigWindowX, fi (win_x g) + fi (delta_x p)),
-                       (ConfigWindowWidth, fi (win_w g) - fi (delta_x p))]
-        _          -> []
+    updateClient edge p g = case edge of
+        Just North -> do Model.setY      window $ win_y g + delta_y p
+                         Model.setHeight window $ win_h g - fi (delta_y p)
+        Just South -> do Model.setHeight window $ win_h g + fi (delta_y p)
+        Just East  -> do Model.setWidth  window $ win_w g + delta_x p
+        Just West  -> do Model.setX      window $ win_x g + fi (delta_x p)
+                         Model.setWidth  window $ win_w g - delta_x p
+        _          -> return ()
 
 
-handleCreateNotify :: CreateNotifyEvent -> Z PointerStack ()
 handleCreateNotify :: CreateNotifyEvent -> PointerStackT ()
 handleCreateNotify e = do
     toLog "CreateNotifyEvent"
