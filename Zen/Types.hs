@@ -18,6 +18,7 @@ import Data.Maybe
 import Numeric
 import Data.Typeable
 import Data.Map (Map)
+import Data.Set (Set)
 import Data.List as L (null)
 
 import Control.Monad.Trans.Free
@@ -89,6 +90,23 @@ instance Dispatcher SomeEvent where
             _      -> return ()
         _                     -> return ()
 
+
+data ClientConfig f =
+      ConfigClientX      WindowId Int f
+    | ConfigClientY      WindowId Int f
+    | ConfigClientWidth  WindowId Word f
+    | ConfigClientHeight WindowId Word f
+    deriving (Eq, Ord, Functor, Typeable)
+
+
+instance Show (ClientConfig f) where
+    show (ConfigClientX w v _) = "ClientConfigX " ++ show w ++ " " ++ show v
+    show (ConfigClientY w v _) = "ClientConfigY " ++ show w ++ " " ++ show v
+    show (ConfigClientWidth w v _) = "ClientConfigWidth " ++ show w ++ " " ++ show v
+    show (ConfigClientHeight w v _) = "ClientConfigHeight " ++ show w ++ " " ++ show v
+
+
+type ClientConfigs = Map WindowId (Set (ClientConfig ()))
 
 
 -- TODO:
