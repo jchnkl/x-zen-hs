@@ -33,7 +33,7 @@ import Lens
 
 type Log = [String]
 
-type View = Model -> IO ()
+type View = ClientConfigs -> ModelRT (SetupRT IO) ()
 
 type Controller = SetupRT IO AnyEvent
 
@@ -143,6 +143,9 @@ selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderC
 
 components :: Functor f => LensLike' f Config [ControllerComponent]
 components = lens _components (\d v -> d { _components = v })
+
+views :: Functor f => LensLike' f Config [View]
+views = lens _views (\d v -> d { _views = v })
 
 
 type WindowId = WINDOW
@@ -355,6 +358,8 @@ type ModelOpsFT = FreeT ModelOps
 type LogWT = WriterT [String]
 
 type ModelST = StateT Model
+
+type ModelRT = ReaderT Model
 
 type SetupRT = ReaderT Setup
 

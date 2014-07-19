@@ -50,5 +50,6 @@ defaultConfig = Config
     , _focusedBorderColor = 0x00ffce28
     , _selectionBorderColor = 0x00ff0000
 
+    , _views = []
     , _components = [base, core, pointer]
     }
