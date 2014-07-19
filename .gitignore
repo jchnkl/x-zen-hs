@@ -3,3 +3,5 @@
 *.o
 .vimrc
 zen
+*.dyn_*
+*.imports
