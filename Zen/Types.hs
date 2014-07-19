@@ -42,17 +42,18 @@ class TypeConversion a b where
 
 type ControllerComponent = Component (Z IO)
 
-data Component core = forall d m. (Monad core, Monad m, Typeable m) => Component
+
+data Component stack = forall d m. (Monad stack, Monad m, Typeable m) => Component
     { -- | Arbitratry id string, for logging only
       componentId :: String
       -- | Component data
     , componentData    :: d
       -- | Evaluation with side effects
-    , execComponent   :: m () -> d -> core d
+    , execComponent   :: m () -> d -> stack d
     -- | Startup hook
-    , onStartup        :: d -> core d
+    , onStartup        :: d -> stack d
     -- | Shutdown hook
-    , onShutdown       :: d -> core ()
+    , onShutdown       :: d -> stack ()
     -- | List of event handlers
     , someHandler        :: d -> [SomeHandler]
     }
