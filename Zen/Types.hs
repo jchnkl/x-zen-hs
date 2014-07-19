@@ -59,10 +59,6 @@ data Component stack = forall d m. (Monad stack, Monad m, Typeable m) => Compone
     }
 
 
-runComponent :: Monad core => AnyEvent -> Component core -> core (Component core)
-runComponent (AnyEvent e) (Component cid d runio su sd handlers) = do
-    d' <- runio (mapM_ (flip dispatch e) (handlers d)) d
-    return $ Component cid d' runio su sd handlers
 
 
 data SomeHandler = forall a. (Typeable a) => SomeHandler a

@@ -18,6 +18,13 @@ import Xproto
 
 withComponents :: ([Component] -> ModelST (SetupRT IO) a) -> ModelST (SetupRT IO) a
 withComponents = bracket startup shutdown
+
+
+runComponent :: MonadIO c => AnyEvent -> Component c -> c (Component c)
+runComponent (AnyEvent e) (Component cid d execc su sd handlers) = do
+    d' <- execc (mapM_ dispatchEvent $ handlers d) d
+    return $ Component cid d' execc su sd handlers
+    where dispatchEvent (SomeHandler h) = dispatch h e
     where
     startup = askL (config . components) >>= mapM startupComponent
     shutdown = mapM_ shutdownComponent
