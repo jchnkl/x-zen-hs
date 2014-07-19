@@ -16,6 +16,7 @@ import qualified Core as C
 import qualified Queue as Q
 import Button
 
+import XcbView
 
 coreConfig :: CoreConfig
 coreConfig = CoreConfig M.empty
@@ -50,6 +51,6 @@ defaultConfig = Config
     , _focusedBorderColor = 0x00ffce28
     , _selectionBorderColor = 0x00ff0000
 
-    , _views = []
+    , _views = [xcbView]
     , _components = [base, core, pointer]
     }
