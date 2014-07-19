@@ -18,6 +18,7 @@ import Data.Maybe
 import Numeric
 import Data.Typeable
 import Data.Map (Map)
+import Data.List as L (null)
 
 import Control.Monad.Trans.Free
 import Control.Monad.State
@@ -290,7 +291,12 @@ data UpdateHint =
 data Model = Model
     { _queue :: Queue
     }
-    deriving (Show, Typeable)
+    deriving (Typeable)
+
+instance Show Model where
+    show (Model q)
+        | L.null (show q) = "Model: Q is empty"
+        | otherwise       = "Model:\n" ++ show q
 
 queue :: Functor f => LensLike' f Model Queue
 queue = lens _queue (\d v -> d { _queue = v })
