@@ -24,7 +24,7 @@ import Graphics.X11.Xlib.Cursor
 import Log
 import Util
 import Lens
-import Types hiding (Raise, Lower, Move, Resize)
+import Types hiding (Raise, Lower)
 import qualified Queue as Q
 import qualified Model as Model
 import Keyboard (getCleanMask, extraModifier)
