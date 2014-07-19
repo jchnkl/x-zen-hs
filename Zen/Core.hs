@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, TupleSections #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleContexts, TupleSections #-}
 
 
 module Core where
@@ -10,6 +10,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
 import qualified Data.List as L
+import Control.Monad.Free
 import Control.Monad.State hiding (state)
 import Control.Monad.Reader
 import Control.Applicative
@@ -32,8 +33,8 @@ import Graphics.X11.Types (KeySym, xK_Num_Lock, xK_Caps_Lock)
 
 
 data KeyEventHandler = KeyEventHandler
-    { press   :: KeyPressEvent -> Z CoreState ()
-    , release :: KeyReleaseEvent -> Z CoreState ()
+    { press   :: KeyPressEvent -> CoreStack ()
+    , release :: KeyReleaseEvent -> CoreStack ()
     }
     deriving Typeable
 
@@ -46,22 +47,23 @@ data CoreConfig = CoreConfig
     deriving Typeable
 
 
-askConfig :: Z CoreState CoreConfig
-askConfig = lift . lift . lift . lift $ ask
+askConfig :: CoreStack CoreConfig
+askConfig = ask
 
 
-asksConfig :: (CoreConfig -> a) -> Z CoreState a
-asksConfig = lift . lift . lift . lift . asks
+asksConfig :: (CoreConfig -> a) -> CoreStack a
+-- asksConfig = lift . lift . lift . asks
+asksConfig = asks
 
 
-type CoreState = ReaderT CoreConfig IO
+type CoreStack = ReaderT CoreConfig (Z IO)
 
 
-core :: CoreConfig -> Component
+core :: CoreConfig -> ControllerComponent
 core c = Component
     { componentId = "Core"
     , componentData = c
-    , ioRunComponent = runCoreComponent
+    , execComponent = execCoreComponent
     , onStartup = startupCoreComponent
     , onShutdown = const $ return ()
     , someHandler = const $
@@ -74,8 +76,8 @@ core c = Component
     }
 
 
-runCoreComponent :: CoreState a -> CoreConfig -> IO (a, CoreConfig)
-runCoreComponent f cc = (,cc) <$> runReaderT f cc
+execCoreComponent :: CoreStack () -> CoreConfig -> Z IO CoreConfig
+execCoreComponent f cc = runReaderT f cc >> return cc
 
 
 startupCoreComponent :: CoreConfig -> Z IO CoreConfig
@@ -106,49 +108,51 @@ startupCoreComponent conf = do
         (w,) . Client w nullPosition . fromRight nullGeometry <$> clientGeometry w
 
 
-handleCreateNotify :: CreateNotifyEvent -> Z CoreState ()
+-- handleCreateNotify :: (Typeable t, Typeable m, MonadReader CoreConfig m, MonadTrans t) => CreateNotifyEvent -> t m ()
+handleCreateNotify :: CreateNotifyEvent -> CoreStack ()
 handleCreateNotify e = do
     toLog "CreateNotifyEvent"
     manage (window_CreateNotifyEvent e)
 
 
-handleDestroyNotify :: DestroyNotifyEvent -> Z CoreState ()
+handleDestroyNotify :: DestroyNotifyEvent -> CoreStack ()
 handleDestroyNotify e = do
     toLog "DestroyNotifyEvent"
     unmanage (window_DestroyNotifyEvent e)
 
 
-handleEnterNotify :: EnterNotifyEvent -> Z CoreState ()
+handleEnterNotify :: EnterNotifyEvent -> CoreStack ()
 handleEnterNotify e = do
-    whenM ((not isInferior &&) <$> Model.member window)
+    lift $ whenM ((not isInferior &&) <$> Model.member window)
         $ config . focusedBorderColor $-> W.setBorderColor window
     where window = event_EnterNotifyEvent e
           isInferior = NotifyDetailInferior == detail_EnterNotifyEvent e
 
 
-handleLeaveNotify :: LeaveNotifyEvent -> Z CoreState ()
+handleLeaveNotify :: LeaveNotifyEvent -> CoreStack ()
 handleLeaveNotify e = do
-    whenM ((not isInferior &&) <$> Model.member window) $ do
+    lift $ whenM ((not isInferior &&) <$> Model.member window) $ do
         config . normalBorderColor $-> W.setBorderColor window
     where window = event_LeaveNotifyEvent e
           isInferior = NotifyDetailInferior == detail_LeaveNotifyEvent e
 
 
-handleKeyPress :: KeyPressEvent -> Z CoreState ()
+handleKeyPress :: KeyPressEvent -> CoreStack ()
 handleKeyPress e = do
     toLog . ("KeyPressEvent:\n" ++) . show $ e
 
-    mask <- (\\) <$> (K.getCleanMask state) <*> askL (config . modMask)
+    mask <- (\\) <$> (lift $ K.getCleanMask state) <*> askModMask
 
     mapM_ ($ e)
         =<< mapM (asksConfig . (. keyEventHandler) . lookupKeysym mask)
-            =<< asksL keyboardMap (flip K.keycodeToKeysym keycode)
+            =<< lift (asksL keyboardMap $ flip K.keycodeToKeysym keycode)
 
     where state = state_KeyPressEvent e
           keycode = detail_KeyPressEvent e
           lookupKeysym mask keysym = fromMaybe (const $ return ())
                                    . fmap press
                                    . M.lookup (mask, fi keysym)
+          askModMask = lift $ askL (config . modMask)
 
 
 grabKeys :: (Functor m, MonadIO m) => CoreConfig -> Z m ()
@@ -184,13 +188,13 @@ initWindow window = do
                     ]
 
 
-manage :: WindowId -> Z CoreState ()
-manage window = whenM (isClient <$> (W.attributes window >>= reply)) $ do
+manage :: WindowId -> CoreStack ()
+manage window = lift $ whenM (isClient <$> (W.attributes window >>= reply)) $ do
     initWindow window
     Model.insert window
 
 
-unmanage :: WindowId -> Z CoreState ()
+unmanage :: WindowId -> CoreStack ()
 unmanage window = do
     Model.remove window
 
