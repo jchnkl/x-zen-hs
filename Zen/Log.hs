@@ -5,6 +5,7 @@
 
 module Log where
 
+import Data.List as L (null)
 import Data.Time (getZonedTime)
 import Control.Monad.Writer
 import Types
@@ -20,3 +21,13 @@ printLog :: Log -> IO ()
 printLog ls = when (not $ null ls) $ do
     time <- getZonedTime
     putStrLn . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ ls
+
+ppComponentLog :: Component s -> [String] -> [String]
+ppComponentLog c l = ppComponentId c : map ("\t"++) l ++ [ppComponentId c]
+
+ppComponentId :: Component s -> String
+ppComponentId c = "=== " ++ name c ++ " Component ==="
+    where name (Component { componentId = cid }) = cid
+
+appendComponentLog :: MonadWriter Log m => Component s -> [String] -> m ()
+appendComponentLog c l = when (not $ L.null l) $ appendLog $ ppComponentLog c l

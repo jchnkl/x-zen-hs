@@ -63,15 +63,10 @@ runComponents chans = (readAnyEvent >>=) . run
     where
     run cs e = forM cs $ \c -> do
         (c', l) <- lift $ runWriterT (runComponent e c)
-        when (not $ L.null l) $ appendLog $ ppLog c l
+        appendComponentLog c l
         return c'
     readAnyEvent = io . atomically . foldr1 orElse . map readTChan $ chans
-    ppLog c l = ppComponentId c : map ("\t"++) l ++ [ppComponentId c]
-    ppComponentId c = "=== " ++ getComponentId c ++ " Component ==="
 
-
-getComponentId :: Component c -> String
-getComponentId (Component { componentId = cid }) = cid
 
 runMainLoop :: [(ThreadId, TChan AnyEvent)] -> SetupRT IO ()
 runMainLoop tcs = evalStateT (withComponents . mainLoop $ map snd tcs) initialModel
