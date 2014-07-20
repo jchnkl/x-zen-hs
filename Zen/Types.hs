@@ -1,15 +1,14 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
-{-# LANGUAGE
-    DeriveDataTypeable,
-    DeriveFunctor,
-    FlexibleInstances,
-    ExistentialQuantification,
-    MultiParamTypeClasses,
-    StandaloneDeriving,
-    TypeSynonymInstances
-    #-}
+{-# OPTIONS_GHC -Wall                  #-}
+{-# OPTIONS_GHC -fno-warn-orphans      #-}
+{-# LANGUAGE DeriveDataTypeable        #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
 
 module Types where
 

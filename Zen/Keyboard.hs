@@ -1,7 +1,10 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, TupleSections #-}
+{-# OPTIONS_GHC -fno-warn-orphans  #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 module Keyboard where
 

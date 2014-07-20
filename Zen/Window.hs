@@ -1,4 +1,5 @@
-{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
+{-# OPTIONS_GHC -Wall              #-}
+{-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Window where

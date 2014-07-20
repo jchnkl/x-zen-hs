@@ -1,6 +1,9 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# LANGUAGE DeriveDataTypeable, FlexibleContexts, LambdaCase, TupleSections #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE TupleSections      #-}
 
 module Button where
 
