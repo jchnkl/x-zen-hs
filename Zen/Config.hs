@@ -40,7 +40,7 @@ buttons = ButtonConfig $ M.fromList
     , (([ModMaskShift], ButtonIndex3), Raise)
     ]
 
-pointer :: Component
+pointer :: ControllerComponent
 pointer = pointerComponent buttons
 
 defaultConfig :: Config
