@@ -5,7 +5,7 @@
              LambdaCase,
              TupleSections #-}
 
-module SnapResist (moveSnapResist) where
+module SnapResist (moveSnapResist, snapResistComponent) where
 
 import Data.Ord (comparing)
 import Data.Function (on)
@@ -53,14 +53,77 @@ type Distance = Int
 -- edgeToBorder
 
 
+data PointerPosition = PointerPosition { root :: Position, event :: Position }
+    deriving Typeable
+
+type SnapResistStackT = StateT (Maybe PointerPosition) (Z IO)
+
+snapResistComponent :: ControllerComponent
+snapResistComponent = Component
+    { componentId = "SnapResist"
+    , componentData = Nothing
+    , execComponent = execSnapResistComponent
+    , onStartup = return . id
+    , onShutdown = const $ return ()
+    , someHandler = const $ map SomeHandler
+                          [ EventHandler handleButtonPress
+                          , EventHandler handleButtonRelease
+                          , EventHandler handleMotionNotify
+                          ]
+    }
+
+
+putPP :: Maybe PointerPosition -> SnapResistStackT ()
+putPP = put
+
+
+getPP :: SnapResistStackT (Maybe PointerPosition)
+getPP = get
+
+
+execSnapResistComponent :: SnapResistStackT a
+                        -> Maybe PointerPosition
+                        -> Z IO (Maybe PointerPosition)
+execSnapResistComponent m pp = execStateT m pp
+
+
+handleButtonPress :: ButtonPressEvent -> SnapResistStackT ()
+handleButtonPress e = putPP . Just $ PointerPosition (Position root_x root_y)
+                                                     (Position event_x event_y)
+    where
+    root_x = fi $ root_x_ButtonPressEvent e
+    root_y = fi $ root_y_ButtonPressEvent e
+    event_x = fi $ event_x_ButtonPressEvent e
+    event_y = fi $ event_y_ButtonPressEvent e
+
+
+handleButtonRelease :: ButtonPressEvent -> SnapResistStackT ()
+handleButtonRelease _ = putPP Nothing
+
+
+handleMotionNotify :: MotionNotifyEvent -> SnapResistStackT ()
+handleMotionNotify e = getPP >>= \mpp -> whenJustM_ mpp $ \pp@(PointerPosition rpos epos) -> do
+    let bw = 3
+    mclient <- Model.lookup window
+    clients <- map (addbw bw) <$> Model.toList
+    whenJustM_ mclient $ \client -> do
+        lift $ moveSnapResist e rpos epos client clients
+        putPP . Just $ pp { root = (Position (fi root_x) (fi root_y)) }
+    where window = event_MotionNotifyEvent e
+          root_x = root_x_MotionNotifyEvent e
+          root_y = root_y_MotionNotifyEvent e
+          addbw bw = (geometry . dimension .  width +~ 2 * bw)
+                   . (geometry . dimension . height +~ 2 * bw)
+
+
 moveSnapResist :: MonadIO m
                => MotionNotifyEvent
-               -> Position
-               -> Position
+               -> Position --  root_{x,y}_ButtonPressEvent
+               -> Position -- event_{x,y}_ButtonPressEvent
                -> Client
                -> [Client]
                -> Z m ()
-moveSnapResist e epos rpos client clients = do
+moveSnapResist e rpos epos client clients = do
     -- bwidth <- asksL (config . borderWidth) (2 *)
     -- proximity <- askL snapProximity
     let proximity = (100 :: Distance)
@@ -146,7 +209,7 @@ moveSnapResist e epos rpos client clients = do
 
     toLog $ ("adjacentBorders: " ++) . show $ nearest_borders
 
-    Model.modifyClientM window $ changePosition $ Position px py
+    Model.setPosition window $ Position px py
 
     W.configure window [(ConfigWindowX, fi px), (ConfigWindowY, fi py)]
 
