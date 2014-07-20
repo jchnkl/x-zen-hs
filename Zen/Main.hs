@@ -51,14 +51,18 @@ execStack :: Z IO a -> ModelST (SetupRT IO) (Log, ClientConfigs)
 execStack f = flip runStateT M.empty $ runModelOps $ execWriterT f
 
 
-mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> ModelST (SetupRT IO) ()
-mainLoop chans cs = do
-    ((cs', l), configs) <- runStack (runComponents chans cs)
-    runViews configs
-    io $ printLog l
-    mainLoop chans cs'
+mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> ModelST (SetupRT IO) ()
+mainLoop chans ccs vcs = do
+    ((ccs', ccl), configs) <- runStack (runComponents chans ccs)
+    ((vcs', vcl)) <- runWriterT $ runViews vcs configs
+    io $ printLog ccl
+    io $ printLog vcl
+    mainLoop chans ccs' vcs'
 
 
+runComponents :: [TChan AnyEvent]
+              -> [ControllerComponent]
+              -> Z IO [ControllerComponent]
 runComponents chans = (readAnyEvent >>=) . run
     where
     run cs e = forM cs $ \c -> do
@@ -69,8 +73,10 @@ runComponents chans = (readAnyEvent >>=) . run
 
 
 runMainLoop :: [(ThreadId, TChan AnyEvent)] -> SetupRT IO ()
-runMainLoop tcs = evalStateT (withComponents . mainLoop $ map snd tcs) initialModel
-                  `finally` mapM_ (io . killThread . fst) tcs
+runMainLoop tcs = do
+    vcs <- askL (config . viewComponents)
+    evalStateT (withComponents $ \ccs -> mainLoop (map snd tcs) ccs vcs) initialModel
+    `finally` mapM_ (io . killThread . fst) tcs
     where
     withComponents f = askL (config . components) >>= flip withControllerComponents f
 

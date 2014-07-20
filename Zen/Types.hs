@@ -43,6 +43,9 @@ class TypeConversion a b where
 
 type ControllerComponent = Component (Z IO)
 
+type ViewStack = LogWT (SetupRT IO)
+type ViewComponent = Component ViewStack
+
 
 data Component stack = forall d m. (Monad stack, Monad m, Typeable m) => Component
     { -- | Arbitratry id string, for logging only
@@ -90,6 +93,23 @@ instance Dispatcher SomeEvent where
         _                     -> return ()
 
 
+data ModelHandler b = ModelHandler (Model -> b)
+    deriving (Typeable)
+
+instance Dispatcher Model where
+    dispatch sh cc = case cast sh of
+        Just (ModelHandler f) -> f cc
+        _                 -> return ()
+
+data ClientConfigHandler b = ClientConfigHandler (ClientConfigs -> b)
+    deriving (Typeable)
+
+instance Dispatcher ClientConfigs where
+    dispatch sh cc = case cast sh of
+        Just (ClientConfigHandler f) -> f cc
+        _                 -> return ()
+
+
 data ClientConfig f =
       ConfigClientX      WindowId Int f
     | ConfigClientY      WindowId Int f
@@ -120,7 +140,7 @@ data Config = Config
     , _focusedBorderColor :: Word
     , _selectionBorderColor :: Word
 
-    , _views :: [View]
+    , _viewComponents :: [ViewComponent]
     , _components :: [ControllerComponent]
     }
     deriving (Typeable)
@@ -140,11 +160,11 @@ focusedBorderColor = lens _focusedBorderColor (\d v -> d { _focusedBorderColor =
 selectionBorderColor :: Functor f => LensLike' f Config Word
 selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderColor = v })
 
+viewComponents :: Functor f => LensLike' f Config [ViewComponent]
+viewComponents = lens _viewComponents (\d v -> d { _viewComponents = v })
+
 components :: Functor f => LensLike' f Config [ControllerComponent]
 components = lens _components (\d v -> d { _components = v })
-
-views :: Functor f => LensLike' f Config [View]
-views = lens _views (\d v -> d { _views = v })
 
 
 type WindowId = WINDOW

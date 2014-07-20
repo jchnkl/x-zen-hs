@@ -18,10 +18,12 @@ import Data.List as L
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
+import Control.Monad.Writer
 -- import Control.Monad.Free
 import Control.Monad.Free.TH
 import Control.Monad.Trans.Free
 
+import Log
 import Types
 import Lens hiding (views)
 import qualified Queue as Q
@@ -193,10 +195,15 @@ clientConfigs' = \case
     where modcc w c = modify $ M.alter (Just . maybe (S.singleton c) (S.insert c)) w
 
 
-runViews :: ClientConfigs -> ModelST (SetupRT IO) ()
-runViews c = do
-    viewfs <- asksL (config . views) $ L.map ($ c)
-    get >>= lift . runReaderT (sequence_ viewfs)
+runViews :: [ViewComponent] -> ClientConfigs -> LogWT (ModelST (SetupRT IO)) [ViewComponent]
+runViews vcs configs = get >>= forM vcs . run >>= mapM (run configs)
+    where
+    run t c@(Component cid d execc su sd handlers) = do
+        (d', l) <- lift . lift . runWriterT
+                               $ execc (mapM_ (doDispatch t) (handlers d)) d
+        appendComponentLog c l
+        return $ Component cid d' execc su sd handlers
+    doDispatch t (SomeHandler h) = dispatch h t
 
 
 runModelOps :: Monad m => ModelOpsFT m a -> StateT ClientConfigs (StateT Model m) a

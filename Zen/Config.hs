@@ -55,6 +55,6 @@ defaultConfig = Config
     , _focusedBorderColor = 0x00ffce28
     , _selectionBorderColor = 0x00ff0000
 
-    , _views = [xcbView]
+    , _viewComponents = [xcbView]
     , _components = [base, core, pointer, snapResist]
     }
