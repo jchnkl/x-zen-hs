@@ -8,13 +8,14 @@ import Graphics.X11.Types -- hiding (Connection, EventMask)
 
 import Log
 import Lens
-import Types hiding (Move, Resize, pointer)
+import Types hiding (Move, Resize, Lower, Raise, pointer)
 
 import Base
 import Core (KeyEventHandler(..), CoreConfig(..))
 import qualified Core as C
 import qualified Queue as Q
 import Button
+import SnapResist
 
 import XcbView
 
@@ -43,6 +44,9 @@ buttons = ButtonConfig $ M.fromList
 pointer :: ControllerComponent
 pointer = pointerComponent buttons
 
+snapResist :: ControllerComponent
+snapResist = snapResistComponent
+
 defaultConfig :: Config
 defaultConfig = Config
     { _modMask = [ModMask1]
@@ -52,5 +56,5 @@ defaultConfig = Config
     , _selectionBorderColor = 0x00ff0000
 
     , _views = [xcbView]
-    , _components = [base, core, pointer]
+    , _components = [base, core, pointer, snapResist]
     }
