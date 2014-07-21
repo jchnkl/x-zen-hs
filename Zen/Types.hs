@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 
@@ -53,7 +54,7 @@ data Component stack = forall d m. (Monad stack, Monad m, Typeable m) => Compone
       -- | Component data
     , componentData    :: d
       -- | Evaluation with side effects
-    , execComponent   :: m () -> d -> stack d
+    , execComponent   :: forall a. m a -> d -> stack d
     -- | Startup hook
     , onStartup        :: d -> stack d
     -- | Shutdown hook

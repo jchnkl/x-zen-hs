@@ -76,7 +76,7 @@ core c = Component
     }
 
 
-execCoreComponent :: CoreStack () -> CoreConfig -> Z IO CoreConfig
+execCoreComponent :: CoreStack a -> CoreConfig -> Z IO CoreConfig
 execCoreComponent f cc = runReaderT f cc >> return cc
 
 

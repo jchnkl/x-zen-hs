@@ -116,7 +116,7 @@ pointerComponent buttons = Component
     }
 
 
-execPointerComponent :: PointerStackT ()
+execPointerComponent :: PointerStackT a
                      -> (PointerSetup, Maybe PointerMotion)
                      -> Z IO (PointerSetup, Maybe PointerMotion)
 execPointerComponent f (ps, pm) = (ps,) <$> execStateT (runReaderT f ps) pm

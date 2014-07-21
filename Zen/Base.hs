@@ -3,6 +3,7 @@
 module Base where
 
 import Data.Word
+import Control.Monad (void)
 import Graphics.XHB hiding (Setup)
 
 import Log
@@ -13,8 +14,8 @@ import Window
 
 type BaseComponent = Z IO
 
-execBaseComponent :: BaseComponent () -> () -> Z IO ()
-execBaseComponent f () = f
+execBaseComponent :: BaseComponent a -> () -> Z IO ()
+execBaseComponent f () = void f
 
 base :: ControllerComponent
 base = baseComponent
