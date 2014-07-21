@@ -77,7 +77,7 @@ runMainLoop tcs = do
     evalStateT (withComponents $ \ccs -> mainLoop (map snd tcs) ccs vcs) initialModel
     `finally` mapM_ (io . killThread . fst) tcs
     where
-    withComponents f = askL (config . components) >>= flip withControllerComponents f
+    withComponents f = (config . components) $-> flip withControllerComponents f
 
 
 withControllerComponents :: [ControllerComponent]
