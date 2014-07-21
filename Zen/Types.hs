@@ -292,6 +292,8 @@ data Setup = Setup
     , _connection :: Connection
     , _rootWindow :: WindowId
 
+    , _logPrinter :: Log -> IO ()
+
    -- this should be a own component for reloading on KeyboardMappingNotify
    -- provide message service for {un,}grabbing keys
     , _keyboardMap :: KeyboardMap
@@ -307,6 +309,9 @@ connection = lens _connection (\d v -> d { _connection = v })
 
 rootWindow :: Functor f => LensLike' f Setup WindowId
 rootWindow = lens _rootWindow (\d v -> d { _rootWindow = v })
+
+logPrinter :: Functor f => LensLike' f Setup (Log -> IO ())
+logPrinter = lens _logPrinter (\d v -> d { _logPrinter = v })
 
 keyboardMap :: Functor f => LensLike' f Setup (Map KEYCODE [KEYSYM])
 keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })

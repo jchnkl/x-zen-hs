@@ -55,8 +55,7 @@ mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> Mode
 mainLoop chans ccs vcs = do
     ((ccs', ccl), configs) <- runStack (runComponents chans ccs)
     ((vcs', vcl)) <- runWriterT $ runViews vcs configs
-    io $ printLog ccl
-    io $ printLog vcl
+    logPrinter $-> io . ($ ccl ++ vcl)
     mainLoop chans ccs' vcs'
 
 
@@ -95,7 +94,7 @@ startupControllerComponents = startup []
     where
     startup cs' (c@(Component{componentId = cid}):cs) = do
         (c', l) <- fmap fst $ runStack $ startupComponent c
-        io . printLog $ ("startup " ++ cid ++ ":") : (map ("\t"++) l)
+        logPrinter $-> io . ($ ("startup " ++ cid ++ ":") : (map ("\t"++) l))
         startup (c':cs') cs
     startup cs' _ = return $ reverse cs'
 
@@ -103,7 +102,7 @@ startupControllerComponents = startup []
 shutdownControllerComponents :: [ControllerComponent] -> ModelST (SetupRT IO) ()
 shutdownControllerComponents (c@(Component{componentId = cid}):cs) = do
     l <- fmap fst $ execStack $ shutdownComponent c
-    io . printLog $ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l)
+    logPrinter $-> io . ($ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l))
     shutdownControllerComponents cs
 shutdownControllerComponents _ = return ()
 
@@ -114,7 +113,14 @@ withSetup c conf f = do
         max_keycode = X.max_keycode_Setup (X.connectionSetup c) - min_keycode + 1
     kbdmap <- io (keyboardMapping c =<< X.getKeyboardMapping c min_keycode max_keycode)
     modmap <- io (modifierMapping =<< X.getModifierMapping c)
-    runReaderT f $ Setup conf c (X.getRoot c) kbdmap modmap
+    runReaderT f $ Setup
+        { _config      = conf
+        , _connection  = c
+        , _rootWindow  = X.getRoot c
+        , _logPrinter  = fifoPrinter "/tmp/zen.errlog"
+        , _keyboardMap = kbdmap
+        , _modifierMap = modmap
+        }
 
 
 startup :: Config -> Maybe Connection -> IO ()
