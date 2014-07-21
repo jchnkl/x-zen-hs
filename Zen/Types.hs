@@ -48,17 +48,17 @@ type ViewStack = LogWT (SetupRT IO)
 type ViewComponent = Component ViewStack
 
 
-data Component stack = forall d m. (Monad stack, Monad m, Typeable m) => Component
+data Component m = forall d t. (Monad m, Monad t, Typeable t) => Component
     { -- | Arbitratry id string, for logging only
       componentId :: String
       -- | Component data
     , componentData    :: d
       -- | Evaluation with side effects
-    , execComponent   :: forall a. m a -> d -> stack d
+    , execComponent   :: forall a. t a -> d -> m d
     -- | Startup hook
-    , onStartup        :: d -> stack d
+    , onStartup        :: d -> m d
     -- | Shutdown hook
-    , onShutdown       :: d -> stack ()
+    , onShutdown       :: d -> m ()
     -- | List of event handlers
     , someHandler        :: d -> [SomeHandler]
     }
