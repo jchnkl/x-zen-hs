@@ -1,16 +1,17 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# OPTIONS_GHC -Wall            #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wall         #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
 
 module Log where
 
-import Control.Exception (SomeException, catch)
+import Control.Exception
 import Data.List as L (null)
 import Data.Time (getZonedTime)
 import Control.Monad.Writer
 import System.IO
+import System.Posix.Files
 import Types
 
 
@@ -42,5 +43,14 @@ stderrPrinter :: Log -> IO ()
 stderrPrinter = handlePrinter stderr
 
 fifoPrinter :: FilePath -> Log -> IO ()
-fifoPrinter fp ls = withFile fp AppendMode (flip handlePrinter ls)
-    `catch` \(_ :: SomeException) -> hPutStrLn stderr "fifoPrinter failed"
+fifoPrinter fp ls = handle (printError . handleException) $
+    fmap isNamedPipe (getFileStatus fp) >>= \case
+        True -> withFile fp AppendMode (flip handlePrinter ls)
+        _    -> printError isNotNamedPipe
+    where
+    printError = hPutStrLn stderr
+    isNotNamedPipe  = "fifoPrinter failed, " ++ fp ++ " is not a named pipe"
+    handleException e
+        | Just _ <- fromException e :: Maybe IOException =
+            "fifoPrinter failed, try `mkfifo '" ++ fp ++ "'` or `tail -f '" ++ fp ++ "'`"
+        | otherwise = "fifoPrinter failed, unknown error"
