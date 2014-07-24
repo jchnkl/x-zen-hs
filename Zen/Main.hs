@@ -91,15 +91,14 @@ runMainLoop tcs = evalStateT run initialModel
                 mainLoop channels ccs vcs
 
 
-withControllerComponents :: ([ControllerComponent] -> ModelST (SetupRT IO) a)
-                         -> ModelST (SetupRT IO) a
-withControllerComponents f = (config . components) $-> \cs -> bracket (startup cs) shutdown f
+withControllerComponents :: ([ControllerComponent] -> MainStack a) -> MainStack a
+withControllerComponents f =
+    (config . controllerComponents) $-> \cs -> bracket (startup cs) shutdown f
     where startup = startupControllerComponents
           shutdown = shutdownControllerComponents
 
 
-startupControllerComponents :: [ControllerComponent]
-                            -> MainStack [ControllerComponent]
+startupControllerComponents :: [ControllerComponent] -> MainStack [ControllerComponent]
 startupControllerComponents = startup []
     where
     startup cs' (c@(Component{componentId = cid}):cs) = do
