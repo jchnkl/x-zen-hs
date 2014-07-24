@@ -144,7 +144,7 @@ data Config = Config
     , _selectionBorderColor :: Word
 
     , _viewComponents :: [ViewComponent]
-    , _components :: [ControllerComponent]
+    , _controllerComponents :: [ControllerComponent]
     }
     deriving (Typeable)
 
@@ -166,8 +166,8 @@ selectionBorderColor = lens _selectionBorderColor (\d v -> d { _selectionBorderC
 viewComponents :: Functor f => LensLike' f Config [ViewComponent]
 viewComponents = lens _viewComponents (\d v -> d { _viewComponents = v })
 
-components :: Functor f => LensLike' f Config [ControllerComponent]
-components = lens _components (\d v -> d { _components = v })
+controllerComponents :: Functor f => LensLike' f Config [ControllerComponent]
+controllerComponents = lens _controllerComponents (\d v -> d { _controllerComponents = v })
 
 
 type WindowId = WINDOW

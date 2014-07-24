@@ -56,5 +56,5 @@ defaultConfig = Config
     , _selectionBorderColor = 0x00ff0000
 
     , _viewComponents = [xcbView]
-    , _components = [base, core, pointer, snapResist]
+    , _controllerComponents = [base, core, pointer, snapResist]
     }
