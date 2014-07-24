@@ -37,6 +37,10 @@ convertXid :: (XidLike a, XidLike b) => a -> b
 convertXid = fromXid . toXid
 
 
+whenId :: Monoid a => Bool -> a -> a
+whenId b a = if b then a else mempty
+
+
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM mb f = mb >>= flip when f
 

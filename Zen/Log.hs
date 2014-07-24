@@ -14,6 +14,7 @@ import Data.Time (getZonedTime)
 import Control.Monad.Writer
 import System.IO
 import System.Posix.Files
+import Util (whenId)
 import Types
 
 
@@ -57,7 +58,8 @@ printer dest logs = case dest of
             withFile fp AppendMode (flip handlePrinter logs)
 
     where
-    printError e = hPutStrLn stderr $ "logPrinter failed" ++ if L.null e then "" else (": " ++ e)
+    printError e = hPutStrLn stderr
+                 $ "logPrinter failed" ++ whenId (not $ L.null e) (": " ++ e)
     handleIOException e
         | Just ioerror <- fromException e :: Maybe IOException =
             show ioerror ++ case dest of
