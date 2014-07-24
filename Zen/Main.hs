@@ -43,15 +43,15 @@ views :: [Model -> IO ()]
 views = [print]
 
 
-runStack :: Z IO a -> ModelST (SetupRT IO) ((a, Log), ClientConfigs)
+runStack :: Z IO a -> MainStack ((a, Log), ClientConfigs)
 runStack f = flip runStateT M.empty $ runModelOps $ runWriterT f
 
 
-execStack :: Z IO a -> ModelST (SetupRT IO) (Log, ClientConfigs)
+execStack :: Z IO a -> MainStack (Log, ClientConfigs)
 execStack f = flip runStateT M.empty $ runModelOps $ execWriterT f
 
 
-mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> ModelST (SetupRT IO) ()
+mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> MainStack ()
 mainLoop chans ccs vcs = do
     ((ccs', ccl), configs) <- runStack (runComponents chans ccs)
     ((vcs', vcl)) <- runWriterT $ runViews vcs configs
@@ -89,7 +89,7 @@ withControllerComponents cs = bracket startup shutdown
 
 
 startupControllerComponents :: [ControllerComponent]
-                            -> ModelST (SetupRT IO) [ControllerComponent]
+                            -> MainStack [ControllerComponent]
 startupControllerComponents = startup []
     where
     startup cs' (c@(Component{componentId = cid}):cs) = do
@@ -99,7 +99,7 @@ startupControllerComponents = startup []
     startup cs' _ = return $ reverse cs'
 
 
-shutdownControllerComponents :: [ControllerComponent] -> ModelST (SetupRT IO) ()
+shutdownControllerComponents :: [ControllerComponent] -> MainStack ()
 shutdownControllerComponents (c@(Component{componentId = cid}):cs) = do
     l <- fmap fst $ execStack $ shutdownComponent c
     logPrinter $-> io . ($ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l))

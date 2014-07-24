@@ -33,6 +33,8 @@ import Lens
 
 type Log = [String]
 
+type MainStack = ModelST (SetupRT IO)
+
 type View = ClientConfigs -> ModelRT (SetupRT IO) ()
 
 type Controller = SetupRT IO AnyEvent
