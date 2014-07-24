@@ -117,7 +117,7 @@ withSetup c conf f = do
         { _config      = conf
         , _connection  = c
         , _rootWindow  = X.getRoot c
-        , _logPrinter  = fifoPrinter "/tmp/zen.errlog"
+        , _logPrinter  = printer (Fifo "/tmp/zen.errlog")
         , _keyboardMap = kbdmap
         , _modifierMap = modmap
         }

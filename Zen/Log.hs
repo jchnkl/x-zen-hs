@@ -1,12 +1,14 @@
 -- vim:sw=4:sts=4:ts=4
 
-{-# OPTIONS_GHC -Wall         #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
+{-# OPTIONS_GHC -Wall           #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
 
 module Log where
 
 import Control.Exception
+import Data.Typeable
 import Data.List as L (null)
 import Data.Time (getZonedTime)
 import Control.Monad.Writer
@@ -14,6 +16,12 @@ import System.IO
 import System.Posix.Files
 import Types
 
+
+data LogDestination = StdErr
+                    | StdOut
+                    | Fifo FilePath
+                    | File FilePath
+                    deriving (Show, Typeable)
 
 toLog :: (MonadWriter Log m) => String -> m ()
 toLog s = tell [s]
@@ -36,21 +44,26 @@ handlePrinter h ls = when (not $ null ls) $ do
     time <- getZonedTime
     hPutStrLn h . (show time ++) . ("\n" ++) . unlines . map ("\t" ++) $ ls
 
-stdoutPrinter :: Log -> IO ()
-stdoutPrinter = handlePrinter stdout
+printer :: LogDestination -> Log -> IO ()
+printer dest logs = case dest of
+    StdErr  -> handlePrinter stderr logs
+    StdOut  -> handlePrinter stdout logs
+    File fp -> handle (printError . handleIOException)
+               . withFile fp AppendMode $ flip handlePrinter logs
+    Fifo fp -> do
+        handle (printError . handleNamedPipeException fp) $
+            fmap isNamedPipe (getFileStatus fp) >>= guard
+        handle (printError . handleIOException) $
+            withFile fp AppendMode (flip handlePrinter logs)
 
-stderrPrinter :: Log -> IO ()
-stderrPrinter = handlePrinter stderr
-
-fifoPrinter :: FilePath -> Log -> IO ()
-fifoPrinter fp ls = handle (printError . handleException) $
-    fmap isNamedPipe (getFileStatus fp) >>= \case
-        True -> withFile fp AppendMode (flip handlePrinter ls)
-        _    -> printError isNotNamedPipe
     where
-    printError = hPutStrLn stderr
-    isNotNamedPipe  = "fifoPrinter failed, " ++ fp ++ " is not a named pipe"
-    handleException e
-        | Just _ <- fromException e :: Maybe IOException =
-            "fifoPrinter failed, try `mkfifo '" ++ fp ++ "'` or `tail -f '" ++ fp ++ "'`"
-        | otherwise = "fifoPrinter failed, unknown error"
+    printError e = hPutStrLn stderr $ "logPrinter failed" ++ if L.null e then "" else (": " ++ e)
+    handleIOException e
+        | Just ioerror <- fromException e :: Maybe IOException =
+            show ioerror ++ case dest of
+                Fifo fp -> "\n(try `mkfifo '" ++ fp ++ "'` or `tail -f '" ++ fp ++ "'`)"
+                _       -> ""
+        | otherwise = "unknown error"
+    handleNamedPipeException fp e
+        | Just _ <- fromException e :: Maybe IOException = fp ++ " is not a named pipe"
+        | otherwise                                      = "unknown error"
