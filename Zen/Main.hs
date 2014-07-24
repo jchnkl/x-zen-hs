@@ -77,14 +77,13 @@ runMainLoop tcs = do
     evalStateT (withComponents $ \ccs -> mainLoop (map snd tcs) ccs vcs) initialModel
     `finally` mapM_ (io . killThread . fst) tcs
     where
-    withComponents f = (config . components) $-> flip withControllerComponents f
+    withComponents f = flip withControllerComponents f
 
 
-withControllerComponents :: [ControllerComponent]
-                         -> ([ControllerComponent] -> ModelST (SetupRT IO) a)
+withControllerComponents :: ([ControllerComponent] -> ModelST (SetupRT IO) a)
                          -> ModelST (SetupRT IO) a
-withControllerComponents cs = bracket startup shutdown
-    where startup = startupControllerComponents cs
+withControllerComponents f = (config . components) $-> \cs -> bracket (startup cs) shutdown f
+    where startup = startupControllerComponents
           shutdown = shutdownControllerComponents
 
 
