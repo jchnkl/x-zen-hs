@@ -51,6 +51,14 @@ execStack :: Z IO a -> MainStack (Log, ClientConfigs)
 execStack f = flip runStateT M.empty $ runModelOps $ execWriterT f
 
 
+runViewStack :: ViewStack a -> MainStack (a, Log)
+runViewStack = lift . runWriterT
+
+
+execViewStack :: ViewStack a -> MainStack Log
+execViewStack = lift . execWriterT
+
+
 mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> MainStack ()
 mainLoop chans ccs vcs = do
     ((ccs', ccl), configs) <- runStack (runComponents chans ccs)
@@ -72,12 +80,15 @@ runComponents chans = (readAnyEvent >>=) . run
 
 
 runMainLoop :: [(ThreadId, TChan AnyEvent)] -> SetupRT IO ()
-runMainLoop tcs = do
-    vcs <- askL (config . viewComponents)
-    evalStateT (withComponents $ \ccs -> mainLoop (map snd tcs) ccs vcs) initialModel
-    `finally` mapM_ (io . killThread . fst) tcs
+runMainLoop tcs = evalStateT run initialModel
+                  `finally` mapM_ (io . killThread) threads
     where
-    withComponents f = flip withControllerComponents f
+    threads  = map fst tcs
+    channels = map snd tcs
+    run = do
+        withControllerComponents $ \ccs -> do
+            withViewComponents $ \vcs -> do
+                mainLoop channels ccs vcs
 
 
 withControllerComponents :: ([ControllerComponent] -> ModelST (SetupRT IO) a)
@@ -104,6 +115,30 @@ shutdownControllerComponents (c@(Component{componentId = cid}):cs) = do
     logPrinter $-> io . ($ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l))
     shutdownControllerComponents cs
 shutdownControllerComponents _ = return ()
+
+
+withViewComponents :: ([ViewComponent] -> MainStack a) -> MainStack a
+withViewComponents f = (config . viewComponents) $-> \cs -> bracket (startup cs) shutdown f
+    where startup = startupViewComponents
+          shutdown = shutdownViewComponents
+
+
+startupViewComponents :: [ViewComponent] -> MainStack [ViewComponent]
+startupViewComponents = startup []
+    where
+    startup cs' (c@(Component{componentId = cid}):cs) = do
+        (c', l) <- runViewStack $ startupComponent c
+        logPrinter $-> io . ($ ("startup " ++ cid ++ ":") : (map ("\t"++) l))
+        startup (c':cs') cs
+    startup cs' _ = return $ reverse cs'
+
+
+shutdownViewComponents :: [ViewComponent] -> MainStack ()
+shutdownViewComponents (c@(Component{componentId = cid}):cs) = do
+    l <- execViewStack $ shutdownComponent c
+    logPrinter $-> io . ($ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l))
+    shutdownViewComponents cs
+shutdownViewComponents _ = return ()
 
 
 withSetup :: Connection -> Config -> (SetupRT IO a) -> IO a
