@@ -25,6 +25,7 @@ import Core
 import Base
 import Model
 import Types hiding (model)
+import AnyEvent
 import View
 import Controller
 
@@ -58,7 +59,7 @@ runComponents :: [TChan AnyEvent]
 runComponents chans = (readAnyEvent >>=) . run
     where
     run cs e = forM cs $ \c -> do
-        (c', l) <- lift $ runWriterT (runComponent e c)
+        (c', l) <- lift $ runWriterT (dispatchAnyEvent e c)
         appendComponentLog c l
         return c'
     readAnyEvent = io . atomically . foldr1 orElse . map readTChan $ chans
@@ -106,7 +107,7 @@ startup conf (Just c) = do
     -- TODO: ungrab / regrab keys for MappingNotifyEvent
 
     -- runController :: [SetupRT IO AnyEvent] -> SetupRT IO [(ThreadId, TChan AnyEvent)]
-    withSetup c conf $ runController controller >>= runMainLoop
+    withSetup c conf $ runEventSources controller >>= runMainLoop
 
 
 main :: IO ()
