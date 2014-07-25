@@ -5,8 +5,7 @@ module Controller where
 import Control.Concurrent.STM (TChan, atomically, orElse, readTChan)
 
 import Data.Map as M (empty)
-import Control.Monad (forM, forever)
-import Control.Monad.Reader (ask, runReaderT)
+import Control.Monad (forM)
 import Control.Monad.State (runStateT)
 import Control.Monad.Catch (bracket)
 import Control.Monad.Trans (lift)
