@@ -97,7 +97,6 @@ startup conf (Just c) = do
 
     -- TODO: ungrab / regrab keys for MappingNotifyEvent
 
-    -- runController :: [SetupRT IO AnyEvent] -> SetupRT IO [(ThreadId, TChan AnyEvent)]
     withSetup c conf $ runEventSources eventSources >>= runMainLoop
 
 
