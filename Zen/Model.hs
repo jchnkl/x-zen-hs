@@ -195,17 +195,6 @@ clientConfigs' = \case
     where modcc w c = modify $ M.alter (Just . maybe (S.singleton c) (S.insert c)) w
 
 
-runViews :: [ViewComponent] -> ClientConfigs -> LogWT (ModelST (SetupRT IO)) [ViewComponent]
-runViews vcs configs = get >>= forM vcs . run >>= mapM (run configs)
-    where
-    run t c@(Component cid d execc su sd handlers) = do
-        (d', l) <- lift . lift . runWriterT
-                               $ execc (mapM_ (doDispatch t) (handlers d)) d
-        appendComponentLog c l
-        return $ Component cid d' execc su sd handlers
-    doDispatch t (SomeHandler h) = dispatch h t
-
-
 runModelOps :: Monad m => ModelOpsFT m a -> StateT ClientConfigs (StateT Model m) a
 runModelOps ops = lift (lift $ runFreeT ops) >>= runModelOp
     where

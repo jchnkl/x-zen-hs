@@ -25,6 +25,7 @@ import Core
 import Base
 import Model
 import Types hiding (model)
+import View
 import Controller
 
 import Keyboard
@@ -43,25 +44,9 @@ views :: [Model -> IO ()]
 views = [print]
 
 
-runStack :: Z IO a -> MainStack ((a, Log), ClientConfigs)
-runStack f = flip runStateT M.empty $ runModelOps $ runWriterT f
-
-
-execStack :: Z IO a -> MainStack (Log, ClientConfigs)
-execStack f = flip runStateT M.empty $ runModelOps $ execWriterT f
-
-
-runViewStack :: ViewStack a -> MainStack (a, Log)
-runViewStack = lift . runWriterT
-
-
-execViewStack :: ViewStack a -> MainStack Log
-execViewStack = lift . execWriterT
-
-
 mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> MainStack ()
 mainLoop chans ccs vcs = do
-    ((ccs', ccl), configs) <- runStack (runComponents chans ccs)
+    ((ccs', ccl), configs) <- runControllerStack (runComponents chans ccs)
     ((vcs', vcl)) <- runWriterT $ runViews vcs configs
     logPrinter $-> io . ($ ccl ++ vcl)
     mainLoop chans ccs' vcs'
@@ -89,55 +74,6 @@ runMainLoop tcs = evalStateT run initialModel
         withControllerComponents $ \ccs -> do
             withViewComponents $ \vcs -> do
                 mainLoop channels ccs vcs
-
-
-withControllerComponents :: ([ControllerComponent] -> MainStack a) -> MainStack a
-withControllerComponents f =
-    (config . controllerComponents) $-> \cs -> bracket (startup cs) shutdown f
-    where startup = startupControllerComponents
-          shutdown = shutdownControllerComponents
-
-
-startupControllerComponents :: [ControllerComponent] -> MainStack [ControllerComponent]
-startupControllerComponents = startup []
-    where
-    startup cs' (c@(Component{componentId = cid}):cs) = do
-        (c', l) <- fmap fst $ runStack $ startupComponent c
-        logPrinter $-> io . ($ ("startup " ++ cid ++ ":") : (map ("\t"++) l))
-        startup (c':cs') cs
-    startup cs' _ = return $ reverse cs'
-
-
-shutdownControllerComponents :: [ControllerComponent] -> MainStack ()
-shutdownControllerComponents (c@(Component{componentId = cid}):cs) = do
-    l <- fmap fst $ execStack $ shutdownComponent c
-    logPrinter $-> io . ($ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l))
-    shutdownControllerComponents cs
-shutdownControllerComponents _ = return ()
-
-
-withViewComponents :: ([ViewComponent] -> MainStack a) -> MainStack a
-withViewComponents f = (config . viewComponents) $-> \cs -> bracket (startup cs) shutdown f
-    where startup = startupViewComponents
-          shutdown = shutdownViewComponents
-
-
-startupViewComponents :: [ViewComponent] -> MainStack [ViewComponent]
-startupViewComponents = startup []
-    where
-    startup cs' (c@(Component{componentId = cid}):cs) = do
-        (c', l) <- runViewStack $ startupComponent c
-        logPrinter $-> io . ($ ("startup " ++ cid ++ ":") : (map ("\t"++) l))
-        startup (c':cs') cs
-    startup cs' _ = return $ reverse cs'
-
-
-shutdownViewComponents :: [ViewComponent] -> MainStack ()
-shutdownViewComponents (c@(Component{componentId = cid}):cs) = do
-    l <- execViewStack $ shutdownComponent c
-    logPrinter $-> io . ($ ("shutdown " ++ cid ++ ":") : (map ("\t"++) l))
-    shutdownViewComponents cs
-shutdownViewComponents _ = return ()
 
 
 withSetup :: Connection -> Config -> (SetupRT IO a) -> IO a
