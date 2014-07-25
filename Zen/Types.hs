@@ -35,8 +35,6 @@ type Log = [String]
 
 type MainStack = ModelST (SetupRT IO)
 
-type View = ClientConfigs -> ModelRT (SetupRT IO) ()
-
 type EventSource = SetupRT IO AnyEvent
 
 
