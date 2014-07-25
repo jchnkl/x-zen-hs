@@ -38,6 +38,10 @@ initialModel :: Model
 initialModel = Model (ClientQueue [] Nothing [])
 
 
+-- TODO
+-- getXcbSetup :: MonadReader XcbSetup m => m XcbSetup
+-- avoid SetupRT for Controllers
+
 eventSources :: [EventSource]
 eventSources = [xcbEventSource]
 
@@ -62,6 +66,8 @@ runMainLoop tcs = evalStateT run initialModel
                 mainLoop channels ccs vcs
 
 
+-- TODO: move with*Component to withSetup or withConfig
+--       provide components through reader
 withSetup :: Connection -> Config -> (SetupRT IO a) -> IO a
 withSetup c conf f = do
     let min_keycode = X.min_keycode_Setup $ X.connectionSetup c
