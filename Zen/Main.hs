@@ -12,6 +12,7 @@ import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Applicative
 import Control.Monad.Catch (bracket, finally)
+import System.IO (hPutStrLn, stderr)
 import Graphics.XHB (Connection, SomeEvent, CW(..), EventMask(..))
 import qualified Graphics.XHB as X
 
@@ -85,7 +86,7 @@ withSetup c conf f = do
 
 
 startup :: Config -> Maybe Connection -> IO ()
-startup _ Nothing     = print "Got no connection!"
+startup _ Nothing     = hPutStrLn stderr "Could not connect to X server."
 startup conf (Just c) = do
     let mask = CWEventMask
         values = X.toMask [ EventMaskSubstructureRedirect
