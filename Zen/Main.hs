@@ -28,6 +28,7 @@ import Types hiding (model)
 import AnyEvent
 import View
 import Controller
+import XcbEventSource
 
 import Keyboard
 import Component
@@ -38,7 +39,7 @@ initialModel = Model (ClientQueue [] Nothing [])
 
 
 controller :: [Controller]
-controller = [xEventSource]
+controller = [xcbEventSource]
 
 
 views :: [Model -> IO ()]

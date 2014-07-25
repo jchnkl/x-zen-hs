@@ -21,10 +21,6 @@ import Model
 import Component
 
 
-xEventSource :: SetupRT IO AnyEvent
-xEventSource = askL connection >>= fmap AnyEvent . io . waitForEvent
-
-
 runControllerStack :: Z IO a -> MainStack ((a, Log), ClientConfigs)
 runControllerStack f = flip runStateT M.empty $ runModelOps $ runWriterT f
 
