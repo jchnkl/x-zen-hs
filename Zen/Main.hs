@@ -42,10 +42,6 @@ controller :: [EventSource]
 controller = [xcbEventSource]
 
 
-views :: [Model -> IO ()]
-views = [print]
-
-
 mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> MainStack ()
 mainLoop chans ccs vcs = do
     ((ccs', ccl), configs) <- runControllerStack (runComponents chans ccs)
