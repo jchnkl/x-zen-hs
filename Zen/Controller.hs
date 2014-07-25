@@ -2,22 +2,22 @@
 
 module Controller where
 
-import Control.Concurrent
-import Control.Concurrent.STM
-import Graphics.XHB (waitForEvent)
+import Control.Concurrent.STM (TChan, atomically, orElse, readTChan)
 
 import Data.Map as M (empty)
-import Control.Monad (forever)
+import Control.Monad (forM, forever)
 import Control.Monad.Reader (ask, runReaderT)
 import Control.Monad.State (runStateT)
 import Control.Monad.Catch (bracket)
 import Control.Monad.Trans (lift)
 import Control.Monad.Writer (runWriterT, execWriterT)
 
+import Log
 import Lens
 import Util
 import Types
 import Model
+import AnyEvent
 import Component
 
 
@@ -27,6 +27,18 @@ runControllerStack f = flip runStateT M.empty $ runModelOps $ runWriterT f
 
 execControllerStack :: Z IO a -> MainStack (Log, ClientConfigs)
 execControllerStack f = flip runStateT M.empty $ runModelOps $ execWriterT f
+
+
+runControllers :: [TChan AnyEvent]
+               -> [ControllerComponent]
+               -> MainStack (([ControllerComponent], Log), ClientConfigs)
+runControllers chans = runControllerStack . (readAnyEvent >>=) . run
+    where
+    run cs e = forM cs $ \c -> do
+        (c', l) <- lift $ runWriterT (dispatchAnyEvent e c)
+        appendComponentLog c l
+        return c'
+    readAnyEvent = io . atomically . foldr1 orElse . map readTChan $ chans
 
 
 startupControllerComponents :: [ControllerComponent] -> MainStack [ControllerComponent]

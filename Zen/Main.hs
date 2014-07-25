@@ -44,22 +44,10 @@ controller = [xcbEventSource]
 
 mainLoop :: [TChan AnyEvent] -> [ControllerComponent] -> [ViewComponent] -> MainStack ()
 mainLoop chans ccs vcs = do
-    ((ccs', ccl), configs) <- runControllerStack (runComponents chans ccs)
-    ((vcs', vcl)) <- runWriterT $ runViews vcs configs
+    ((ccs', ccl), configs) <- runControllers chans ccs
+    (vcs', vcl)            <- runViews vcs configs
     logPrinter $-> io . ($ ccl ++ vcl)
     mainLoop chans ccs' vcs'
-
-
-runComponents :: [TChan AnyEvent]
-              -> [ControllerComponent]
-              -> Z IO [ControllerComponent]
-runComponents chans = (readAnyEvent >>=) . run
-    where
-    run cs e = forM cs $ \c -> do
-        (c', l) <- lift $ runWriterT (dispatchAnyEvent e c)
-        appendComponentLog c l
-        return c'
-    readAnyEvent = io . atomically . foldr1 orElse . map readTChan $ chans
 
 
 runMainLoop :: [(ThreadId, TChan AnyEvent)] -> SetupRT IO ()
