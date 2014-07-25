@@ -38,7 +38,7 @@ initialModel :: Model
 initialModel = Model (ClientQueue [] Nothing [])
 
 
-controller :: [Controller]
+controller :: [EventSource]
 controller = [xcbEventSource]
 
 

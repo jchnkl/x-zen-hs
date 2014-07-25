@@ -37,7 +37,7 @@ type MainStack = ModelST (SetupRT IO)
 
 type View = ClientConfigs -> ModelRT (SetupRT IO) ()
 
-type Controller = SetupRT IO AnyEvent
+type EventSource = SetupRT IO AnyEvent
 
 
 class TypeConversion a b where

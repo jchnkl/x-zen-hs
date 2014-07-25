@@ -9,5 +9,5 @@ import Util
 import Types
 
 
-xcbEventSource :: SetupRT IO AnyEvent
+xcbEventSource :: EventSource
 xcbEventSource = askL connection >>= fmap AnyEvent . io . waitForEvent
