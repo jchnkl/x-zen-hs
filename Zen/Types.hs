@@ -320,20 +320,6 @@ keyboardMap = lens _keyboardMap (\d v -> d { _keyboardMap = v })
 modifierMap :: Functor f => LensLike' f Setup (Map MapIndex [KEYCODE])
 modifierMap = lens _modifierMap (\d v -> d { _modifierMap = v })
 
-
-data UpdateHint =
-      HintRaise
-    | HintLower
-    | HintX Int
-    | HintY Int
-    | HintWidth  Word
-    | HintHeight Word
-    | HintPosition  Position
-    | HintDimension Dimension
-    | HintBorderColor Word
-    | HintBorderWidth Word
-    deriving (Eq, Ord, Show, Typeable)
-
 data Model = Model
     { _queue :: Queue
     }
