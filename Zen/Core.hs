@@ -157,24 +157,8 @@ handleKeyPress e = do
 
 
 grabKeys :: (Functor m, MonadIO m) => CoreConfig -> Z m ()
-grabKeys coreconfig = connection $-> \c -> do
-    kbdmap <- askL keyboardMap
-    modmap <- askL modifierMap
-    modmask <- askL (config . modMask)
-
-    let keys = M.keys $ keyEventHandler coreconfig
-    let nl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Num_Lock)]
-        cl = catMaybes [(fromBit . toValue) <$> K.keysymToModifier kbdmap modmap (fi xK_Caps_Lock)]
-        -- TODO: separate function
-        combos m kc = L.nub $ zip (m : map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
-        grab (mask, keycode) = io $ grabKey c $ MkGrabKey True (getRoot c)
-                                                          mask keycode
-                                                          GrabModeAsync GrabModeAsync
-
-    forM_ keys $ \(mask, keysym) -> do
-        toLog . ("grabbing " ++) . show $ (mask, keysym)
-        whenJustM_ (K.keysymToKeycode kbdmap (fi keysym)) $
-            mapM_ grab . combos (modmask ++ mask)
+grabKeys coreconfig = rootWindow $-> \w -> do
+    mapM_ (uncurry . flip $ Model.grabKey w) . M.keys . keyEventHandler $ coreconfig
 
 
 initWindow :: MonadIO m => WindowId -> Z m ()

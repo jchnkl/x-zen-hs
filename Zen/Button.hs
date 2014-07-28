@@ -128,7 +128,7 @@ startupPointerComponent (PointerSetup buttons bm _, p) = connection $-> \c -> do
     toLog "startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
 
-    Model.withQueueM $ mapM_ (grabButtons bm (buttonActions buttons))
+    Model.withQueueM $ mapM_ (flip grabButtons (buttonActions buttons))
                      . map (^. xid) . Q.toList
 
     return (PointerSetup buttons buttonEventMask glyphs, p)
@@ -378,29 +378,15 @@ handleCreateNotify e = do
     toLog "CreateNotifyEvent"
     mask <- asksPS buttonMask
     buttons <- asksPS (buttonActions . buttonConfig)
-    whenM isClient $ lift . lift $ grabButtons mask buttons window
+    whenM isClient $ lift . lift $ grabButtons window buttons
     where
     window = window_CreateNotifyEvent e
     -- isClient = maybe False isClientReply <$> sendMessage (IsClient window)
     isClient = Model.member window
 
 
-grabButtons :: MonadIO m => [EventMask] -> ButtonMap -> WindowId -> Z m ()
-grabButtons eventmask buttons window = connection $-> \c -> do
-    modmask <- askL (config . modMask)
-    kbdmap <- askL keyboardMap
-    modmap <- askL modifierMap
-
-    forM_ (M.keys buttons) $ \(m, b) -> do
-        let keys = zip (combinations (m ++ modmask ++ extraModifier kbdmap modmap)) (repeat b)
-        mapM_ (grab c eventmask) keys
-
-    where
-    grab c emask (mask, button) = do
-        io $ grabButton c $ MkGrabButton True window emask
-                            GrabModeAsync GrabModeAsync
-                            (convertXid xidNone) (convertXid xidNone)
-                            button mask
+grabButtons :: MonadIO m => WindowId -> ButtonMap -> Z m ()
+grabButtons w = mapM_ (uncurry . flip $ Model.grabButton w) . M.keys
 
 
 loadGlyphCursor :: Connection -> FONT -> Glyph -> IO CURSOR
