@@ -11,6 +11,7 @@ module Model where
 
 
 import Data.Word
+import Data.Maybe (isJust)
 import Data.Map as M
 import Data.Set as S
 import Data.List as L
@@ -26,8 +27,6 @@ import Log
 import Types
 import Lens hiding (views)
 import qualified Queue as Q
--- import qualified Window as W
-import Graphics.XHB as X
 
 {-
  TODO
@@ -45,6 +44,8 @@ updateModel = \case
     RemoveClient c _     -> removec c
     InsertWindow w _     -> insertw w
     RemoveWindow w _     -> removew w
+    GrabKey w ks mm _    -> modc w $ keyGrabs %~ M.alter (updateMask mm) ks
+    GrabButton w bi mm _ -> modc w $ buttonGrabs %~ M.alter (updateMask mm) bi
     Raise _ _            -> return ()
     Lower _ _            -> return ()
     SetX w v _           -> modc w (geometry . position . x .~ v)
@@ -61,7 +62,8 @@ updateModel = \case
           removec = removew . (^. xid)
           insertc = modify . (queue %~) . Q.insert
           removew = modify . (queue %~) . Q.remove
-          insertw w = insertc (Client w nullPosition nullGeometry)
+          insertw w = insertc (Client w nullPosition nullGeometry M.empty M.empty)
+          updateMask m m' = if isJust m' then fmap (m `L.union`) m' else Just m
 
 
 getQueue :: (MonadFree ModelOps m) => m Queue
@@ -186,11 +188,13 @@ clientConfigs = \case
 
 clientConfigs' :: (MonadState ClientConfigs m) => ModelOps t -> m ()
 clientConfigs' = \case
-    SetX w v _ -> modcc w $ ConfigClientX w v ()
-    SetY w v _ -> modcc w $ ConfigClientY w v ()
-    SetWidth w v _ -> modcc w $ ConfigClientWidth w v ()
-    SetHeight w v _ -> modcc w $ ConfigClientHeight w v ()
-    _ -> return ()
+    SetX w v _           -> modcc w $ ConfigClientX w v ()
+    SetY w v _           -> modcc w $ ConfigClientY w v ()
+    SetWidth w v _       -> modcc w $ ConfigClientWidth w v ()
+    SetHeight w v _      -> modcc w $ ConfigClientHeight w v ()
+    GrabKey w mm ks _    -> modcc w $ ConfigGrabKey w mm ks ()
+    GrabButton w mm bi _ -> modcc w $ ConfigGrabButton w mm bi ()
+    _                    -> return ()
     where modcc w c = modify $ M.alter (Just . maybe (S.singleton c) (S.insert c)) w
 
 
@@ -211,6 +215,8 @@ runModelOps ops = lift (lift $ runFreeT ops) >>= runModelOp
         RemoveClient _ f     -> cont f
         InsertWindow _ f     -> cont f
         RemoveWindow _ f     -> cont f
+        GrabKey _ _ _ f      -> cont f
+        GrabButton _ _ _ f   -> cont f
         Raise _ f            -> cont f
         Lower _ f            -> cont f
         SetX _ _ f           -> cont f

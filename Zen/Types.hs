@@ -26,6 +26,7 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 
+import Graphics.X11 (KeySym)
 import Graphics.XHB hiding (Setup)
 
 import Lens
@@ -116,14 +117,18 @@ data ClientConfig f =
     | ConfigClientY      WindowId Int f
     | ConfigClientWidth  WindowId Word f
     | ConfigClientHeight WindowId Word f
+    | ConfigGrabKey      WindowId KeySym [ModMask] f
+    | ConfigGrabButton   WindowId ButtonIndex [ModMask] f
     deriving (Eq, Ord, Functor, Typeable)
 
 
 instance Show (ClientConfig f) where
-    show (ConfigClientX w v _) = "ClientConfigX " ++ show w ++ " " ++ show v
-    show (ConfigClientY w v _) = "ClientConfigY " ++ show w ++ " " ++ show v
-    show (ConfigClientWidth w v _) = "ClientConfigWidth " ++ show w ++ " " ++ show v
-    show (ConfigClientHeight w v _) = "ClientConfigHeight " ++ show w ++ " " ++ show v
+    show (ConfigClientX w v _)        = "ClientConfigX "      ++ show w ++ " " ++ show v
+    show (ConfigClientY w v _)        = "ClientConfigY "      ++ show w ++ " " ++ show v
+    show (ConfigClientWidth w v _)    = "ClientConfigWidth "  ++ show w ++ " " ++ show v
+    show (ConfigClientHeight w v _)   = "ClientConfigHeight " ++ show w ++ " " ++ show v
+    show (ConfigGrabKey w ks mm _)    = "ConfigGrabKey "      ++ show w ++ " " ++ show ks ++ " " ++ show mm
+    show (ConfigGrabButton w bi mm _) = "ConfigGrabButton "   ++ show w ++ " " ++ show bi ++ " " ++ show mm
 
 
 type ClientConfigs = Map WindowId (Set (ClientConfig ()))
@@ -251,11 +256,13 @@ data Client = Client
     { _xid :: WindowId
     , _pointer :: Position
     , _geometry :: Geometry
+    , _keyGrabs :: Map KeySym [ModMask]
+    , _buttonGrabs :: Map ButtonIndex [ModMask]
     }
     deriving (Eq, Typeable)
 
 instance Show Client where
-    show (Client i _ (Geometry pos dim)) =
+    show (Client i _ (Geometry pos dim) _ _) =
         "0x" ++ showHex (fromXid $ toXid i :: Word32) ""
         ++ " @ " ++ show (pos ^. x) ++ "x" ++ show (pos ^. y) ++ "+"
                  ++ show (dim ^. width) ++ "+" ++ show (dim ^. height)
@@ -269,6 +276,11 @@ pointer = lens _pointer (\d v -> d { _pointer = v })
 geometry :: Functor f => LensLike' f Client Geometry
 geometry = lens _geometry (\d v -> d { _geometry = v })
 
+keyGrabs :: Functor f => LensLike' f Client (Map KeySym [ModMask])
+keyGrabs = lens _keyGrabs (\d v -> d { _keyGrabs = v })
+
+buttonGrabs :: Functor f => LensLike' f Client (Map ButtonIndex [ModMask])
+buttonGrabs = lens _buttonGrabs (\d v -> d { _buttonGrabs = v })
 
 type Queue = ClientQueue
 
@@ -350,6 +362,8 @@ data ModelOps f =
     | RemoveClient Client f
     | InsertWindow WindowId f
     | RemoveWindow WindowId f
+    | GrabKey    WindowId KeySym [ModMask] f
+    | GrabButton WindowId ButtonIndex [ModMask] f
     | Raise     WindowId f
     | Lower     WindowId f
     | SetX      WindowId Int f
@@ -375,4 +389,3 @@ type ModelRT = ReaderT Model
 type SetupRT = ReaderT Setup
 
 type Z m = LogWT (ModelOpsFT (SetupRT m))
-

@@ -105,7 +105,8 @@ startupCoreComponent conf = do
     mkClient :: (MonadIO m, Functor m) => WindowId -> Z m (WindowId, Client)
     mkClient w = do
         initWindow w
-        (w,) . Client w nullPosition . fromRight nullGeometry <$> clientGeometry w
+        geom <- fromRight nullGeometry <$> clientGeometry w
+        return . (w,) $ Client w nullPosition geom M.empty M.empty
 
 
 -- handleCreateNotify :: (Typeable t, Typeable m, MonadReader CoreConfig m, MonadTrans t) => CreateNotifyEvent -> t m ()
