@@ -40,14 +40,16 @@ runControllers chans = runControllerStack . (readAnyEvent >>=) . run
     readAnyEvent = io . atomically . foldr1 orElse . map readTChan $ chans
 
 
-startupControllerComponents :: [ControllerComponent] -> MainStack [ControllerComponent]
-startupControllerComponents = startup []
+startupControllerComponents :: [ControllerComponent]
+                            -> MainStack ([ControllerComponent], ClientConfigs)
+startupControllerComponents = startup M.empty []
     where
-    startup cs' (c@(Component{componentId = cid}):cs) = do
-        (c', l) <- fmap fst $ runControllerStack $ startupComponent c
+    startup configs cs' (c@(Component{componentId = cid}):cs) = do
+        ((c', l), configs') <- flip runStateT configs . runModelOps . runWriterT
+                             $ startupComponent c
         logPrinter $-> io . ($ ("startup " ++ cid ++ ":") : (map ("\t"++) l))
-        startup (c':cs') cs
-    startup cs' _ = return $ reverse cs'
+        startup configs' ((c'):cs') cs
+    startup configs cs' _ = return $ (reverse cs', configs)
 
 
 shutdownControllerComponents :: [ControllerComponent] -> MainStack ()
@@ -58,8 +60,9 @@ shutdownControllerComponents (c@(Component{componentId = cid}):cs) = do
 shutdownControllerComponents _ = return ()
 
 
-withControllerComponents :: ([ControllerComponent] -> MainStack a) -> MainStack a
+withControllerComponents :: (([ControllerComponent], ClientConfigs) -> MainStack a)
+                         -> MainStack a
 withControllerComponents f =
     (config . controllerComponents) $-> \cs -> bracket (startup cs) shutdown f
     where startup = startupControllerComponents
-          shutdown = shutdownControllerComponents
+          shutdown = shutdownControllerComponents . fst

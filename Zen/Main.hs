@@ -62,9 +62,11 @@ runMainLoop tcs = evalStateT run initialModel
     threads  = map fst tcs
     channels = map snd tcs
     run = do
-        withControllerComponents $ \ccs -> do
-            withViewComponents $ \vcs -> do
-                mainLoop channels ccs vcs
+        withViewComponents $ \vcs -> do
+            withControllerComponents $ \(ccs, configs) -> do
+                (vcs', vcl) <- runViews vcs configs
+                logPrinter $-> io . ($ vcl)
+                mainLoop channels ccs vcs'
 
 
 -- TODO: move with*Component to withSetup or withConfig
