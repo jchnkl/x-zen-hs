@@ -22,6 +22,8 @@ import Control.Monad.Writer
 -- import Control.Monad.Free
 import Control.Monad.Free.TH
 import Control.Monad.Trans.Free
+import Graphics.X11 (KeySym)
+import Graphics.XHB (ModMask, ButtonIndex)
 
 import Log
 import Types
@@ -114,6 +116,14 @@ setGeometry w g = liftF (SetGeometry w g ())
 setBorderColor, setBorderWidth :: (MonadFree ModelOps m) => WindowId -> Word -> m ()
 setBorderColor w v = liftF (SetBorderColor w v ())
 setBorderWidth w v = liftF (SetBorderWidth w v ())
+
+
+grabKey :: (MonadFree ModelOps m) => WindowId -> KeySym -> [ModMask] -> m ()
+grabKey w ks mm = liftF (GrabKey w ks mm ())
+
+
+grabButton :: (MonadFree ModelOps m) => WindowId -> ButtonIndex -> [ModMask] -> m ()
+grabButton w bi mm = liftF (GrabButton w bi mm ())
 
 
 member :: (Functor m, MonadFree ModelOps m) => WindowId -> m Bool
