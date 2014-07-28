@@ -20,15 +20,12 @@ import SnapResist
 import XcbView
 
 coreConfig :: CoreConfig
-coreConfig = CoreConfig M.empty
-    -- [ (([], xK_Tab), C.defaultKeyEventHandler
-    --     { press = const $ do
-    --         toLog "xK_Tab press"
-    --         modifyL C.queue $ Q.focusNext
-    --         C.refresh
-    --     }
-    --   )
-    -- ]
+coreConfig = CoreConfig $ M.fromList
+    [ (([], xK_Tab), C.defaultKeyEventHandler
+        { press = const $ toLog "xK_Tab press"
+        }
+      )
+    ]
 
 core :: ControllerComponent
 core = C.core coreConfig
