@@ -10,7 +10,6 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.List ((\\))
 import qualified Data.List as L
-import Control.Monad.Free
 import Control.Monad.State hiding (state)
 import Control.Monad.Reader
 import Control.Applicative
