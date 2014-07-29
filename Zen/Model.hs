@@ -184,20 +184,8 @@ modifyClient f w (ClientStack as fc bs)
 $(makeFree ''ClientConfig)
 
 
-clientConfigs :: (Monad m)
-            => ModelOps (StateT ClientConfigs (StateT Model m) a)
-            -> StateT ClientConfigs (StateT Model m) ()
+clientConfigs :: (MonadState ClientConfigs m) => ModelOps t -> m ()
 clientConfigs = \case
-    SetX w v _ -> modcc w $ ConfigClientX w v ()
-    SetY w v _ -> modcc w $ ConfigClientY w v ()
-    SetWidth w v _ -> modcc w $ ConfigClientWidth w v ()
-    SetHeight w v _ -> modcc w $ ConfigClientHeight w v ()
-    _ -> return ()
-    where modcc w c = modify $ M.alter (Just . maybe (S.singleton c) (S.insert c)) w
-
-
-clientConfigs' :: (MonadState ClientConfigs m) => ModelOps t -> m ()
-clientConfigs' = \case
     SetX w v _           -> modcc w $ ConfigClientX w v ()
     SetY w v _           -> modcc w $ ConfigClientY w v ()
     SetWidth w v _       -> modcc w $ ConfigClientWidth w v ()
@@ -215,7 +203,7 @@ runModelOps ops = lift (lift $ runFreeT ops) >>= runModelOp
         (Pure a)  -> return a
         (Free op) -> do
             lift $ updateModel op
-            clientConfigs' op
+            clientConfigs op
             continue runModelOps op
 
     continue cont = \case
