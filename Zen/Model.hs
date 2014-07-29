@@ -134,13 +134,15 @@ updateModel = \case
 
 clientConfigs :: (MonadState ClientConfigs m) => ModelOps t -> m ()
 clientConfigs = \case
-    SetX w v _           -> modcc w $ ConfigClientX v
-    SetY w v _           -> modcc w $ ConfigClientY v
-    SetWidth w v _       -> modcc w $ ConfigClientWidth v
-    SetHeight w v _      -> modcc w $ ConfigClientHeight v
-    GrabKey w mm ks _    -> modcc w $ ConfigGrabKey mm ks
-    GrabButton w mm bi _ -> modcc w $ ConfigGrabButton mm bi
-    _                    -> return ()
+    SetX w v _             -> modcc w $ ConfigClientX v
+    SetY w v _             -> modcc w $ ConfigClientY v
+    SetWidth w v _         -> modcc w $ ConfigClientWidth v
+    SetHeight w v _        -> modcc w $ ConfigClientHeight v
+    GrabKey w mm ks _      -> modcc w $ ConfigGrabKey mm ks
+    UngrabKey w mm ks _    -> modcc w $ ConfigUngrabKey mm ks
+    GrabButton w mm bi _   -> modcc w $ ConfigGrabButton mm bi
+    UngrabButton w mm bi _ -> modcc w $ ConfigUngrabButton mm bi
+    _                      -> return ()
     where modcc w c = modify $ M.alter (Just . maybe (S.singleton c) (S.insert c)) w
 
 
@@ -162,7 +164,9 @@ runModelOps ops = lift (lift $ runFreeT ops) >>= runModelOp
         InsertWindow _ f     -> cont f
         RemoveWindow _ f     -> cont f
         GrabKey _ _ _ f      -> cont f
+        UngrabKey _ _ _ f    -> cont f
         GrabButton _ _ _ f   -> cont f
+        UngrabButton _ _ _ f -> cont f
         Raise _ f            -> cont f
         Lower _ f            -> cont f
         SetX _ _ f           -> cont f

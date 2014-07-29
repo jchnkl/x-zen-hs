@@ -115,17 +115,21 @@ data ClientConfig = ConfigClientX      Int
                   | ConfigClientWidth  Word
                   | ConfigClientHeight Word
                   | ConfigGrabKey      KeySym [ModMask]
+                  | ConfigUngrabKey    KeySym [ModMask]
                   | ConfigGrabButton   ButtonIndex [ModMask]
+                  | ConfigUngrabButton ButtonIndex [ModMask]
     deriving (Eq, Ord, Typeable)
 
 
 instance Show ClientConfig where
-    show (ConfigClientX v)        = "ClientConfigX "      ++ show v
-    show (ConfigClientY v)        = "ClientConfigY "      ++ show v
-    show (ConfigClientWidth v)    = "ClientConfigWidth "  ++ show v
-    show (ConfigClientHeight v)   = "ClientConfigHeight " ++ show v
-    show (ConfigGrabKey ks mm)    = "ConfigGrabKey "      ++ show ks ++ " " ++ show mm
-    show (ConfigGrabButton bi mm) = "ConfigGrabButton "   ++ show bi ++ " " ++ show mm
+    show (ConfigClientX v)          = "ClientConfigX "      ++ show v
+    show (ConfigClientY v)          = "ClientConfigY "      ++ show v
+    show (ConfigClientWidth v)      = "ClientConfigWidth "  ++ show v
+    show (ConfigClientHeight v)     = "ClientConfigHeight " ++ show v
+    show (ConfigGrabKey ks mm)      = "ConfigGrabKey "      ++ show ks ++ " " ++ show mm
+    show (ConfigUngrabKey ks mm)    = "ConfigUngrabKey "    ++ show ks ++ " " ++ show mm
+    show (ConfigGrabButton bi mm)   = "ConfigGrabButton "   ++ show bi ++ " " ++ show mm
+    show (ConfigUngrabButton bi mm) = "ConfigUngrabButton " ++ show bi ++ " " ++ show mm
 
 
 type ClientConfigs = Map WindowId (Set ClientConfig)
@@ -342,8 +346,10 @@ data ModelOps f =
     | RemoveClient Client f
     | InsertWindow WindowId f
     | RemoveWindow WindowId f
-    | GrabKey    WindowId KeySym [ModMask] f
-    | GrabButton WindowId ButtonIndex [ModMask] f
+    | GrabKey      WindowId KeySym [ModMask] f
+    | UngrabKey    WindowId KeySym [ModMask] f
+    | GrabButton   WindowId ButtonIndex [ModMask] f
+    | UngrabButton WindowId ButtonIndex [ModMask] f
     | Raise     WindowId f
     | Lower     WindowId f
     | SetX      WindowId Int f

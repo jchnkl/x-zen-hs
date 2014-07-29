@@ -72,7 +72,9 @@ clientConfigHandler = mapM_ (flip runStateT [] . uncurry configureClient)
         ConfigClientWidth  v     -> modify ((ConfigWindowWidth, fi v):)
         ConfigClientHeight v     -> modify ((ConfigWindowHeight, fi v):)
         ConfigGrabKey      ks mm -> grabKey w ks mm
+        ConfigUngrabKey    ks mm -> return ()
         ConfigGrabButton   bi mm -> grabButton w bi mm
+        ConfigUngrabButton bi mm -> return ()
 
 
 grabKey :: (MonadReader Setup m, Functor m, MonadIO m)
