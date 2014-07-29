@@ -337,15 +337,6 @@ queue :: Functor f => LensLike' f Model Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
 
-
-data ClientStack = ClientStack
-    { _above :: [Client]
-    , _focus :: Client
-    , _below :: [Client]
-    }
-    deriving Typeable
-
-
 data ModelOps f =
       GetQueue (Queue -> f)
     | PutQueue Queue f
