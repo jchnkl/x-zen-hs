@@ -67,12 +67,12 @@ clientConfigHandler = mapM_ (flip runStateT [] . uncurry configureClient)
                                         configureClient w confs
 
     doConfigureClient w = \case
-        ConfigClientX      _ v     -> modify ((ConfigWindowX, fi v):)
-        ConfigClientY      _ v     -> modify ((ConfigWindowY, fi v):)
-        ConfigClientWidth  _ v     -> modify ((ConfigWindowWidth, fi v):)
-        ConfigClientHeight _ v     -> modify ((ConfigWindowHeight, fi v):)
-        ConfigGrabKey      _ ks mm -> grabKey w ks mm
-        ConfigGrabButton   _ bi mm -> grabButton w bi mm
+        ConfigClientX      v     -> modify ((ConfigWindowX, fi v):)
+        ConfigClientY      v     -> modify ((ConfigWindowY, fi v):)
+        ConfigClientWidth  v     -> modify ((ConfigWindowWidth, fi v):)
+        ConfigClientHeight v     -> modify ((ConfigWindowHeight, fi v):)
+        ConfigGrabKey      ks mm -> grabKey w ks mm
+        ConfigGrabButton   bi mm -> grabButton w bi mm
 
 
 grabKey :: (MonadReader Setup m, Functor m, MonadIO m)

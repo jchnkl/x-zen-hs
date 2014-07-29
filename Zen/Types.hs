@@ -112,22 +112,22 @@ instance Dispatcher ClientConfigs where
         _                 -> return ()
 
 
-data ClientConfig = ConfigClientX      WindowId Int
-                  | ConfigClientY      WindowId Int
-                  | ConfigClientWidth  WindowId Word
-                  | ConfigClientHeight WindowId Word
-                  | ConfigGrabKey      WindowId KeySym [ModMask]
-                  | ConfigGrabButton   WindowId ButtonIndex [ModMask]
-    deriving (Eq, Ord, Typeable )
+data ClientConfig = ConfigClientX      Int
+                  | ConfigClientY      Int
+                  | ConfigClientWidth  Word
+                  | ConfigClientHeight Word
+                  | ConfigGrabKey      KeySym [ModMask]
+                  | ConfigGrabButton   ButtonIndex [ModMask]
+    deriving (Eq, Ord, Typeable)
 
 
 instance Show ClientConfig where
-    show (ConfigClientX w v)        = "ClientConfigX "      ++ show w ++ " " ++ show v
-    show (ConfigClientY w v)        = "ClientConfigY "      ++ show w ++ " " ++ show v
-    show (ConfigClientWidth w v)    = "ClientConfigWidth "  ++ show w ++ " " ++ show v
-    show (ConfigClientHeight w v)   = "ClientConfigHeight " ++ show w ++ " " ++ show v
-    show (ConfigGrabKey w ks mm)    = "ConfigGrabKey "      ++ show w ++ " " ++ show ks ++ " " ++ show mm
-    show (ConfigGrabButton w bi mm) = "ConfigGrabButton "   ++ show w ++ " " ++ show bi ++ " " ++ show mm
+    show (ConfigClientX v)        = "ClientConfigX "      ++ show v
+    show (ConfigClientY v)        = "ClientConfigY "      ++ show v
+    show (ConfigClientWidth v)    = "ClientConfigWidth "  ++ show v
+    show (ConfigClientHeight v)   = "ClientConfigHeight " ++ show v
+    show (ConfigGrabKey ks mm)    = "ConfigGrabKey "      ++ show ks ++ " " ++ show mm
+    show (ConfigGrabButton bi mm) = "ConfigGrabButton "   ++ show bi ++ " " ++ show mm
 
 
 type ClientConfigs = Map WindowId (Set ClientConfig)
