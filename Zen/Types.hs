@@ -255,13 +255,11 @@ data Client = Client
     { _xid :: WindowId
     , _pointer :: Position
     , _geometry :: Geometry
-    , _keyGrabs :: Map KeySym [ModMask]
-    , _buttonGrabs :: Map ButtonIndex [ModMask]
     }
     deriving (Eq, Typeable)
 
 instance Show Client where
-    show (Client i _ (Geometry pos dim) _ _) =
+    show (Client i _ (Geometry pos dim)) =
         "0x" ++ showHex (fromXid $ toXid i :: Word32) ""
         ++ " @ " ++ show (pos ^. x) ++ "x" ++ show (pos ^. y) ++ "+"
                  ++ show (dim ^. width) ++ "+" ++ show (dim ^. height)
@@ -274,12 +272,6 @@ pointer = lens _pointer (\d v -> d { _pointer = v })
 
 geometry :: Functor f => LensLike' f Client Geometry
 geometry = lens _geometry (\d v -> d { _geometry = v })
-
-keyGrabs :: Functor f => LensLike' f Client (Map KeySym [ModMask])
-keyGrabs = lens _keyGrabs (\d v -> d { _keyGrabs = v })
-
-buttonGrabs :: Functor f => LensLike' f Client (Map ButtonIndex [ModMask])
-buttonGrabs = lens _buttonGrabs (\d v -> d { _buttonGrabs = v })
 
 type Queue = ClientQueue
 

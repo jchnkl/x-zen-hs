@@ -46,8 +46,8 @@ updateModel = \case
     RemoveClient c _     -> removec c
     InsertWindow w _     -> insertw w
     RemoveWindow w _     -> removew w
-    GrabKey w ks mm _    -> modc w $ keyGrabs %~ M.alter (updateMask mm) ks
-    GrabButton w bi mm _ -> modc w $ buttonGrabs %~ M.alter (updateMask mm) bi
+    GrabKey _ _ _ _      -> return ()
+    GrabButton _ _ _ _   -> return ()
     Raise _ _            -> return ()
     Lower _ _            -> return ()
     SetX w v _           -> modc w (geometry . position . x .~ v)
@@ -64,8 +64,7 @@ updateModel = \case
           removec = removew . (^. xid)
           insertc = modify . (queue %~) . Q.insert
           removew = modify . (queue %~) . Q.remove
-          insertw w = insertc (Client w nullPosition nullGeometry M.empty M.empty)
-          updateMask m m' = if isJust m' then fmap (m `L.union`) m' else Just m
+          insertw w = insertc (Client w nullPosition nullGeometry)
 
 
 getQueue :: (MonadFree ModelOps m) => m Queue
