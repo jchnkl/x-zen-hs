@@ -181,17 +181,15 @@ modifyClient f w (ClientStack as fc bs)
           mapf (c:cs) | c ^. xid == w = f c : cs
                       | otherwise     = c : mapf cs
 
-$(makeFree ''ClientConfig)
-
 
 clientConfigs :: (MonadState ClientConfigs m) => ModelOps t -> m ()
 clientConfigs = \case
-    SetX w v _           -> modcc w $ ConfigClientX w v ()
-    SetY w v _           -> modcc w $ ConfigClientY w v ()
-    SetWidth w v _       -> modcc w $ ConfigClientWidth w v ()
-    SetHeight w v _      -> modcc w $ ConfigClientHeight w v ()
-    GrabKey w mm ks _    -> modcc w $ ConfigGrabKey w mm ks ()
-    GrabButton w mm bi _ -> modcc w $ ConfigGrabButton w mm bi ()
+    SetX w v _           -> modcc w $ ConfigClientX w v
+    SetY w v _           -> modcc w $ ConfigClientY w v
+    SetWidth w v _       -> modcc w $ ConfigClientWidth w v
+    SetHeight w v _      -> modcc w $ ConfigClientHeight w v
+    GrabKey w mm ks _    -> modcc w $ ConfigGrabKey w mm ks
+    GrabButton w mm bi _ -> modcc w $ ConfigGrabButton w mm bi
     _                    -> return ()
     where modcc w c = modify $ M.alter (Just . maybe (S.singleton c) (S.insert c)) w
 
