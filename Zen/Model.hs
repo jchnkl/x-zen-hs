@@ -19,7 +19,6 @@ import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Control.Monad.Free.TH
 import Control.Monad.Trans.Free
 import Graphics.X11 (KeySym)
 import Graphics.XHB (ModMask, ButtonIndex)
@@ -149,8 +148,8 @@ runModelOps :: Monad m => ModelOpsFT m a -> StateT ClientConfigs (StateT Model m
 runModelOps ops = lift (lift $ runFreeT ops) >>= runModelOp
     where
     runModelOp = \case
-        (Pure a)  -> return a
-        (Free op) -> do
+        Pure a  -> return a
+        Free op -> do
             lift $ updateModel op
             clientConfigs op
             continue runModelOps op
