@@ -21,10 +21,10 @@ import Data.Map (Map)
 import Data.Set (Set)
 import Data.List as L (null)
 
-import Control.Monad.Trans.Free
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Control.Monad.Trans.Free
 
 import Graphics.X11 (KeySym)
 import Graphics.XHB hiding (Setup)
@@ -63,8 +63,6 @@ data Component m = forall d t. (Monad m, Monad t, Typeable t) => Component
     -- | List of event handlers
     , someHandler        :: d -> [SomeHandler]
     }
-
-
 
 
 data SomeHandler = forall a. (Typeable a) => SomeHandler a
