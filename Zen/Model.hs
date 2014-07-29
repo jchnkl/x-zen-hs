@@ -40,16 +40,10 @@ import qualified Queue as Q
 
 updateModel :: (MonadState Model m) => ModelOps t -> m ()
 updateModel = \case
-    GetQueue _           -> return () -- getL queue >>= lift . f
-    PutQueue _ _         -> return () -- putL queue q >> lift f
     InsertClient c _     -> insertc c
     RemoveClient c _     -> removec c
     InsertWindow w _     -> insertw w
     RemoveWindow w _     -> removew w
-    GrabKey _ _ _ _      -> return ()
-    GrabButton _ _ _ _   -> return ()
-    Raise _ _            -> return ()
-    Lower _ _            -> return ()
     SetX w v _           -> modc w (geometry . position . x .~ v)
     SetY w v _           -> modc w (geometry . position . y .~ v)
     SetWidth  w v _      -> modc w (geometry . dimension . width  .~ v)
@@ -57,8 +51,7 @@ updateModel = \case
     SetPosition  w p _   -> modc w (geometry . position .~ p)
     SetDimension w d _   -> modc w (geometry . dimension .~ d)
     SetGeometry  w g _   -> modc w (geometry .~ g)
-    SetBorderColor _ _ _ -> return ()
-    SetBorderWidth _ _ _ -> return ()
+    _                    -> return ()
 
     where modc w f = modify $ queue %~ Q.modifyClient w f
           removec = removew . (^. xid)
