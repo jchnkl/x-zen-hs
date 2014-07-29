@@ -14,7 +14,8 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Trans (lift)
 import Graphics.XHB (EventMask(..), ConfigWindow(..), ButtonIndex(..),
-                     ModMask(..), GrabButton(..), GrabKey(..), GrabMode(..))
+                     ModMask(..), GrabButton(..), GrabKey(..), GrabMode(..),
+                     UngrabKey(..), UngrabButton(..))
 import qualified Graphics.XHB as X
 import Graphics.X11 (KeySym, xK_Num_Lock, xK_Caps_Lock)
 
@@ -72,13 +73,13 @@ clientConfigHandler = mapM_ (flip runStateT [] . uncurry configureClient)
         ConfigClientWidth  v     -> modify ((ConfigWindowWidth, fi v):)
         ConfigClientHeight v     -> modify ((ConfigWindowHeight, fi v):)
         ConfigGrabKey      ks mm -> grabKey w ks mm
-        ConfigUngrabKey    ks mm -> return ()
+        ConfigUngrabKey    ks mm -> ungrabKey w ks mm
         ConfigGrabButton   bi mm -> grabButton w bi mm
-        ConfigUngrabButton bi mm -> return ()
+        ConfigUngrabButton bi mm -> ungrabButton w bi mm
 
 
-grabKey :: (MonadReader Setup m, Functor m, MonadIO m)
-        => WindowId -> KeySym -> [ModMask] -> m ()
+grabKey, ungrabKey :: (MonadReader Setup m, Functor m, MonadIO m)
+                   => WindowId -> KeySym -> [ModMask] -> m ()
 grabKey window keysym keymask = do
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap
@@ -97,9 +98,27 @@ grabKey window keysym keymask = do
     whenJustM_ (K.keysymToKeycode kbdmap (fi keysym)) $
         mapM_ grab . combos (modmask ++ keymask)
 
+ungrabKey window keysym keymask = do
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+    modmask <- askL (config . modMask)
 
-grabButton :: (MonadReader Setup m, MonadIO m)
-           => WindowId -> ButtonIndex -> [ModMask] -> m ()
+    let specialKeys ks = catMaybes [(X.fromBit . X.toValue)
+                                    <$> K.keysymToModifier kbdmap modmap (fi ks)]
+        nl = specialKeys xK_Num_Lock
+        cl = specialKeys xK_Caps_Lock
+        -- TODO: separate function
+        combos m kc = L.nub $ zip (m : L.map (m ++) [nl, cl, nl ++ cl]) [kc, kc ..]
+
+        ungrab (mask, keycode) = connection $-> \c -> io $ X.ungrabKey c $
+            MkUngrabKey keycode window mask
+
+    whenJustM_ (K.keysymToKeycode kbdmap (fi keysym)) $
+        mapM_ ungrab . combos (modmask ++ keymask)
+
+
+grabButton, ungrabButton :: (MonadReader Setup m, MonadIO m)
+                         => WindowId -> ButtonIndex -> [ModMask] -> m ()
 grabButton window buttonidx buttonmask = do
     modmask <- askL (config . modMask)
     kbdmap <- askL keyboardMap
@@ -114,3 +133,14 @@ grabButton window buttonidx buttonmask = do
                               GrabModeAsync GrabModeAsync
                               (convertXid X.xidNone) (convertXid X.xidNone)
                               button mask
+
+ungrabButton window buttonidx buttonmask = do
+    modmask <- askL (config . modMask)
+    kbdmap <- askL keyboardMap
+    modmap <- askL modifierMap
+
+    let combos = (combinations (buttonmask ++ modmask ++ K.extraModifier kbdmap modmap))
+        ungrab (mask, button) = connection $-> \c -> do
+            io $ X.ungrabButton c $ MkUngrabButton button window mask
+
+    mapM_ ungrab $ zip combos $ repeat buttonidx
