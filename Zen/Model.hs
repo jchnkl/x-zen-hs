@@ -19,7 +19,6 @@ import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
--- import Control.Monad.Free
 import Control.Monad.Free.TH
 import Control.Monad.Trans.Free
 import Graphics.X11 (KeySym)
@@ -36,28 +35,6 @@ import qualified Queue as Q
      - border color
      - warp mouse pointer when focus change by key
 -}
-
-
-updateModel :: (MonadState Model m) => ModelOps t -> m ()
-updateModel = \case
-    InsertClient c _     -> insertc c
-    RemoveClient c _     -> removec c
-    InsertWindow w _     -> insertw w
-    RemoveWindow w _     -> removew w
-    SetX w v _           -> modc w (geometry . position . x .~ v)
-    SetY w v _           -> modc w (geometry . position . y .~ v)
-    SetWidth  w v _      -> modc w (geometry . dimension . width  .~ v)
-    SetHeight w v _      -> modc w (geometry . dimension . height .~ v)
-    SetPosition  w p _   -> modc w (geometry . position .~ p)
-    SetDimension w d _   -> modc w (geometry . dimension .~ d)
-    SetGeometry  w g _   -> modc w (geometry .~ g)
-    _                    -> return ()
-
-    where modc w f = modify $ queue %~ Q.modifyClient w f
-          removec = removew . (^. xid)
-          insertc = modify . (queue %~) . Q.insert
-          removew = modify . (queue %~) . Q.remove
-          insertw w = insertc (Client w nullPosition nullGeometry)
 
 
 getQueue :: (MonadFree ModelOps m) => m Queue
@@ -134,44 +111,26 @@ toList :: (Functor m, MonadFree ModelOps m) => m [Client]
 toList = Q.toList <$> getQueue
 
 
-above :: Functor f => LensLike' f ClientStack [Client]
-above = lens _above (\d v -> d { _above = v })
+updateModel :: (MonadState Model m) => ModelOps t -> m ()
+updateModel = \case
+    InsertClient c _     -> insertc c
+    RemoveClient c _     -> removec c
+    InsertWindow w _     -> insertw w
+    RemoveWindow w _     -> removew w
+    SetX w v _           -> modc w (geometry . position . x .~ v)
+    SetY w v _           -> modc w (geometry . position . y .~ v)
+    SetWidth  w v _      -> modc w (geometry . dimension . width  .~ v)
+    SetHeight w v _      -> modc w (geometry . dimension . height .~ v)
+    SetPosition  w p _   -> modc w (geometry . position .~ p)
+    SetDimension w d _   -> modc w (geometry . dimension .~ d)
+    SetGeometry  w g _   -> modc w (geometry .~ g)
+    _                    -> return ()
 
-focus :: Functor f => LensLike' f ClientStack Client
-focus = lens _focus (\d v -> d { _focus = v })
-
-below :: Functor f => LensLike' f ClientStack [Client]
-below = lens _below (\d v -> d { _below = v })
-
-focusNext :: ClientStack -> ClientStack
-focusNext (ClientStack [] f []) = ClientStack []          f         []
-focusNext (ClientStack as f []) = ClientStack []          (head as) (tail as ++ [f])
-focusNext (ClientStack as f bs) = ClientStack (as ++ [f]) (head bs) (tail bs)
-
-focusPrev :: ClientStack -> ClientStack
-focusPrev (ClientStack [] f []) = ClientStack []            f         []
-focusPrev (ClientStack [] f bs) = ClientStack (f : init bs) (last bs) []
-focusPrev (ClientStack as f bs) = ClientStack (as ++ [f])   (head bs) (tail bs)
-
-
-integrate :: ClientStack -> [Client]
-integrate (ClientStack as fc bs) = as ++ fc : bs
-
-
-withClient :: (Client -> a) -> WindowId -> ClientStack -> Maybe a
-withClient f w = exec . integrate
-    where exec []                     = Nothing
-          exec (c:cs) | c ^. xid == w = Just $ f c
-                      | otherwise     = exec cs
-
-
-modifyClient :: (Client -> Client) -> WindowId -> ClientStack -> ClientStack
-modifyClient f w (ClientStack as fc bs)
-    | w == fc ^. xid = ClientStack as (f fc) bs
-    | otherwise      = ClientStack (mapf as) fc (mapf bs)
-    where mapf []                     = []
-          mapf (c:cs) | c ^. xid == w = f c : cs
-                      | otherwise     = c : mapf cs
+    where modc w f = modify $ queue %~ Q.modifyClient w f
+          removec = removew . (^. xid)
+          insertc = modify . (queue %~) . Q.insert
+          removew = modify . (queue %~) . Q.remove
+          insertw w = insertc (Client w nullPosition nullGeometry)
 
 
 clientConfigs :: (MonadState ClientConfigs m) => ModelOps t -> m ()
