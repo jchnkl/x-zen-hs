@@ -72,7 +72,8 @@ cleanMask kbdmap modmap mask = (convert mask) \\ map (fromBit . toValue) modifie
     modifier = catMaybes $ map (keycodeToModifier modmap) $ keycodes
 
 
-getCleanMask :: Monad m => TypeConversion [a] [ModMask] => [a] -> Z m [ModMask]
+getCleanMask :: (MonadReader Setup m, TypeConversion [a] [ModMask])
+             => [a] -> m [ModMask]
 getCleanMask mask = do
     kbdmap <- askL keyboardMap
     modmap <- askL modifierMap

@@ -98,7 +98,7 @@ modifyTMVarM var f = get >>= f >>= put
           put = liftIO . atomically . putTMVar var
 
 
-reply :: (MonadIO m, Functor m) => Receipt a -> Z m (Either SomeError a)
+reply :: (MonadIO m, Functor m) => Receipt a -> m (Either SomeError a)
 reply = io . getReply
 
 
