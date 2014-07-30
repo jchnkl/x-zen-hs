@@ -69,15 +69,18 @@ setHeight w v = liftF (SetHeight w v ())
 
 
 setPosition :: (MonadFree ModelOps m) => WindowId -> Position -> m ()
-setPosition  w p = liftF (SetPosition  w p ())
+setPosition  w (Position _x _y) = do liftF (SetX w _x ())
+                                     liftF (SetY w _y ())
 
 
 setDimension :: (MonadFree ModelOps m) => WindowId -> Dimension -> m ()
-setDimension w d = liftF (SetDimension w d ())
+setDimension w (Dimension _w _h) = do liftF (SetWidth w _w ())
+                                      liftF (SetHeight w _h ())
 
 
 setGeometry :: (MonadFree ModelOps m) => WindowId -> Geometry -> m ()
-setGeometry w g = liftF (SetGeometry w g ())
+setGeometry w (Geometry _p _d) = do setPosition w _p
+                                    setDimension w _d
 
 
 setBorderColor, setBorderWidth :: (MonadFree ModelOps m) => WindowId -> Word -> m ()
@@ -119,9 +122,6 @@ updateModel = \case
     SetY w v _           -> modc w (geometry . position . y .~ v)
     SetWidth  w v _      -> modc w (geometry . dimension . width  .~ v)
     SetHeight w v _      -> modc w (geometry . dimension . height .~ v)
-    SetPosition  w p _   -> modc w (geometry . position .~ p)
-    SetDimension w d _   -> modc w (geometry . dimension .~ d)
-    SetGeometry  w g _   -> modc w (geometry .~ g)
     _                    -> return ()
 
     where modc w f = modify $ queue %~ Q.modifyClient w f
@@ -176,8 +176,5 @@ runModelOps ops = lift (lift $ runFreeT ops) >>= runModelOp
         SetY _ _ f           -> cont f
         SetWidth  _ _ f      -> cont f
         SetHeight _ _ f      -> cont f
-        SetPosition  _ _ f   -> cont f
-        SetDimension _ _ f   -> cont f
-        SetGeometry  _ _ f   -> cont f
         SetBorderColor _ _ f -> cont f
         SetBorderWidth _ _ f -> cont f

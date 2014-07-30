@@ -349,9 +349,6 @@ data ModelOps f =
     | SetY      WindowId Int f
     | SetWidth  WindowId Word f
     | SetHeight WindowId Word f
-    | SetPosition  WindowId Position  f
-    | SetDimension WindowId Dimension f
-    | SetGeometry  WindowId Geometry f
     | SetBorderColor WindowId Word f
     | SetBorderWidth WindowId Word f
     deriving (Functor, Typeable)
