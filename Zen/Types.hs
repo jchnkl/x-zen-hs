@@ -332,25 +332,24 @@ queue :: Functor f => LensLike' f Model Queue
 queue = lens _queue (\d v -> d { _queue = v })
 
 
-data ModelOps f =
-      GetQueue (Queue -> f)
-    | PutQueue Queue f
-    | InsertClient Client f
-    | RemoveClient Client f
-    | InsertWindow WindowId f
-    | RemoveWindow WindowId f
-    | GrabKey      WindowId KeySym [ModMask] f
-    | UngrabKey    WindowId KeySym [ModMask] f
-    | GrabButton   WindowId ButtonIndex [ModMask] f
-    | UngrabButton WindowId ButtonIndex [ModMask] f
-    | Raise     WindowId f
-    | Lower     WindowId f
-    | SetX      WindowId Int f
-    | SetY      WindowId Int f
-    | SetWidth  WindowId Word f
-    | SetHeight WindowId Word f
-    | SetBorderColor WindowId Word f
-    | SetBorderWidth WindowId Word f
+data ModelOps f = GetQueue       (Queue -> f)
+                | PutQueue       Queue    f
+                | InsertClient   Client   f
+                | RemoveClient   Client   f
+                | InsertWindow   WindowId f
+                | RemoveWindow   WindowId f
+                | GrabKey        WindowId KeySym      [ModMask] f
+                | UngrabKey      WindowId KeySym      [ModMask] f
+                | GrabButton     WindowId ButtonIndex [ModMask] f
+                | UngrabButton   WindowId ButtonIndex [ModMask] f
+                | Raise          WindowId f
+                | Lower          WindowId f
+                | SetX           WindowId Int         f
+                | SetY           WindowId Int         f
+                | SetWidth       WindowId Word        f
+                | SetHeight      WindowId Word        f
+                | SetBorderColor WindowId Word        f
+                | SetBorderWidth WindowId Word        f
     deriving (Functor, Typeable)
 
 
