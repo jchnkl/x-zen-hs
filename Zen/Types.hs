@@ -110,14 +110,18 @@ instance Dispatcher ClientConfigs where
         _                 -> return ()
 
 
-data ClientConfig = ConfigClientX      Int
-                  | ConfigClientY      Int
-                  | ConfigClientWidth  Word
-                  | ConfigClientHeight Word
-                  | ConfigGrabKey      KeySym [ModMask]
-                  | ConfigUngrabKey    KeySym [ModMask]
-                  | ConfigGrabButton   ButtonIndex [ModMask]
-                  | ConfigUngrabButton ButtonIndex [ModMask]
+data ClientConfig = ConfigClientRaise
+                  | ConfigClientLower
+                  | ConfigClientX           Int
+                  | ConfigClientY           Int
+                  | ConfigClientWidth       Word
+                  | ConfigClientHeight      Word
+                  | ConfigClientBorderColor Word
+                  | ConfigClientBorderWidth Word
+                  | ConfigGrabKey           KeySym      [ModMask]
+                  | ConfigUngrabKey         KeySym      [ModMask]
+                  | ConfigGrabButton        ButtonIndex [ModMask]
+                  | ConfigUngrabButton      ButtonIndex [ModMask]
     deriving (Eq, Ord, Show, Typeable)
 
 

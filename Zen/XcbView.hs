@@ -15,7 +15,7 @@ import Control.Monad.Reader
 import Control.Monad.Trans (lift)
 import Graphics.XHB (EventMask(..), ConfigWindow(..), ButtonIndex(..),
                      ModMask(..), GrabButton(..), GrabKey(..), GrabMode(..),
-                     UngrabKey(..), UngrabButton(..))
+                     UngrabKey(..), UngrabButton(..), StackMode(..))
 import qualified Graphics.XHB as X
 import Graphics.X11 (KeySym, xK_Num_Lock, xK_Caps_Lock)
 
@@ -23,6 +23,7 @@ import Log
 import Lens
 import Util
 import Types
+import qualified Window as W
 import qualified Keyboard as K
 
 data XcbView = XcbView
@@ -68,14 +69,18 @@ clientConfigHandler = mapM_ (flip runStateT [] . uncurry configureClient)
                                         configureClient w confs
 
     doConfigureClient w = \case
-        ConfigClientX      v     -> modify ((ConfigWindowX, fi v):)
-        ConfigClientY      v     -> modify ((ConfigWindowY, fi v):)
-        ConfigClientWidth  v     -> modify ((ConfigWindowWidth, fi v):)
-        ConfigClientHeight v     -> modify ((ConfigWindowHeight, fi v):)
-        ConfigGrabKey      ks mm -> grabKey w ks mm
-        ConfigUngrabKey    ks mm -> ungrabKey w ks mm
-        ConfigGrabButton   bi mm -> grabButton w bi mm
-        ConfigUngrabButton bi mm -> ungrabButton w bi mm
+        ConfigClientRaise         -> modify ((ConfigWindowStackMode, X.toValue StackModeAbove):)
+        ConfigClientLower         -> modify ((ConfigWindowStackMode, X.toValue StackModeBelow):)
+        ConfigClientX      v      -> modify ((ConfigWindowX, fi v):)
+        ConfigClientY      v      -> modify ((ConfigWindowY, fi v):)
+        ConfigClientWidth  v      -> modify ((ConfigWindowWidth, fi v):)
+        ConfigClientHeight v      -> modify ((ConfigWindowHeight, fi v):)
+        ConfigClientBorderColor v -> W.setBorderColor w v
+        ConfigClientBorderWidth v -> modify ((ConfigWindowBorderWidth, fi v):)
+        ConfigGrabKey      ks mm  -> grabKey w ks mm
+        ConfigUngrabKey    ks mm  -> ungrabKey w ks mm
+        ConfigGrabButton   bi mm  -> grabButton w bi mm
+        ConfigUngrabButton bi mm  -> ungrabButton w bi mm
 
 
 grabKey, ungrabKey :: (MonadReader Setup m, Functor m, MonadIO m)

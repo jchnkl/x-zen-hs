@@ -133,10 +133,14 @@ updateModel = \case
 
 clientConfigs :: (MonadState ClientConfigs m) => ModelOps t -> m ()
 clientConfigs = \case
+    Raise w _              -> modcc w $ ConfigClientRaise
+    Lower w _              -> modcc w $ ConfigClientLower
     SetX w v _             -> modcc w $ ConfigClientX v
     SetY w v _             -> modcc w $ ConfigClientY v
     SetWidth w v _         -> modcc w $ ConfigClientWidth v
     SetHeight w v _        -> modcc w $ ConfigClientHeight v
+    SetBorderColor w v _   -> modcc w $ ConfigClientBorderColor v
+    SetBorderWidth w v _   -> modcc w $ ConfigClientBorderWidth v
     GrabKey w mm ks _      -> modcc w $ ConfigGrabKey mm ks
     UngrabKey w mm ks _    -> modcc w $ ConfigUngrabKey mm ks
     GrabButton w mm bi _   -> modcc w $ ConfigGrabButton mm bi
