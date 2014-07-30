@@ -5,7 +5,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE TupleSections    #-}
-{-# LANGUAGE TemplateHaskell  #-}
 
 module Model where
 
