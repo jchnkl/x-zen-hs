@@ -118,18 +118,7 @@ data ClientConfig = ConfigClientX      Int
                   | ConfigUngrabKey    KeySym [ModMask]
                   | ConfigGrabButton   ButtonIndex [ModMask]
                   | ConfigUngrabButton ButtonIndex [ModMask]
-    deriving (Eq, Ord, Typeable)
-
-
-instance Show ClientConfig where
-    show (ConfigClientX v)          = "ClientConfigX "      ++ show v
-    show (ConfigClientY v)          = "ClientConfigY "      ++ show v
-    show (ConfigClientWidth v)      = "ClientConfigWidth "  ++ show v
-    show (ConfigClientHeight v)     = "ClientConfigHeight " ++ show v
-    show (ConfigGrabKey ks mm)      = "ConfigGrabKey "      ++ show ks ++ " " ++ show mm
-    show (ConfigUngrabKey ks mm)    = "ConfigUngrabKey "    ++ show ks ++ " " ++ show mm
-    show (ConfigGrabButton bi mm)   = "ConfigGrabButton "   ++ show bi ++ " " ++ show mm
-    show (ConfigUngrabButton bi mm) = "ConfigUngrabButton " ++ show bi ++ " " ++ show mm
+    deriving (Eq, Ord, Show, Typeable)
 
 
 type ClientConfigs = Map WindowId (Set ClientConfig)
