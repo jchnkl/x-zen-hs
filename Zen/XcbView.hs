@@ -26,8 +26,6 @@ import Types
 import qualified Window as W
 import qualified Keyboard as K
 
-data XcbView = XcbView
-    deriving Typeable
 
 type XcbViewStack = ViewStack
 
@@ -43,7 +41,7 @@ buttonEventMask =
 xcbView :: ViewComponent
 xcbView = Component
     { componentId = "XcbView"
-    , componentData = XcbView
+    , componentData = ()
     , execComponent = \f d -> f >> return d
     , onStartup = return . id
     , onShutdown = const $ return ()
