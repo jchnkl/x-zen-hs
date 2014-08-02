@@ -56,7 +56,7 @@ type Distance = Int
 data PointerPosition = PointerPosition { root :: Position, event :: Position }
     deriving Typeable
 
-type SnapResistStackT = StateT (Maybe PointerPosition) (Z IO)
+type SnapResistStackT = StateT (Maybe PointerPosition) (ControllerStack IO)
 
 snapResistComponent :: ControllerComponent
 snapResistComponent = Component
@@ -83,7 +83,7 @@ getPP = get
 
 execSnapResistComponent :: SnapResistStackT a
                         -> Maybe PointerPosition
-                        -> Z IO (Maybe PointerPosition)
+                        -> ControllerStack IO (Maybe PointerPosition)
 execSnapResistComponent m pp = execStateT m pp
 
 
@@ -122,7 +122,7 @@ moveSnapResist :: MonadIO m
                -> Position -- event_{x,y}_ButtonPressEvent
                -> Client
                -> [Client]
-               -> Z m ()
+               -> ControllerStack m ()
 moveSnapResist e rpos epos client clients = do
     -- bwidth <- asksL (config . borderWidth) (2 *)
     -- proximity <- askL snapProximity

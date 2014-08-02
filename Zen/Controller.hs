@@ -20,11 +20,11 @@ import AnyEvent
 import Component
 
 
-runControllerStack :: Z IO a -> MainStack ((a, Log), ClientConfigs)
+runControllerStack :: ControllerStack IO a -> MainStack ((a, Log), ClientConfigs)
 runControllerStack f = flip runStateT M.empty $ runModelOps $ runWriterT f
 
 
-execControllerStack :: Z IO a -> MainStack (Log, ClientConfigs)
+execControllerStack :: ControllerStack IO a -> MainStack (Log, ClientConfigs)
 execControllerStack f = flip runStateT M.empty $ runModelOps $ execWriterT f
 
 

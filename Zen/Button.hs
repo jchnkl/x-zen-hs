@@ -88,7 +88,7 @@ data PointerMotion = M Position Position
                    | R (Maybe Direction, Maybe Direction) Position Geometry
     deriving (Show, Typeable)
 
-type PointerStackT = ReaderT PointerSetup (StateT (Maybe PointerMotion) (Z IO))
+type PointerStackT = ReaderT PointerSetup (StateT (Maybe PointerMotion) (ControllerStack IO))
 
 putPM :: (MonadState (Maybe PointerMotion) m) => Maybe PointerMotion -> m ()
 putPM = put
@@ -118,12 +118,12 @@ pointerComponent buttons = Component
 
 execPointerComponent :: PointerStackT a
                      -> (PointerSetup, Maybe PointerMotion)
-                     -> Z IO (PointerSetup, Maybe PointerMotion)
+                     -> ControllerStack IO (PointerSetup, Maybe PointerMotion)
 execPointerComponent f (ps, pm) = (ps,) <$> execStateT (runReaderT f ps) pm
 
 
 startupPointerComponent :: (PointerSetup, Maybe PointerMotion)
-                        -> Z IO (PointerSetup, Maybe PointerMotion)
+                        -> ControllerStack IO (PointerSetup, Maybe PointerMotion)
 startupPointerComponent (PointerSetup buttons bm _, p) = connection $-> \c -> do
     toLog "startupPointerComponent"
     glyphs <- io (withFont c "cursor" $ flip (loadGlyphCursors c) cursorGlyphs)
@@ -134,7 +134,7 @@ startupPointerComponent (PointerSetup buttons bm _, p) = connection $-> \c -> do
     return (PointerSetup buttons buttonEventMask glyphs, p)
 
 
-shutdownPointerComponent :: (PointerSetup, Maybe PointerMotion) -> Z IO ()
+shutdownPointerComponent :: (PointerSetup, Maybe PointerMotion) -> ControllerStack IO ()
 shutdownPointerComponent (PointerSetup _ _ glyphs, _) = do
     toLog "shutdownPointerComponent"
     connection $-> \c -> mapM_ (io . freeCursor c) (M.elems glyphs)
@@ -385,7 +385,7 @@ handleCreateNotify e = do
     isClient = Model.member window
 
 
-grabButtons :: MonadIO m => WindowId -> ButtonMap -> Z m ()
+grabButtons :: MonadIO m => WindowId -> ButtonMap -> ControllerStack m ()
 grabButtons w = mapM_ (uncurry . flip $ Model.grabButton w) . M.keys
 
 
