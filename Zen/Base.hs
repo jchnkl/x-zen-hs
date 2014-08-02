@@ -12,9 +12,9 @@ import Util
 import Types
 import Window
 
-type BaseComponent = ControllerStack IO
+type BaseComponent = ControllerStack
 
-execBaseComponent :: BaseComponent a -> () -> ControllerStack IO ()
+execBaseComponent :: BaseComponent a -> () -> ControllerStack ()
 execBaseComponent f () = void f
 
 base :: ControllerComponent

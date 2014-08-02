@@ -43,8 +43,8 @@ class TypeConversion a b where
     convert :: a -> b
 
 
-type ControllerStack m = LogWT (ModelFT (SetupRT m))
-type ControllerComponent = Component (ControllerStack IO)
+type ControllerStack = LogWT (ModelFT (SetupRT IO))
+type ControllerComponent = Component ControllerStack
 
 type ViewStack = LogWT (SetupRT IO)
 type ViewComponent = Component ViewStack

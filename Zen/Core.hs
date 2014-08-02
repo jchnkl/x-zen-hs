@@ -55,7 +55,7 @@ asksConfig :: (CoreConfig -> a) -> CoreStack a
 asksConfig = asks
 
 
-type CoreStack = ReaderT CoreConfig (ControllerStack IO)
+type CoreStack = ReaderT CoreConfig ControllerStack
 
 
 core :: CoreConfig -> ControllerComponent
@@ -75,11 +75,11 @@ core c = Component
     }
 
 
-execCoreComponent :: CoreStack a -> CoreConfig -> ControllerStack IO CoreConfig
+execCoreComponent :: CoreStack a -> CoreConfig -> ControllerStack CoreConfig
 execCoreComponent f cc = runReaderT f cc >> return cc
 
 
-startupCoreComponent :: CoreConfig -> ControllerStack IO CoreConfig
+startupCoreComponent :: CoreConfig -> ControllerStack CoreConfig
 startupCoreComponent conf = do
     grabKeys conf
 
@@ -92,16 +92,16 @@ startupCoreComponent conf = do
     children :: Either SomeError QueryTreeReply -> [WindowId]
     children = fromRight [] . fmap children_QueryTreeReply
 
-    rootTree :: (MonadIO m, Functor m) => ControllerStack m (Either SomeError QueryTreeReply)
+    rootTree :: ControllerStack (Either SomeError QueryTreeReply)
     rootTree = connection $-> \c -> io (queryTree c $ getRoot c) >>= reply
 
-    filterChildren :: (MonadIO m, Functor m) => [WindowId] -> ControllerStack m [WindowId]
+    filterChildren :: [WindowId] -> ControllerStack [WindowId]
     filterChildren = filterM ((isClient <$>) . (reply =<<) . W.attributes)
 
-    clientGeometry :: (MonadIO m, Functor m) => WindowId -> ControllerStack m (Either SomeError Geometry)
+    clientGeometry :: WindowId -> ControllerStack (Either SomeError Geometry)
     clientGeometry w = fmap convert <$> (W.geometry w >>= reply)
 
-    mkClient :: (MonadIO m, Functor m) => WindowId -> ControllerStack m (WindowId, Client)
+    mkClient :: WindowId -> ControllerStack (WindowId, Client)
     mkClient w = do
         initWindow w
         (w,) . Client w nullPosition . fromRight nullGeometry <$> clientGeometry w
@@ -154,12 +154,12 @@ handleKeyPress e = do
           askModMask = lift $ askL (config . modMask)
 
 
-grabKeys :: (Functor m, MonadIO m) => CoreConfig -> ControllerStack m ()
+grabKeys :: CoreConfig -> ControllerStack ()
 grabKeys coreconfig = rootWindow $-> \w -> do
     mapM_ (uncurry . flip $ Model.grabKey w) . M.keys . keyEventHandler $ coreconfig
 
 
-initWindow :: MonadIO m => WindowId -> ControllerStack m ()
+initWindow :: WindowId -> ControllerStack ()
 initWindow window = do
     W.changeAttributes window [(CWEventMask, values)]
     config . borderWidth $-> W.setBorderWidth window
